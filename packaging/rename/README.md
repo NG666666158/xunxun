@@ -1,6 +1,6 @@
 # 改名为“寻寻”
 
-**状态：1.4.0 起已启用**（`tauri.conf.json` 已并入下面的配置，发布者也改为“寻寻”）。之后所有版本都要带着 `hooks.nsh`，否则还没升级的旧版用户跳版本时会出现两个程序。
+**状态：公开版 1.0.0 起已启用**（`tauri.conf.json` 已并入下面的配置，发布者也改为“寻寻”）。之后所有版本都要带着 `hooks.nsh`，否则还没升级的旧版用户跳版本时会出现两个程序。
 
 ## 改什么，不改什么
 
@@ -9,7 +9,7 @@
 | `productName`（快捷方式、卸载项、安装包文件名） | 企业知识库 | **寻寻** | |
 | 安装目录 | `%LOCALAPPDATA%\企业知识库` | **`%LOCALAPPDATA%\寻寻`** | 由产品名决定 |
 | 开始菜单 | `企业知识库\企业知识库` | **`寻寻`**（不再套一层文件夹） | |
-| `identifier` | `com.enterprisekb.desktop` | 不改 | 外壳的窗口数据目录以它命名。从 1.0.0 升级时，**旧对话记录**要从这里的 localStorage 迁到数据目录，改了就丢 |
+| `identifier` | `com.enterprisekb.desktop` | 不改 | 外壳的窗口数据目录以它命名。从内部版 1.0.0 升级时，**旧对话记录**要从这里的 localStorage 迁到数据目录，改了就丢 |
 | `mainBinaryName` | `EnterpriseKB` | 不改 | 进程名用户看不到，不值得冒险 |
 | 数据目录、凭据管理器的服务名 | `EnterpriseKnowledgeBase` | 不改 | 索引库和 Key 都靠它 |
 

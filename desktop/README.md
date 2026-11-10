@@ -67,7 +67,7 @@ powershell -ExecutionPolicy Bypass -File packaging/build_desktop.ps1
 
 ## 签名和自动更新
 
-自动更新从 1.4.0 起开启：发布版用 `packaging/updater.conf.json`（公钥和 GitHub Release 地址）打包，从 `https://github.com/NG666666158/xunxun/releases/latest/download/latest.json` 检查新版。平时不带它打包时，界面不显示“检查更新”。代码签名还没有做，见 [发布流程](../packaging/README_RELEASE.md)。
+自动更新从 1.0.0 起开启：发布版用 `packaging/updater.conf.json`（公钥和 GitHub Release 地址）打包，从 `https://github.com/NG666666158/xunxun/releases/latest/download/latest.json` 检查新版。平时不带它打包时，界面不显示“检查更新”。代码签名还没有做，见 [发布流程](../packaging/README_RELEASE.md)。
 
 ## 已知限制
 

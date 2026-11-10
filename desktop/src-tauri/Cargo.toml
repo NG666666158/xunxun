@@ -1,6 +1,6 @@
 [package]
 name = "enterprise-kb"
-version = "1.4.0"
+version = "1.0.0"
 description = "寻寻 desktop shell"
 edition = "2021"
 publish = false

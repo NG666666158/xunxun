@@ -27,7 +27,7 @@
 
    `--work` 要用短路径，否则 `backend\_internal` 下的文件会超过 260 字符。它不能启动外壳（第二个实例只会唤起已运行的那个），外壳的流程要靠单独身份的测试版，见文末。
 
-## 发布到 GitHub（1.4.0 起）
+## 发布到 GitHub（1.0.0 起）
 
 代码在两个仓库：
 - **私有仓库** `agentic-rag`：用来开发，里面有含个人资料的评测结果和书籍题目；
@@ -46,7 +46,7 @@
 2. 把安装包和签名改成英文文件名（GitHub 的附件名不支持中文），再生成 `latest.json`：
 
    ```powershell
-   $v = "1.4.0"; $b = "desktop\src-tauri\target\release\bundle\nsis"
+   $v = "1.0.0"; $b = "desktop\src-tauri\target\release\bundle\nsis"
    Copy-Item "$b\寻寻_${v}_x64-setup.exe" "release\Xunxun_${v}_x64-setup.exe"
    Copy-Item "$b\寻寻_${v}_x64-setup.exe.sig" "release\Xunxun_${v}_x64-setup.exe.sig"
    .venv\Scripts\python packaging\make_latest_json.py --setup "release\Xunxun_${v}_x64-setup.exe" --url "https://github.com/NG666666158/xunxun/releases/download/v$v/Xunxun_${v}_x64-setup.exe" --out release\latest.json
@@ -56,16 +56,16 @@
 
    ```bash
    .venv/Scripts/python packaging/public_tree.py --out ../xunxun
-   cd ../xunxun && git add -A && git commit -m "寻寻 1.4.0" && git tag v1.4.0 && git push origin main v1.4.0
+   cd ../xunxun && git add -A && git commit -m "寻寻 1.0.0" && git tag v1.0.0 && git push origin main v1.0.0
    ```
 
 4. 建 Release，上传三个文件。说明取自 `CHANGELOG.md` 这一版的小节：
 
    ```bash
-   gh release create v1.4.0 --repo NG666666158/xunxun --title "寻寻 1.4.0" --notes-file <说明> release/Xunxun_1.4.0_x64-setup.exe release/Xunxun_1.4.0_x64-setup.exe.sig release/latest.json
+   gh release create v1.0.0 --repo NG666666158/xunxun --title "寻寻 1.0.0" --notes-file <说明> release/Xunxun_1.0.0_x64-setup.exe release/Xunxun_1.0.0_x64-setup.exe.sig release/latest.json
    ```
 
-改名为“寻寻”从 1.4.0 起已启用，见 [rename/README.md](rename/README.md)。
+改名为“寻寻”从 1.0.0 起已启用，见 [rename/README.md](rename/README.md)。
 
 ## 需要你决定的事
 
