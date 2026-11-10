@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>寻寻</title>
+  <style>
+    :root { --bg: #f5f5f7; --text: #1d1d1f; --muted: #6e6e73; --accent: #007aff; --danger: #d70015; --tile: #ffe9c9; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #1b1b1d; --text: #f5f5f7; --muted: #98989f; --accent: #0a84ff; --danger: #ff6961; --tile: #4a3923; }
+    }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      background: var(--bg); color: var(--text); user-select: none; cursor: default;
+      font: 14px "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    .tile { width: 76px; height: 76px; border-radius: 22px; background: var(--tile); display: grid; place-items: center; overflow: hidden; }
+    .tile svg { width: 70px; height: 70px; margin-top: 12px; animation: sniff 1s ease-in-out infinite; transform-origin: 50% 85%; }
+    .ear { fill: #d8893a; } .head { fill: #f2b65e; } .muzzle { fill: #fff1dc; } .ink { fill: #2b1d14; }
+    strong { font-size: 17px; font-weight: 700; letter-spacing: .04em; }
+    #msg { color: var(--muted); font-size: 13px; text-align: center; max-width: 340px; line-height: 1.6; }
+    #msg.error { color: var(--danger); user-select: text; }
+    .failed .tile svg { animation: none; }
+    @keyframes sniff { 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+    @media (prefers-reduced-motion: reduce) { .tile svg { animation: none; } }
+  </style>
+</head>
+<body>
+  <div class="tile">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path class="ear" d="M13.5 13.5c-4.6-.8-8.6 3.2-8.4 9.6.2 5.2 2.4 8.9 5.6 9.1 2.6.2 3.6-2.6 3.9-6.6.3-4.2.6-8.6-1.1-12.1zM34.5 13.5c4.6-.8 8.6 3.2 8.4 9.6-.2 5.2-2.4 8.9-5.6 9.1-2.6.2-3.6-2.6-3.9-6.6-.3-4.2-.6-8.6 1.1-12.1z"/>
+      <path class="head" d="M24 9.5c8.6 0 13.6 6.2 13.6 14.3 0 8.9-6.1 15.2-13.6 15.2S10.4 32.7 10.4 23.8C10.4 15.7 15.4 9.5 24 9.5z"/>
+      <ellipse class="muzzle" cx="24" cy="30.4" rx="7.4" ry="5.6"/>
+      <circle class="ink" cx="18.6" cy="22.6" r="2.1"/><circle class="ink" cx="29.4" cy="22.6" r="2.1"/>
+      <path class="ink" d="M21.6 27.1c0-1.1 1.1-1.6 2.4-1.6s2.4.5 2.4 1.6c0 1-1.2 2-2.4 2s-2.4-1-2.4-2z"/>
+    </svg>
+  </div>
+  <strong>寻寻</strong>
+  <div id="msg">寻寻正在醒来…</div>
+  <script>
+    // Called by the shell when the backend could not start.
+    window.showError = (text) => {
+      document.body.classList.add("failed");
+      const msg = document.getElementById("msg");
+      msg.className = "error";
+      msg.textContent = text;
+    };
+  </script>
+</body>
+</html>

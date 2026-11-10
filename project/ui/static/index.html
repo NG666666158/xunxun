@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>寻寻</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23ffe9c9'/%3E%3Cpath fill='%23d8893a' d='M13.5 15.5c-4.6-.8-8.6 3.2-8.4 9.6.2 5.2 2.4 8.9 5.6 9.1 2.6.2 3.6-2.6 3.9-6.6.3-4.2.6-8.6-1.1-12.1zM34.5 15.5c4.6-.8 8.6 3.2 8.4 9.6-.2 5.2-2.4 8.9-5.6 9.1-2.6.2-3.6-2.6-3.9-6.6-.3-4.2-.6-8.6 1.1-12.1z'/%3E%3Cpath fill='%23f2b65e' d='M24 11.5c8.6 0 13.6 6.2 13.6 14.3 0 8.9-6.1 15.2-13.6 15.2S10.4 34.7 10.4 25.8C10.4 17.7 15.4 11.5 24 11.5z'/%3E%3Cellipse fill='%23fff1dc' cx='24' cy='32.4' rx='7.4' ry='5.6'/%3E%3Ccircle fill='%232b1d14' cx='18.6' cy='24.6' r='2.1'/%3E%3Ccircle fill='%232b1d14' cx='29.4' cy='24.6' r='2.1'/%3E%3Cpath fill='%232b1d14' d='M21.6 29.1c0-1.1 1.1-1.6 2.4-1.6s2.4.5 2.4 1.6c0 1-1.2 2-2.4 2s-2.4-1-2.4-2z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="app.css">
+  <script>
+    try {
+      const saved = localStorage.getItem("theme");
+      if (saved) document.documentElement.dataset.theme = saved;
+    } catch (_) {}
+  </script>
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <div class="brand">
+          <span class="brand-mark" id="brandMark"></span>
+          <span class="brand-text"><strong>寻寻</strong></span>
+        </div>
+        <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="关闭侧栏" data-icon="sidebar"></button>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-item active" data-view="chat" title="在问答页再点一次，开始新对话"><span data-icon="chat"></span>问答</button>
+        <button class="nav-item" data-view="library"><span data-icon="books"></span>知识库<span class="nav-count" id="docCount">–</span></button>
+      </nav>
+
+      <div class="history">
+        <div class="section-label">最近对话</div>
+        <ul id="historyList" class="history-list"></ul>
+      </div>
+
+      <div class="sidebar-foot">
+        <button class="status" id="status" type="button" data-tone="wait" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-main">
+            <span class="status-text" id="statusText">正在连接…</span>
+            <span class="status-bar" id="statusBar" hidden><i></i></span>
+          </span>
+        </button>
+        <button class="icon-btn" id="openSettings" type="button" aria-label="设置" title="设置" data-icon="gear"></button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="打开侧栏" data-icon="sidebar"></button>
+        <h1 id="viewTitle">问答</h1>
+      </header>
+
+      <!-- Chat -->
+      <section class="view view-chat active" id="view-chat">
+        <div class="scroller" id="scroller">
+          <div class="thread" id="thread">
+            <div class="empty" id="empty">
+              <div class="home-focal">
+                <span class="home-pet" id="homePet"></span>
+                <h2 class="home-title" id="greeting">你好</h2>
+                <p class="home-line" id="homeSubtitle">想查什么尽管问，我去你的资料里找。</p>
+                <!-- The input floats here on the empty home (app.js placeComposer). -->
+                <div class="home-slot" id="homeSlot" aria-hidden="true"></div>
+                <div class="home-start" id="homeStart" hidden>
+                  <button type="button" class="btn primary" id="homeAddFolder"><span data-icon="folderPlus"></span>添加文件夹</button>
+                  <button type="button" class="btn" id="homeAddFiles"><span data-icon="docPlus"></span>添加文件</button>
+                </div>
+              </div>
+              <div class="home-more">
+                <div class="suggest-head" id="suggestHead" hidden>
+                  <span class="suggest-title">猜你想问
+                    <span class="home-info" id="homeInfo" hidden>
+                      <button type="button" class="home-info-btn" aria-label="推荐问题从哪里来" aria-describedby="homeInfoTip" data-icon="info"></button>
+                      <span class="home-tip" id="homeInfoTip" role="tooltip">
+                        <span id="homeInfoText">推荐问题来自你的知识库，只保存在这台电脑上。</span>
+                        <a href="#suggestionSettings" id="homeInfoLink">推荐设置</a>
+                      </span>
+                    </span>
+                  </span>
+                  <button type="button" class="suggest-shuffle" id="suggestShuffle"><span data-icon="shuffle"></span>换一批</button>
+                </div>
+                <div class="snap" id="suggestRail">
+                  <button type="button" class="rail-arrow prev" id="railPrev" aria-label="上一张" data-icon="chevronLeft"></button>
+                  <div class="snap-track" id="suggestions" role="list"></div>
+                  <button type="button" class="rail-arrow next" id="railNext" aria-label="下一张" data-icon="chevron"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form class="composer" id="composer">
+          <div class="scope-bar" id="scopeBar" hidden></div>
+          <div class="scope-pop" id="scopePop" hidden>
+            <input id="scopeFilter" type="search" placeholder="搜索文件或文件夹…" spellcheck="false" autocomplete="off" aria-label="搜索文件或文件夹">
+            <ul id="scopeList"></ul>
+          </div>
+          <div class="composer-dock" id="composerDock">
+          <span class="composer-pet" id="composerPet" aria-hidden="true"></span>
+          <div class="composer-box">
+            <button type="button" class="scope-btn" id="scopeBtn" title="只在某个文件或文件夹里找" aria-label="限定提问范围" data-icon="scope"></button>
+            <textarea id="input" rows="1" placeholder="问问你的资料…" maxlength="2000" aria-label="问题"></textarea>
+            <span class="ghost-keys" id="ghostKeys" hidden aria-hidden="true"><kbd>Tab</kbd> 填入 · <kbd>Enter</kbd> 发送</span>
+            <button type="submit" class="send" id="send" aria-label="发送">
+              <svg class="ic i-send" aria-hidden="true"><use href="#i-up"/></svg><svg class="ic i-stop" aria-hidden="true"><use href="#i-stop"/></svg>
+            </button>
+          </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- Library -->
+      <section class="view view-library" id="view-library">
+        <div class="page" id="libraryPage">
+          <div class="page-bar">
+            <span class="bar-spacer"></span>
+            <span class="page-bar-title">知识库</span>
+            <div class="bar-actions">
+              <button class="icon-btn" id="refreshDocs" aria-label="刷新" title="刷新" data-icon="refresh"></button>
+              <button class="btn small" id="addFiles"><span data-icon="docPlus"></span>添加文件</button>
+              <button class="btn primary small" id="addFolder"><span data-icon="folderPlus"></span>添加文件夹</button>
+            </div>
+          </div>
+          <div class="page-inner">
+            <h2 class="large-title">知识库</h2>
+            <p class="lede">文件留在原处，有变化寻寻会自己跟上。<span class="desktop-only">也可以把文件或文件夹拖进窗口。</span></p>
+
+            <section class="group">
+              <div class="group-head"><h3>文件夹</h3></div>
+              <div class="group-body">
+                <ul class="roots" id="rootList"></ul>
+                <form class="root-add-row" id="rootForm" autocomplete="off">
+                  <label class="field">
+                    <span data-icon="folder"></span>
+                    <input id="rootPath" type="text" placeholder="文件或文件夹的完整路径，例如 D:\资料\制度文件" spellcheck="false" aria-label="文件或文件夹路径">
+                  </label>
+                  <button class="btn primary" type="submit" id="rootScan">添加</button>
+                </form>
+                <div class="progress" id="progress" hidden>
+                  <div class="progress-text"><span class="spinner"></span><span id="progressText">正在读…</span><span id="progressCount"></span></div>
+                  <div class="progress-bar"><i id="progressBar"></i></div>
+                  <ul class="progress-jobs" id="progressJobs"></ul>
+                </div>
+              </div>
+            </section>
+
+            <section class="group" id="lostGroup" hidden>
+              <div class="group-head"><h3>找不到的文件</h3><span class="group-count" id="lostCount"></span></div>
+              <div class="group-body"><ul class="lost-list" id="lostList"></ul></div>
+            </section>
+
+            <details class="import" id="uploadBlock">
+              <summary><span data-icon="chevron"></span>上传文件</summary>
+              <label class="dropzone" id="dropzone">
+                <input type="file" id="fileInput" multiple accept=".pdf,.docx,.xlsx,.pptx,.ppt,.md,.txt,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff" hidden>
+                <span class="drop-icon" data-icon="upload"></span>
+                <strong>拖放文件到这里，或点按选择</strong>
+                <span>文档和图片，单个不超过 20 MB；浏览器拿不到文件位置，会复制一份保存</span>
+              </label>
+              <ul class="uploads" id="uploads"></ul>
+            </details>
+
+            <div class="files-head">
+              <h3>文件</h3>
+              <label class="search files-search"><span data-icon="search"></span><input id="fileSearch" type="search" placeholder="按名字或位置查找" spellcheck="false" autocomplete="off" aria-label="按名字或位置查找文件"></label>
+              <label class="type-filter" id="typeFilterWrap" hidden><select id="typeFilter" aria-label="按文件类型筛选"><option value="">全部类型</option></select></label>
+              <div class="seg" id="fileFilters" role="radiogroup" aria-label="按状态筛选">
+                <label><input type="radio" name="fileFilter" value="" checked><span>全部<small data-count="all"></small></span></label>
+                <label><input type="radio" name="fileFilter" value="indexed,named"><span>已入库<small data-count="indexed"></small></span></label>
+                <label><input type="radio" name="fileFilter" value="pending,indexing"><span>处理中<small data-count="busy"></small></span></label>
+                <label><input type="radio" name="fileFilter" value="missing,offline,recycled"><span>找不到<small data-count="lost"></small></span></label>
+                <label><input type="radio" name="fileFilter" value="failed"><span>失败<small data-count="failed"></small></span></label>
+                <label><input type="radio" name="fileFilter" value="unsupported"><span>不支持<small data-count="unsupported"></small></span></label>
+              </div>
+            </div>
+            <div class="tree" id="docList"></div>
+          </div>
+        </div>
+        <div class="select-bar" id="selectBar" role="region" aria-label="批量操作">
+          <span class="sel-count">已选 <span id="selCount" class="roll"><span>0</span></span> 个文件<small id="selHint"></small></span>
+          <button type="button" class="btn primary small" id="selAsk"><span data-icon="chat"></span>只在这些文件里提问</button>
+          <button type="button" class="btn small" id="selReindex"><span data-icon="refresh"></span>重新入库</button>
+          <button type="button" class="btn small danger" id="selRemove"><span data-icon="trash"></span>移除</button>
+          <span class="sep"></span>
+          <button type="button" class="icon-btn sm" id="selClear" aria-label="取消选择" data-icon="x"></button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Settings: a floating sheet over the page, like the file reader -->
+  <div class="sheet-scrim" id="settingsScrim"></div>
+  <aside class="sheet settings" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+    <header class="sheet-head">
+      <h2 id="settingsTitle">设置</h2>
+      <button class="icon-btn" id="settingsClose" type="button" aria-label="关闭设置" data-icon="x"></button>
+    </header>
+    <div class="sheet-tabs">
+      <div class="seg" id="settingsTabs" role="radiogroup" aria-label="设置分组">
+        <label><input type="radio" name="settingsTab" value="key" checked><span>模型与密钥</span></label>
+        <label><input type="radio" name="settingsTab" value="suggest"><span>推荐与追问</span></label>
+        <label><input type="radio" name="settingsTab" value="image"><span>图片识别</span></label>
+        <label id="keysTab" hidden><input type="radio" name="settingsTab" value="keys"><span>快捷键</span></label>
+        <label><input type="radio" name="settingsTab" value="about"><span>关于</span></label>
+      </div>
+    </div>
+    <div class="sheet-body" id="settingsBody">
+      <div class="error-box" id="settingsError" hidden></div>
+
+      <section class="pane" data-pane="key">
+        <div class="group-body">
+          <div class="row with-icon">
+            <span class="row-icon" id="keyIcon" data-icon="key"></span>
+            <div class="row-main">
+              <strong>硅基流动 API Key</strong>
+              <div class="key-state" id="keyState"></div>
+            </div>
+            <button class="btn plain danger small" type="button" id="keyClear" hidden>删除</button>
+          </div>
+          <form class="row" id="keyForm" autocomplete="off">
+            <label class="field" style="flex:1">
+              <span data-icon="lock"></span>
+              <input id="keyInput" type="password" placeholder="粘贴新的 Key：sk-…" spellcheck="false" autocomplete="off" minlength="8" aria-label="API Key">
+              <button class="icon-btn sm" type="button" id="keyReveal" aria-label="显示或隐藏 Key" data-icon="eye"></button>
+            </label>
+            <div class="row-ctrl">
+              <button class="btn" type="button" id="keyTest">测试</button>
+              <button class="btn primary" type="submit" id="keySave">保存</button>
+            </div>
+          </form>
+        </div>
+        <p class="group-foot"><a href="https://cloud.siliconflow.cn/account/ak" target="_blank" rel="noopener">在硅基流动控制台获取 Key</a></p>
+
+        <div class="group-body">
+          <div class="row wheel-row">
+            <div class="row-main"><strong id="modelLabel">问答模型</strong><small>停下即生效</small></div>
+            <div class="wheel" id="modelWheel" aria-labelledby="modelLabel"></div>
+          </div>
+          <form class="row" id="modelCustom" hidden>
+            <label class="field" style="flex:1"><input id="modelCustomInput" type="text" placeholder="硅基流动模型 ID，例如 Qwen/Qwen3-235B-A22B" spellcheck="false" aria-label="模型 ID"></label>
+            <button class="btn primary" type="submit">使用</button>
+          </form>
+          <div class="row stack">
+            <div class="row-top">
+              <div class="row-main"><strong>核对方式</strong></div>
+              <div class="seg" id="answerModes" role="radiogroup" aria-label="核对方式">
+                <label><input type="radio" name="answerMode" value="fast"><span>快速</span></label>
+                <label><input type="radio" name="answerMode" value="strict"><span>严谨</span></label>
+              </div>
+            </div>
+            <p class="seg-desc" id="answerModeDesc"></p>
+          </div>
+          <div class="row"><div class="row-main"><strong>向量模型</strong></div><span class="row-value"><code id="embeddingModel">—</code></span></div>
+          <div class="row"><div class="row-main"><strong>精排模型</strong></div><span class="row-value"><code id="rerankModel">—</code></span></div>
+        </div>
+
+        <div class="group-head"><h3>数据去向</h3></div>
+        <div class="group-body" id="dataNotice">
+          <div class="row"><div class="row-main"><strong>留在这台电脑</strong><small>原文件、索引库和对话记录。Key 存在 Windows 凭据管理器。</small></div></div>
+          <div class="row"><div class="row-main"><strong>发到硅基流动</strong><small>文档文字、文件名和你的问题，用来生成向量、判断文件类型、排序和回答。下面的文件除外。</small></div></div>
+          <div class="row"><div class="row-main"><strong>图片</strong><small>只有选了云端识别才上传。PPT 里的图片不读，也不上传。</small></div></div>
+        </div>
+        <p class="group-foot">目前没有本地模型可选。</p>
+
+        <!-- What the library may not read (privacy.js; library/privacy.py) -->
+        <div class="group-head privacy-head"><h3>不上传的文件</h3></div>
+        <div class="group-body" id="privacyGroup">
+          <div class="row with-icon" id="privacyNamed">
+            <span class="row-icon gray" data-icon="tag"></span>
+            <div class="row-main"><strong>只按文件名</strong><small id="privacyNamedNote">只在本机按名字和日期找，内容不读取、不上传</small></div>
+            <span class="row-value" id="privacyNamedCount"></span>
+          </div>
+          <ul class="privacy-rules" id="privacyRules"></ul>
+          <form class="row stack privacy-add" id="privacyForm" autocomplete="off">
+            <div class="row-top">
+              <label class="field"><span data-icon="plus"></span><input id="privacyPattern" type="text" placeholder="名字，例如 *.key、证件" spellcheck="false" maxlength="200" aria-label="文件名或文件夹名"></label>
+              <div class="seg" id="privacyAction" role="radiogroup" aria-label="对这个名字">
+                <label><input type="radio" name="privacyAction" value="exclude" checked><span>不收录</span></label>
+                <label><input type="radio" name="privacyAction" value="name"><span>只按文件名</span></label>
+              </div>
+              <button class="btn" type="submit" id="privacyAdd">添加</button>
+            </div>
+          </form>
+        </div>
+        <p class="group-foot">单个文件或文件夹，在知识库里点它右边的 <span class="inline-icon" data-icon="shield"></span>。已建的索引和备份里的文字会一并删掉；之前发出去的无法撤回。</p>
+      </section>
+
+      <section class="pane" data-pane="suggest" id="suggestionSettings" hidden>
+        <div class="group-body">
+          <label class="row" for="followupsEnabled">
+            <div class="row-main"><strong>回答后推荐追问</strong></div>
+            <span class="switch"><input type="checkbox" role="switch" id="followupsEnabled"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+          <label class="row" for="sgEnabled">
+            <div class="row-main"><strong>首页显示“猜你想问”</strong></div>
+            <span class="switch"><input type="checkbox" role="switch" id="sgEnabled"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+          <div class="row stack">
+            <div class="row-top">
+              <div class="row-main"><strong>推荐依据</strong></div>
+              <div class="seg" role="radiogroup" aria-label="推荐依据" id="sgPersonalize">
+                <label><input type="radio" name="sgPersonalize" value="library"><span>只看资料</span></label>
+                <label><input type="radio" name="sgPersonalize" value="history"><span>也看我的提问</span></label>
+              </div>
+            </div>
+            <p class="seg-desc" id="sgPersonalizeDesc"></p>
+          </div>
+          <label class="row" for="sgAi">
+            <div class="row-main"><strong>用 AI 写推荐问题</strong><small><em>会把文件名和开头一小段发给模型服务</em></small></div>
+            <span class="switch"><input type="checkbox" role="switch" id="sgAi"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+          <details class="row disclosure">
+            <summary><span class="row-main"><strong>敏感词</strong></span><span class="row-value" id="sgWordsCount"></span><span data-icon="chevron" class="chev"></span></summary>
+            <div class="disclosure-body">
+              <p class="settings-note">文件名或路径含这些词，就不出推荐问题。“&amp;”表示同时出现。</p>
+              <textarea class="input" id="sgWords" rows="3" spellcheck="false" aria-label="敏感词"></textarea>
+              <div class="row-ctrl end"><button class="btn small" type="button" id="sgWordsReset">恢复默认</button><button class="btn primary small" type="button" id="sgWordsSave">保存</button></div>
+            </div>
+          </details>
+          <details class="row disclosure">
+            <summary><span class="row-main"><strong>不参与推荐的文件夹</strong></span><span class="row-value" id="sgFoldersCount"></span><span data-icon="chevron" class="chev"></span></summary>
+            <div class="disclosure-body">
+              <ul class="sg-list" id="sgFolders"></ul>
+              <form class="root-add-row flush" id="sgFolderForm" autocomplete="off">
+                <label class="field"><span data-icon="folder"></span><input id="sgFolderInput" type="text" placeholder="文件夹完整路径" spellcheck="false" aria-label="文件夹路径"></label>
+                <button class="btn small" type="submit" id="sgFolderAdd">添加</button>
+              </form>
+            </div>
+          </details>
+          <details class="row disclosure" id="sgBlockedBlock" hidden>
+            <summary><span class="row-main"><strong>不再推荐的文件</strong></span><span class="row-value" id="sgBlockedCount"></span><span data-icon="chevron" class="chev"></span></summary>
+            <div class="disclosure-body"><ul class="sg-list" id="sgBlocked"></ul></div>
+          </details>
+          <div class="row">
+            <div class="row-main"><strong>提问记录</strong><small id="sgHistoryNote"></small></div>
+            <button class="btn plain danger small" type="button" id="sgClearHistory">清除</button>
+          </div>
+        </div>
+        <p class="group-foot" id="sgPoolNote"></p>
+      </section>
+
+      <section class="pane" data-pane="image" id="imageSettings" hidden>
+        <div class="group-head"><h3>图片文件</h3></div>
+        <div class="group-body">
+          <div class="row stack">
+            <div class="row-top">
+              <div class="row-main"><strong>添加图片时</strong></div>
+              <div class="seg" id="imageImportModes" role="radiogroup" aria-label="添加图片时">
+                <label><input type="radio" name="imageImportMode" value="ask"><span>每次问</span></label>
+                <label><input type="radio" name="imageImportMode" value="local"><span>本机</span></label>
+                <label><input type="radio" name="imageImportMode" value="cloud"><span>云端</span></label>
+                <label><input type="radio" name="imageImportMode" value="name"><span>只记名字</span></label>
+              </div>
+            </div>
+            <p class="seg-desc" id="imageImportNote"></p>
+          </div>
+        </div>
+        <div class="group-head"><h3>PDF 里的插图和扫描页</h3></div>
+        <div class="group-body">
+          <div class="row stack">
+            <div class="row-top">
+              <div class="row-main"><strong>识别方式</strong></div>
+              <div class="seg" id="imageModes" role="radiogroup" aria-label="PDF 插图识别方式">
+                <label><input type="radio" name="imageMode" value="off"><span>关闭</span></label>
+                <label><input type="radio" name="imageMode" value="local"><span>本机</span></label>
+                <label><input type="radio" name="imageMode" value="cloud"><span>云端</span></label>
+              </div>
+            </div>
+            <p class="seg-desc" id="imageModeNote"></p>
+          </div>
+          <label class="row" for="localFormula" id="formulaOption" hidden>
+            <div class="row-main"><strong>同时识别公式</strong><small id="formulaHint"></small></div>
+            <span class="switch"><input type="checkbox" role="switch" id="localFormula"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+        </div>
+        <div class="group-body ocr-runtime">
+          <div class="row with-icon">
+            <span class="row-icon" id="ocrIcon" data-icon="image"></span>
+            <div class="row-main"><strong>本机识别组件</strong><small id="ocrState"></small></div>
+            <button class="btn small" type="button" id="ocrDownload" hidden>下载</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="keys" id="windowPanel" hidden>
+        <div class="group-body">
+          <form class="row" id="shortcutForm" autocomplete="off">
+            <div class="row-main"><strong>快速搜索</strong><small id="shortcutNote"></small></div>
+            <label class="field shortcut-field"><span data-icon="keyboard"></span><input id="shortcutInput" type="text" readonly placeholder="按下组合键" spellcheck="false" aria-label="快速搜索快捷键"></label>
+            <button class="btn" type="submit" id="shortcutSave">保存</button>
+          </form>
+          <label class="row" for="closeToTray">
+            <div class="row-main"><strong>关闭窗口时留在托盘</strong></div>
+            <span class="switch"><input type="checkbox" role="switch" id="closeToTray"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="about" hidden>
+        <div class="about-pet"><span id="aboutPet"></span><div><strong>寻寻</strong><small>帮你翻资料的小狗 · <span id="appVersion">—</span></small></div></div>
+        <div class="group-body">
+          <div class="row">
+            <div class="row-main"><strong>主题</strong></div>
+            <div class="seg" id="themeModes" role="radiogroup" aria-label="主题">
+              <label><input type="radio" name="themeMode" value="system"><span>跟随系统</span></label>
+              <label><input type="radio" name="themeMode" value="light"><span>浅色</span></label>
+              <label><input type="radio" name="themeMode" value="dark"><span>深色</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="group-body">
+          <div class="row"><div class="row-main"><strong>数据位置</strong></div><span class="row-value"><code id="dataDir">—</code></span></div>
+          <div class="row"><div class="row-main"><strong>索引库</strong></div><span class="row-value"><code id="dataDb">—</code></span></div>
+          <div class="row"><div class="row-main"><strong>日志</strong></div><span class="row-value"><code id="dataLogs">—</code></span></div>
+          <div class="row" id="healthRow"><div class="row-main"><strong>服务状态</strong></div><span class="row-value" id="healthText">—</span></div>
+          <button class="row tap" type="button" id="openDataDir"><span class="row-main"><strong class="link">在资源管理器中打开数据目录</strong></span><span data-icon="chevron" class="chev"></span></button>
+        </div>
+        <div class="group-body" id="updateGroup" hidden>
+          <div class="row">
+            <div class="row-main"><strong>版本更新</strong><small id="updateState"></small></div>
+            <button class="btn small" type="button" id="updateCheck">检查更新</button>
+          </div>
+        </div>
+        <div class="group-head"><h3>数据安全</h3></div>
+        <div class="error-box safety-alert" id="safetyAlert" role="alert" hidden></div>
+        <div class="group-body" id="safetyGroup">
+          <div class="row"><div class="row-main"><strong>启动时检查</strong></div><span class="row-value" id="safetyCheck">—</span></div>
+          <div class="row">
+            <div class="row-main"><strong>自动备份</strong><small id="backupState"></small></div>
+            <button class="btn small" type="button" id="backupNow">立即备份</button>
+          </div>
+          <details class="row disclosure" id="recoveryBlock">
+            <summary><span class="row-main"><strong>恢复</strong></span><span data-icon="chevron" class="chev"></span></summary>
+            <div class="disclosure-body">
+              <p class="settings-note" id="noBackups">还没有备份。</p>
+              <ul class="sg-list" id="backupList"></ul>
+              <div class="row-ctrl end"><button class="btn small" type="button" id="rebuildIndex">重新读一遍所有文件</button></div>
+            </div>
+          </details>
+        </div>
+        <div class="group-body">
+          <button class="row tap" type="button" id="exportDiagnostics"><span class="row-main"><strong class="link">导出诊断信息</strong><small>日志和版本信息。可能含文件名，不含 Key 和文档内容。</small></span><span data-icon="chevron" class="chev"></span></button>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <div class="viewer-scrim" id="viewerScrim"></div>
+  <aside class="viewer" id="viewer" aria-hidden="true" aria-label="文档内容">
+    <header class="viewer-head">
+      <span class="file-icon" id="viewerExt"></span>
+      <div class="viewer-title">
+        <strong id="viewerTitle">—</strong>
+        <span class="viewer-meta-line"><span id="viewerMeta"></span><button class="link-btn" type="button" id="viewerMode" hidden>换一种方式</button></span>
+      </div>
+      <button class="icon-btn" id="viewerReveal" title="在资源管理器中打开" aria-label="在资源管理器中打开" hidden data-icon="folderOpen"></button>
+      <a class="icon-btn" id="viewerDownload" title="下载原文件" aria-label="下载原文件" hidden data-icon="download"></a>
+      <button class="icon-btn" id="viewerClose" aria-label="关闭" data-icon="x"></button>
+    </header>
+    <div class="viewer-alert" id="viewerAlert" hidden></div>
+    <div class="viewer-tools">
+      <div class="tabs mode-tabs" role="tablist" aria-label="显示方式">
+        <button class="tab active" data-mode="original" role="tab">原文</button>
+        <button class="tab" data-mode="parsed" role="tab">解析文本</button>
+      </div>
+      <div class="orig-tools" id="origTools"></div>
+      <div class="parsed-tools" id="parsedTools">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="units" role="tab">段落</button>
+          <button class="tab" data-tab="parents" role="tab">检索分块 <span id="parentCount"></span></button>
+        </div>
+        <label class="search">
+          <span data-icon="search"></span>
+          <input id="viewerSearch" type="search" placeholder="在解析文本中查找">
+          <span id="searchCount"></span>
+        </label>
+      </div>
+    </div>
+    <div class="viewer-how" id="viewerHow" hidden></div>
+    <div class="viewer-body" id="viewerBody"></div>
+    <div class="viewer-orig" id="viewerOrig"></div>
+  </aside>
+
+  <div class="drop-veil" id="dropVeil" aria-hidden="true">
+    <div class="drop-card"><span class="drop-pet" id="dropPet"></span><strong>松手，交给寻寻</strong><small>文件和文件夹都可以</small></div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="icons.js"></script>
+  <script src="ui.js"></script>
+  <script src="status.js"></script>
+  <script src="citations.js"></script>
+  <script src="filerow.js"></script>
+  <script src="followups.js"></script>
+  <script src="convstore.js"></script>
+  <script src="library.js"></script>
+  <script src="guide.js"></script>
+  <script src="safety.js"></script>
+  <script src="privacy.js"></script>
+  <script src="app.js"></script>
+  <script src="preview.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# Optional: only needed for VECTOR_BACKEND=milvus (Docker Compose deployment)
+# and for scripts/migrate_milvus_to_embedded.py.
+pymilvus>=2.6,<3.0

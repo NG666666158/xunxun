@@ -1,0 +1,190 @@
+{
+  "version": 2,
+  "python": "cp310",
+  "platform": "win_amd64",
+  "hosts": [
+    "https://files.pythonhosted.org",
+    "https://pypi.tuna.tsinghua.edu.cn",
+    "https://mirrors.aliyun.com/pypi"
+  ],
+  "components": {
+    "ocr": {
+      "label": "本地文字识别（RapidOCR）",
+      "items": [
+        {
+          "kind": "wheel",
+          "name": "rapidocr-onnxruntime",
+          "version": "1.4.4",
+          "filename": "rapidocr_onnxruntime-1.4.4-py3-none-any.whl",
+          "path": "/packages/ba/12/1e5497183bdbe782dbb91bad1d0d2297dba4d2831b2652657f7517bfc6df/rapidocr_onnxruntime-1.4.4-py3-none-any.whl",
+          "sha256": "971d7d5f223a7a808662229df1ef69893809d8457d834e6373d3854bc1782cbf",
+          "size": 14915192
+        },
+        {
+          "kind": "wheel",
+          "name": "onnxruntime",
+          "version": "1.23.2",
+          "filename": "onnxruntime-1.23.2-cp310-cp310-win_amd64.whl",
+          "path": "/packages/cd/6d/738e50c47c2fd285b1e6c8083f15dac1a5f6199213378a5f14092497296d/onnxruntime-1.23.2-cp310-cp310-win_amd64.whl",
+          "sha256": "0be6a37a45e6719db5120e9986fcd30ea205ac8103fd1fb74b6c33348327a0cc",
+          "size": 13467651
+        },
+        {
+          "kind": "wheel",
+          "name": "opencv-python-headless",
+          "version": "4.12.0.88",
+          "filename": "opencv_python_headless-4.12.0.88-cp37-abi3-win_amd64.whl",
+          "path": "/packages/f2/35/0858e9e71b36948eafbc5e835874b63e515179dc3b742cbe3d76bc683439/opencv_python_headless-4.12.0.88-cp37-abi3-win_amd64.whl",
+          "sha256": "86b413bdd6c6bf497832e346cd5371995de148e579b9774f8eba686dee3f5528",
+          "size": 38923559
+        },
+        {
+          "kind": "wheel",
+          "name": "pillow",
+          "version": "12.3.0",
+          "filename": "pillow-12.3.0-cp310-cp310-win_amd64.whl",
+          "path": "/packages/48/7c/8fa0039574c476d7c6fa57dd7c32a130436877c6ec1e5ce1cc8ec44878c1/pillow-12.3.0-cp310-cp310-win_amd64.whl",
+          "sha256": "300557495eb45ebb8aec96c2da9c4be642fbf7cd937278b4013ba894ea8eb0eb",
+          "size": 7226887
+        },
+        {
+          "kind": "wheel",
+          "name": "pyclipper",
+          "version": "1.4.0",
+          "filename": "pyclipper-1.4.0-cp310-cp310-win_amd64.whl",
+          "path": "/packages/53/ca/b30138427ed122ec9b47980b943164974a2ec606fa3f71597033b9a9f9a6/pyclipper-1.4.0-cp310-cp310-win_amd64.whl",
+          "sha256": "6a97b961f182b92d899ca88c1bb3632faea2e00ce18d07c5f789666ebb021ca4",
+          "size": 104227
+        },
+        {
+          "kind": "wheel",
+          "name": "shapely",
+          "version": "2.1.2",
+          "filename": "shapely-2.1.2-cp310-cp310-win_amd64.whl",
+          "path": "/packages/e1/89/6db795b8dd3919851856bd2ddd13ce434a748072f6fdee42ff30cbd3afa3/shapely-2.1.2-cp310-cp310-win_amd64.whl",
+          "sha256": "1d0bfb4b8f661b3b4ec3565fa36c340bfb1cda82087199711f86a88647d26b2f",
+          "size": 1722074
+        },
+        {
+          "kind": "wheel",
+          "name": "six",
+          "version": "1.17.0",
+          "filename": "six-1.17.0-py2.py3-none-any.whl",
+          "path": "/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+          "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+          "size": 11050
+        },
+        {
+          "kind": "wheel",
+          "name": "coloredlogs",
+          "version": "15.0.1",
+          "filename": "coloredlogs-15.0.1-py2.py3-none-any.whl",
+          "path": "/packages/a7/06/3d6badcf13db419e25b07041d9c7b4a2c331d3f4e7134445ec5df57714cd/coloredlogs-15.0.1-py2.py3-none-any.whl",
+          "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934",
+          "size": 46018
+        },
+        {
+          "kind": "wheel",
+          "name": "humanfriendly",
+          "version": "10.0",
+          "filename": "humanfriendly-10.0-py2.py3-none-any.whl",
+          "path": "/packages/f0/0f/310fb31e39e2d734ccaa2c0fb981ee41f7bd5056ce9bc29b2248bd569169/humanfriendly-10.0-py2.py3-none-any.whl",
+          "sha256": "1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477",
+          "size": 86794
+        },
+        {
+          "kind": "wheel",
+          "name": "pyreadline3",
+          "version": "3.5.6",
+          "filename": "pyreadline3-3.5.6-py3-none-any.whl",
+          "path": "/packages/f7/5e/35c856e186b74678c24927847ad9895a51f1bc02a0c6126477a6c6040064/pyreadline3-3.5.6-py3-none-any.whl",
+          "sha256": "8449b734232e42a5dcd74048e39b60db2839a4c38cf3ae2bf7707d58b5389c0d",
+          "size": 85243
+        },
+        {
+          "kind": "wheel",
+          "name": "flatbuffers",
+          "version": "25.12.19",
+          "filename": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+          "path": "/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl",
+          "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4",
+          "size": 26661
+        }
+      ],
+      "total_bytes": 76615356
+    },
+    "formula": {
+      "label": "本地公式识别（RapidLaTeXOCR）",
+      "items": [
+        {
+          "kind": "wheel",
+          "name": "rapid-latex-ocr",
+          "version": "0.0.9",
+          "filename": "rapid_latex_ocr-0.0.9-py3-none-any.whl",
+          "path": "/packages/05/a7/4582bc91c6afb95349cca6760309870eb9a0c56a127c76cd78efc0ee32f0/rapid_latex_ocr-0.0.9-py3-none-any.whl",
+          "sha256": "241c51047618c2bf90d94165499f8afcb75b0057dd5623337a833fefa4ea8fb4",
+          "size": 11643
+        },
+        {
+          "kind": "wheel",
+          "name": "tokenizers",
+          "version": "0.23.3",
+          "filename": "tokenizers-0.23.3-cp310-abi3-win_amd64.whl",
+          "path": "/packages/d1/6c/24f074c9a0efb98e61b20aafe6b2641922d5db24e447d5d6daffd9e17555/tokenizers-0.23.3-cp310-abi3-win_amd64.whl",
+          "sha256": "1f0823bb00c5fdc98e487354d54dd55a03848d61a1a0bf29a68c77f24f3b26c3",
+          "size": 2872101
+        },
+        {
+          "kind": "wheel",
+          "name": "chardet",
+          "version": "7.7.0",
+          "filename": "chardet-7.7.0-cp310-cp310-win_amd64.whl",
+          "path": "/packages/b8/c9/f5637fd4987ca04408fcea017f53980276e4cacc4a6fd06742ac4dc4e81c/chardet-7.7.0-cp310-cp310-win_amd64.whl",
+          "sha256": "9bd2e0e48900acc62fe82de2b3386f65a4be21d1015dca34a8958410d37e39a9",
+          "size": 1306524
+        },
+        {
+          "kind": "file",
+          "filename": "image_resizer.onnx",
+          "urls": [
+            "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/image_resizer.onnx"
+          ],
+          "target": "rapid_latex_ocr_models",
+          "sha256": "e0b075c39700f64d50400f39c8fc186bbb3b5d84d31864008313f376603aca9d",
+          "size": 38967751
+        },
+        {
+          "kind": "file",
+          "filename": "encoder.onnx",
+          "urls": [
+            "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/encoder.onnx"
+          ],
+          "target": "rapid_latex_ocr_models",
+          "sha256": "01bf5dc25539ca0cd5b1bd29296ea495977a6ba5f629dc4178277809d26e5e7d",
+          "size": 89008136
+        },
+        {
+          "kind": "file",
+          "filename": "decoder.onnx",
+          "urls": [
+            "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/decoder.onnx"
+          ],
+          "target": "rapid_latex_ocr_models",
+          "sha256": "bd695497bf1b22279b7626f5916c79226e1e244c84355f8da7edfd2d921d0072",
+          "size": 50952726
+        },
+        {
+          "kind": "file",
+          "filename": "tokenizer.json",
+          "urls": [
+            "https://github.com/RapidAI/RapidLaTeXOCR/releases/download/v0.0.0/tokenizer.json"
+          ],
+          "target": "rapid_latex_ocr_models",
+          "sha256": "1dc27b18d6a518d0d5ff3f4bb7bd98521fe80ad39e5b2a246d4109f1bb9d5019",
+          "size": 24174
+        }
+      ],
+      "total_bytes": 183143055
+    }
+  }
+}

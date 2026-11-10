@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "寻寻",
+  "mainBinaryName": "EnterpriseKB",
+  "version": "1.4.0",
+  "identifier": "com.enterprisekb.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeDevCommand": "npm run frontend",
+    "beforeBuildCommand": "npm run frontend"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:",
+        "font-src": "'self' data: blob:",
+        "worker-src": "'self' blob:",
+        "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:*",
+        "frame-src": "'none'",
+        "object-src": "'none'"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [],
+      "requireSignedVersion": true,
+      "windows": { "installMode": "passive" }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "寻寻",
+    "shortDescription": "寻寻：在你的资料里找答案",
+    "longDescription": "记住本机文件夹里的资料，回答问题并给出出处，也能按类型、时间和名字帮你找文件。",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../../packaging/dist/rag-backend/": "backend/"
+    },
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "startMenuFolder": "",
+        "installerHooks": "../../packaging/rename/hooks.nsh"
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+# Web and API
+fastapi>=0.116,<1.0
+uvicorn[standard]>=0.35,<1.0
+python-multipart>=0.0.20,<1.0
+httpx>=0.28,<1.0
+
+# Agent and model clients
+langchain-core>=1.0,<2.0
+langchain-openai>=1.0,<2.0
+langgraph>=1.0,<2.0
+langgraph-checkpoint-sqlite>=3.1,<4.0
+openai>=1.100,<3.0
+tenacity>=9.0,<10.0
+
+# Retrieval (default embedded backend: SQLite FTS5 + jieba BM25, sqlite-vec dense).
+# sqlite-vec is still 0.x, keep it pinned. For VECTOR_BACKEND=milvus also install
+# requirements-milvus.txt.
+sqlite-vec==0.1.9
+jieba==0.42.1
+numpy>=2.0,<3.0
+
+# Watched local folders (file create/modify/move/delete events)
+watchdog>=6.0,<7.0
+
+# API key from the Settings page -> OS credential store (Windows Credential Manager)
+keyring>=25.0,<26.0
+
+# Reader panel: Word documents are shown as PDF converted by the locally installed Word (COM)
+pywin32>=306; sys_platform == "win32"
+
+# Multi-format document parsing
+pymupdf>=1.26,<2.0
+# Local image understanding (OCR of figures and scanned pages, offline). The desktop app
+# downloads it on first use instead (project/ingestion/ocr_runtime.json).
+rapidocr_onnxruntime>=1.4,<2.0
+python-docx>=1.2,<2.0
+openpyxl>=3.1,<4.0
+markdown>=3.8,<4.0
+
+# Configuration, testing and demo data generation
+python-dotenv>=1.1,<2.0
+pydantic>=2.11,<3.0
+pydantic-settings>=2.10,<3.0
+pytest>=8.4,<9.0
+pytest-asyncio>=1.1,<2.0
+reportlab>=4.4,<5.0
+
+# Optional observability kept from the upstream learning project
+langfuse>=3.0,<5.0

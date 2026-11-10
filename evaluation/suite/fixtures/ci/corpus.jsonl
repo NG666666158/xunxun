@@ -1,0 +1,24 @@
+{"doc_id": "leave", "title": "", "text": "年假制度\n员工入职满一年后享有 5 天带薪年假；工作满 10 年的员工享有 10 天年假，满 20 年为 15 天。年假需在当年使用，未休部分最多可顺延至次年 3 月 31 日。", "source": "doc000001.txt", "metadata": {}}
+{"doc_id": "expense", "title": "", "text": "差旅报销流程\n出差结束后 15 个工作日内在报销系统提交申请，并附上发票原件的扫描件。单笔金额超过 5000 元的报销需要部门总监审批，超过 20000 元还需财务副总裁审批。", "source": "doc000002.txt", "metadata": {}}
+{"doc_id": "printer", "title": "", "text": "HP LaserJet M404dn 卡纸处理\n先关闭电源，打开打印机后盖，双手握住卡住的纸张两侧缓慢拉出；如果纸张卡在硒鼓下方，请先取出硒鼓再处理。处理完成后重新装好硒鼓并开机。", "source": "doc000003.txt", "metadata": {}}
+{"doc_id": "router2000", "title": "", "text": "XR-2000 路由器恢复出厂设置\n在通电状态下，用回形针按住机身背面的 RESET 复位孔 10 秒，指示灯全部闪烁后松开，约 2 分钟后路由器恢复出厂设置，默认管理地址为 192.168.10.1。", "source": "doc000004.txt", "metadata": {}}
+{"doc_id": "router3000", "title": "", "text": "XR-3000 路由器恢复出厂设置\nXR-3000 没有复位孔，需要登录管理页面，在“系统设置 > 备份与恢复”中点击“恢复出厂设置”，确认后设备自动重启，默认管理地址为 192.168.20.1。", "source": "doc000005.txt", "metadata": {}}
+{"doc_id": "canteen", "title": "", "text": "员工餐厅营业时间\n早餐 7:30 至 9:00，午餐 11:30 至 13:30，晚餐 17:30 至 19:00。周末只供应午餐。餐卡余额可以在企业微信中查询。", "source": "doc000006.txt", "metadata": {}}
+{"doc_id": "remote", "title": "", "text": "远程办公规定\n每位员工每周最多可以远程办公两天，需要至少提前一个工作日在 OA 系统中提交申请，并由直属上级批准。试用期员工不适用远程办公。", "source": "doc000007.txt", "metadata": {}}
+{"doc_id": "password", "title": "", "text": "账号与密码安全\n办公系统密码每 90 天必须更换一次，长度不少于 12 位，并同时包含大小写字母、数字和符号。连续输错 5 次密码，账号会被锁定 30 分钟。", "source": "doc000008.txt", "metadata": {}}
+{"doc_id": "meeting", "title": "", "text": "会议室预订\n会议室可以通过企业微信预订，最多提前 14 天预订，单次预订不超过 4 小时。取消预订请至少提前 2 小时，否则计入爽约记录。", "source": "doc000009.txt", "metadata": {}}
+{"doc_id": "onboard", "title": "", "text": "新员工入职培训\n入职培训为期 3 天：第一天介绍公司文化和规章制度，第二天是信息安全与合规培训，第三天由所在部门安排岗位培训。培训结束后需完成在线考试。", "source": "doc000010.txt", "metadata": {}}
+{"doc_id": "q1revenue", "title": "", "text": "2023 年第一季度经营情况\n公司 2023 年第一季度实现营业收入 1.2 亿元，同比增长 8%，其中软件服务收入占比 60%。", "source": "doc000011.txt", "metadata": {}}
+{"doc_id": "q2revenue", "title": "", "text": "2023 年第二季度经营情况\n公司 2023 年第二季度实现营业收入 1.5 亿元，环比增长 25%，主要来自两个大型项目的验收。", "source": "doc000012.txt", "metadata": {}}
+{"doc_id": "q3plan", "title": "", "text": "2023 年第三季度工作计划\n第三季度的重点是新产品发布和华南区渠道建设，计划新增合作伙伴 30 家。", "source": "doc000013.txt", "metadata": {}}
+{"doc_id": "visitor", "title": "", "text": "访客登记\n访客到达前台后需出示身份证件并登记，由接待员工陪同进入办公区。访客 Wi-Fi 的名称为 Guest，密码每天更新。", "source": "doc000014.txt", "metadata": {}}
+{"doc_id": "laptop", "title": "", "text": "笔记本电脑申领\n新员工的笔记本电脑由 IT 部门在入职当天发放，型号为 ThinkPad T14。电脑损坏需在 24 小时内报修，私自拆机不予保修。", "source": "doc000015.txt", "metadata": {}}
+{"doc_id": "t800", "title": "", "text": "T-800 robot vacuum: battery\nThe T-800 runs for about 90 minutes on a full charge in standard mode and 60 minutes in turbo mode. A full charge takes 4 hours on the included dock.", "source": "doc000016.txt", "metadata": {}}
+{"doc_id": "t900", "title": "", "text": "T-900 robot vacuum: battery\nThe T-900 runs for about 150 minutes on a full charge and recharges in 3 hours. It returns to the dock automatically when the battery falls below 15 percent.", "source": "doc000017.txt", "metadata": {}}
+{"doc_id": "warranty", "title": "", "text": "Warranty terms\nAll robot vacuums carry a two-year warranty on parts and labour. Batteries are covered for one year. Damage caused by water or misuse is not covered.", "source": "doc000018.txt", "metadata": {}}
+{"doc_id": "offices", "title": "", "text": "Our offices\nThe Shanghai office occupies floors 10 to 12 and has a staff gym on floor 11. The Shenzhen office is smaller and shares a gym with the rest of the building.", "source": "doc000019.txt", "metadata": {}}
+{"doc_id": "gym", "title": "", "text": "Staff gym rules\nThe staff gym is open from 6:30 to 22:00 on weekdays and from 9:00 to 18:00 at weekends. Bring your badge; towels are provided.", "source": "doc000020.txt", "metadata": {}}
+{"doc_id": "shipping", "title": "", "text": "Shipping\nOrders placed before 3 pm ship the same day. Standard delivery takes 2 to 4 working days; express delivery arrives the next working day.", "source": "doc000021.txt", "metadata": {}}
+{"doc_id": "returns", "title": "", "text": "Returns\nUnused products can be returned within 30 days of delivery for a full refund. Opened consumables such as filters and brushes cannot be returned.", "source": "doc000022.txt", "metadata": {}}
+{"doc_id": "shuttle", "title": "", "text": "班车安排\n公司提供早晚两班通勤班车，早班 7:40 从地铁站出发，晚班 18:10 从公司出发。班车线路调整会提前一周通知。", "source": "doc000023.txt", "metadata": {}}
+{"doc_id": "health", "title": "", "text": "年度体检\n公司每年为正式员工安排一次免费体检，体检时间一般在每年 9 月至 10 月，可在体检机构名单中自选机构。", "source": "doc000024.txt", "metadata": {}}

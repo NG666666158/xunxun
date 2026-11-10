@@ -1,0 +1,543 @@
+{
+ "summary": {
+  "questions": 16,
+  "answerable": 13,
+  "negatives": 3,
+  "dense": {
+   "recall@1": 0.923077,
+   "precision@1": 1.0,
+   "hit@1": 1.0,
+   "success@1": 0.846154,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 1.0,
+   "ndcg@10": 1.0,
+   "items": 24.0,
+   "kept_precision": 0.048077
+  },
+  "bm25": {
+   "recall@1": 0.846154,
+   "precision@1": 0.923077,
+   "hit@1": 0.923077,
+   "success@1": 0.769231,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 0.961538,
+   "ndcg@10": 0.97161,
+   "items": 6.076923,
+   "kept_precision": 0.349206
+  },
+  "pool": {
+   "recall@1": 0.923077,
+   "precision@1": 1.0,
+   "hit@1": 1.0,
+   "success@1": 0.846154,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 1.0,
+   "ndcg@10": 1.0,
+   "items": 24.0,
+   "kept_precision": 0.048077
+  },
+  "reranked": {
+   "recall@1": 0.923077,
+   "precision@1": 1.0,
+   "hit@1": 1.0,
+   "success@1": 0.846154,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 1.0,
+   "ndcg@10": 1.0,
+   "items": 24.0,
+   "kept_precision": 0.048077
+  },
+  "final": {
+   "recall@1": 0.923077,
+   "precision@1": 1.0,
+   "hit@1": 1.0,
+   "success@1": 0.846154,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 1.0,
+   "ndcg@10": 1.0,
+   "items": 3.0,
+   "kept_precision": 0.384615
+  },
+  "context": {
+   "recall@1": 0.923077,
+   "precision@1": 1.0,
+   "hit@1": 1.0,
+   "success@1": 0.846154,
+   "recall@3": 1.0,
+   "precision@3": 0.384615,
+   "hit@3": 1.0,
+   "success@3": 1.0,
+   "recall@5": 1.0,
+   "precision@5": 0.230769,
+   "hit@5": 1.0,
+   "success@5": 1.0,
+   "recall@10": 1.0,
+   "precision@10": 0.115385,
+   "hit@10": 1.0,
+   "success@10": 1.0,
+   "recall@20": 1.0,
+   "precision@20": 0.057692,
+   "hit@20": 1.0,
+   "success@20": 1.0,
+   "recall@all": 1.0,
+   "success@all": 1.0,
+   "mrr": 1.0,
+   "ndcg@10": 1.0,
+   "items": 3.0,
+   "kept_precision": 0.384615
+  },
+  "negative": {
+   "returned": 0.0,
+   "returned_docs": 0.0,
+   "above_cut": 0.0,
+   "any_above_cut": 0.0,
+   "context": 0.0,
+   "top_score_p50": 0.001632,
+   "top_score_p90": 0.002439,
+   "auc_top_score": 1.0,
+   "empty_at_0.1": 1.0,
+   "answerable_gold_below_0.1": 0.0,
+   "empty_at_0.3": 1.0,
+   "answerable_gold_below_0.3": 0.0,
+   "empty_at_0.5": 1.0,
+   "answerable_gold_below_0.5": 0.0
+  }
+ },
+ "kept": {
+  "ci:leave10": [
+   "leave",
+   "remote",
+   "health"
+  ],
+  "ci:expense": [
+   "expense",
+   "remote",
+   "leave"
+  ],
+  "ci:printer": [
+   "printer",
+   "router2000",
+   "router3000"
+  ],
+  "ci:router": [
+   "router2000",
+   "router3000",
+   "password"
+  ],
+  "ci:remote": [
+   "remote",
+   "leave",
+   "gym"
+  ],
+  "ci:password": [
+   "password",
+   "visitor",
+   "laptop"
+  ],
+  "ci:revenue": [
+   "q2revenue",
+   "q1revenue",
+   "q3plan"
+  ],
+  "ci:onboard": [
+   "onboard",
+   "laptop",
+   "leave"
+  ],
+  "ci:meeting": [
+   "meeting",
+   "remote",
+   "leave"
+  ],
+  "ci:stock": [],
+  "ci:parkingfee": [],
+  "ci:t800": [
+   "t800",
+   "t900",
+   "warranty"
+  ],
+  "ci:gym": [
+   "gym",
+   "offices",
+   "canteen"
+  ],
+  "ci:returns": [
+   "returns",
+   "router2000",
+   "router3000"
+  ],
+  "ci:parental": [],
+  "ci:shuttle": [
+   "shuttle",
+   "canteen",
+   "leave"
+  ]
+ },
+ "pool": {
+  "ci:leave10": [
+   "leave",
+   "remote",
+   "expense",
+   "q3plan",
+   "q2revenue",
+   "q1revenue",
+   "health",
+   "password",
+   "onboard",
+   "warranty"
+  ],
+  "ci:expense": [
+   "expense",
+   "meeting",
+   "remote",
+   "visitor",
+   "laptop",
+   "leave",
+   "shipping",
+   "health",
+   "password",
+   "shuttle"
+  ],
+  "ci:printer": [
+   "printer",
+   "laptop",
+   "password",
+   "router3000",
+   "returns",
+   "router2000",
+   "meeting",
+   "visitor",
+   "expense",
+   "shipping"
+  ],
+  "ci:router": [
+   "router2000",
+   "router3000",
+   "returns",
+   "printer",
+   "laptop",
+   "t900",
+   "password",
+   "t800",
+   "visitor",
+   "shipping"
+  ],
+  "ci:remote": [
+   "remote",
+   "password",
+   "shuttle",
+   "visitor",
+   "leave",
+   "meeting",
+   "onboard",
+   "gym",
+   "shipping",
+   "canteen"
+  ],
+  "ci:password": [
+   "password",
+   "visitor",
+   "remote",
+   "health",
+   "laptop",
+   "router3000",
+   "leave",
+   "expense",
+   "router2000",
+   "q3plan"
+  ],
+  "ci:revenue": [
+   "q2revenue",
+   "q1revenue",
+   "q3plan",
+   "canteen",
+   "leave",
+   "onboard",
+   "expense",
+   "password",
+   "visitor",
+   "laptop"
+  ],
+  "ci:onboard": [
+   "onboard",
+   "laptop",
+   "canteen",
+   "remote",
+   "health",
+   "leave",
+   "visitor",
+   "q3plan",
+   "q2revenue",
+   "password"
+  ],
+  "ci:meeting": [
+   "meeting",
+   "remote",
+   "shuttle",
+   "leave",
+   "visitor",
+   "onboard",
+   "shipping",
+   "password",
+   "expense",
+   "canteen"
+  ],
+  "ci:stock": [
+   "onboard",
+   "q1revenue",
+   "q3plan",
+   "q2revenue",
+   "laptop",
+   "visitor",
+   "shuttle",
+   "health",
+   "router2000",
+   "leave"
+  ],
+  "ci:parkingfee": [
+   "visitor",
+   "meeting",
+   "shuttle",
+   "t900",
+   "canteen",
+   "t800",
+   "gym",
+   "password",
+   "offices",
+   "warranty"
+  ],
+  "ci:t800": [
+   "t800",
+   "t900",
+   "warranty",
+   "returns",
+   "shipping",
+   "gym",
+   "offices",
+   "laptop",
+   "leave",
+   "password"
+  ],
+  "ci:gym": [
+   "gym",
+   "offices",
+   "shipping",
+   "t900",
+   "returns",
+   "t800",
+   "warranty",
+   "canteen",
+   "remote",
+   "health"
+  ],
+  "ci:returns": [
+   "returns",
+   "router2000",
+   "router3000",
+   "printer",
+   "visitor",
+   "t900",
+   "laptop",
+   "canteen",
+   "password",
+   "gym"
+  ],
+  "ci:parental": [
+   "returns",
+   "warranty",
+   "t900",
+   "t800",
+   "expense",
+   "leave",
+   "remote",
+   "laptop",
+   "visitor",
+   "onboard"
+  ],
+  "ci:shuttle": [
+   "shuttle",
+   "expense",
+   "laptop",
+   "health",
+   "onboard",
+   "q2revenue",
+   "leave",
+   "q1revenue",
+   "visitor",
+   "q3plan"
+  ]
+ },
+ "context": {
+  "ci:leave10": [
+   "leave",
+   "remote",
+   "health"
+  ],
+  "ci:expense": [
+   "expense",
+   "remote",
+   "leave"
+  ],
+  "ci:printer": [
+   "printer",
+   "router2000",
+   "router3000"
+  ],
+  "ci:router": [
+   "router2000",
+   "router3000",
+   "password"
+  ],
+  "ci:remote": [
+   "remote",
+   "leave",
+   "gym"
+  ],
+  "ci:password": [
+   "password",
+   "visitor",
+   "laptop"
+  ],
+  "ci:revenue": [
+   "q2revenue",
+   "q1revenue",
+   "q3plan"
+  ],
+  "ci:onboard": [
+   "onboard",
+   "laptop",
+   "leave"
+  ],
+  "ci:meeting": [
+   "meeting",
+   "remote",
+   "leave"
+  ],
+  "ci:stock": [],
+  "ci:parkingfee": [],
+  "ci:t800": [
+   "t800",
+   "t900",
+   "warranty"
+  ],
+  "ci:gym": [
+   "gym",
+   "offices",
+   "canteen"
+  ],
+  "ci:returns": [
+   "returns",
+   "router2000",
+   "router3000"
+  ],
+  "ci:parental": [],
+  "ci:shuttle": [
+   "shuttle",
+   "canteen",
+   "leave"
+  ]
+ },
+ "profiles": {
+  "ci:leave10": "fact",
+  "ci:expense": "fact",
+  "ci:printer": "fact",
+  "ci:router": "fact",
+  "ci:remote": "fact",
+  "ci:password": "fact",
+  "ci:revenue": "compare",
+  "ci:onboard": "multi",
+  "ci:meeting": "fact",
+  "ci:stock": "fact",
+  "ci:parkingfee": "fact",
+  "ci:t800": "fact",
+  "ci:gym": "multi",
+  "ci:returns": "fact",
+  "ci:parental": "fact",
+  "ci:shuttle": "fact"
+ }
+}

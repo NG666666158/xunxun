@@ -1,0 +1,11 @@
+{
+  "bundle": { "createUpdaterArtifacts": true },
+  "plugins": {
+    "updater": {
+      "pubkey": "<xunxun-updater.key.pub 的内容>",
+      "endpoints": ["https://<你的地址>/latest.json"],
+      "requireSignedVersion": true,
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

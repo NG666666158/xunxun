@@ -1,0 +1,72 @@
+{
+  "_comment": "Public datasets for evaluation/suite. fetch.py downloads them into evaluation/external/<dataset>/ (gitignored) and checks every file against the pinned revision: sha256 for Hugging Face LFS files, the git blob sha1 for plain git files. Third-party data is never committed.",
+  "duretrieval": {
+    "homepage": "https://huggingface.co/datasets/C-MTEB/DuRetrieval",
+    "upstream": "DuReader-retrieval (Baidu), test split as packaged by C-MTEB",
+    "license": "not stated on the C-MTEB card; upstream DuReader-retrieval is released for research (see REPORT.md)",
+    "files": [
+      {"host": "hf", "repo": "C-MTEB/DuRetrieval", "revision": "a1a333e290fe30b10f3f56498e3a0d911a693ced",
+       "path": "data/corpus-00000-of-00001-19b9e924cb33e4d5.parquet", "save_as": "corpus.parquet",
+       "size": 64412709, "sha256": "d4b4eb51b63549ef0851a15fc63c2a61b703dce95e3727b535a08f7ba1d14424"},
+      {"host": "hf", "repo": "C-MTEB/DuRetrieval", "revision": "a1a333e290fe30b10f3f56498e3a0d911a693ced",
+       "path": "data/queries-00000-of-00001-7c7edb40be6b560c.parquet", "save_as": "queries.parquet",
+       "size": 118461, "sha256": "62ac55e764bffd4ffceb0aa51e7a536a0e5932f23c8606566906db6a9efb4b94"},
+      {"host": "hf", "repo": "C-MTEB/DuRetrieval-qrels", "revision": "497b7bd1bbb25cb3757ff34d95a8be50a3de2279",
+       "path": "data/dev-00000-of-00001-d3c385852a7c0c9d.parquet", "save_as": "qrels.parquet",
+       "size": 420443, "sha256": "c87e7c16f535a98b29ee0ebf6977639c793e3bd149c04634a1810273cfd3c3e5"}
+    ]
+  },
+  "t2retrieval": {
+    "homepage": "https://huggingface.co/datasets/C-MTEB/T2Retrieval",
+    "upstream": "T2Ranking (THUIR), test split as packaged by C-MTEB",
+    "license": "not stated on the C-MTEB card; upstream T2Ranking is released for research (see REPORT.md)",
+    "files": [
+      {"host": "hf", "repo": "C-MTEB/T2Retrieval", "revision": "8731a845f1bf500a4f111cf1070785c793d10e64",
+       "path": "data/corpus-00000-of-00001-8afe7b7a7eca49e3.parquet", "save_as": "corpus.parquet",
+       "size": 156789043, "sha256": "d4a207a9277eb1cf31f68ab6a7236cbf3e8fbf9493e0e2b577a34660929fcd17"},
+      {"host": "hf", "repo": "C-MTEB/T2Retrieval", "revision": "8731a845f1bf500a4f111cf1070785c793d10e64",
+       "path": "data/queries-00000-of-00001-930bf3b805a80dd9.parquet", "save_as": "queries.parquet",
+       "size": 817492, "sha256": "47a5866f1e668700420f44b200f9808c9e799208a46da147dfe380b40fb406ec"},
+      {"host": "hf", "repo": "C-MTEB/T2Retrieval-qrels", "revision": "1c83b8d1544e529875e3f6930f3a1fcf749a8e97",
+       "path": "data/dev-00000-of-00001-92ed0416056ff7e1.parquet", "save_as": "qrels.parquet",
+       "size": 1146734, "sha256": "a283ce5c8bd739e7f5524107586eb21e68d7736172524b79eb5bd844c4b78c00"}
+    ]
+  },
+  "multihop_rag": {
+    "homepage": "https://github.com/yixuantt/MultiHop-RAG",
+    "upstream": "MultiHop-RAG (COLM 2024); data files from the authors' Hugging Face dataset yixuantt/MultiHopRAG",
+    "license": "ODC-BY (Hugging Face card)",
+    "files": [
+      {"host": "hf", "repo": "yixuantt/MultiHopRAG", "revision": "71ac0d0bd1f951d2d6b70311f7d2ae404e1ffa82",
+       "path": "corpus.json", "save_as": "corpus.json", "size": 6785567, "git_sha1": "bb98345ef3921312aad05fd117b5a3e39888de2c"},
+      {"host": "hf", "repo": "yixuantt/MultiHopRAG", "revision": "71ac0d0bd1f951d2d6b70311f7d2ae404e1ffa82",
+       "path": "MultiHopRAG.json", "save_as": "MultiHopRAG.json", "size": 5171312, "git_sha1": "fcb9efe65c7730dd4126a42afb6c2c7e45721ebb"}
+    ]
+  },
+  "crud_rag": {
+    "homepage": "https://github.com/IAAR-Shanghai/CRUD_RAG",
+    "upstream": "CRUD-RAG (IAAR-Shanghai): question answering with 1/2/3 reference news, and its 80k-document news corpus",
+    "license": "no license file in the repository (research use; see REPORT.md)",
+    "files": [
+      {"host": "github", "repo": "IAAR-Shanghai/CRUD_RAG", "revision": "1aace383994e1f68efa12cf2a8e2dadfb4102ceb",
+       "path": "data/crud_split/split_merged.json", "save_as": "split_merged.json"},
+      {"host": "github", "repo": "IAAR-Shanghai/CRUD_RAG", "revision": "1aace383994e1f68efa12cf2a8e2dadfb4102ceb",
+       "tree_prefix": "data/80000_docs/documents_dup_part_", "save_dir": "80000_docs"}
+    ]
+  },
+  "rgb": {
+    "homepage": "https://github.com/chen700564/RGB",
+    "upstream": "RGB (Chen et al., AAAI 2024, arXiv 2309.01431): Chinese noise robustness and negative rejection (zh_refine), information integration (zh_int), counterfactual robustness (zh_fact)",
+    "license": "CC BY-NC-SA 4.0 (non-commercial): internal evaluation only, never committed or shipped",
+    "files": [
+      {"host": "github", "repo": "chen700564/RGB", "revision": "65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615",
+       "path": "data/zh_refine.json", "save_as": "zh_refine.json"},
+      {"host": "github", "repo": "chen700564/RGB", "revision": "65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615",
+       "path": "data/zh_int.json", "save_as": "zh_int.json"},
+      {"host": "github", "repo": "chen700564/RGB", "revision": "65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615",
+       "path": "data/zh_fact.json", "save_as": "zh_fact.json"},
+      {"host": "github", "repo": "chen700564/RGB", "revision": "65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615",
+       "path": "LICENSE.txt", "save_as": "LICENSE.txt"}
+    ]
+  }
+}

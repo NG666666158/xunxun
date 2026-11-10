@@ -1,0 +1,13 @@
+{
+  "productName": "寻寻",
+  "bundle": {
+    "shortDescription": "寻寻：在你的资料里找答案",
+    "longDescription": "监控本机文件夹，读完后回答问题并给出引用。",
+    "windows": {
+      "nsis": {
+        "startMenuFolder": "",
+        "installerHooks": "../../packaging/rename/hooks.nsh"
+      }
+    }
+  }
+}
