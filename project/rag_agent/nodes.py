@@ -27,6 +27,7 @@ from retrieval.file_filters import (
     parse_query,
 )
 from retrieval.hybrid_retriever import HybridRetriever
+from retrieval.temporal import DocumentDates, in_range as date_in_range, label as time_label, request_time
 from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error, transient_error
 from .answering import (
     cited_claims,
@@ -106,13 +107,25 @@ class AgentNodes(DocumentNodes):
         self.summary_llm = summary_llm
         # doc ids -> {doc id: "YYYY-MM-DD"} (dated_evidence); None: the library's file dates.
         self.document_dates = document_dates
+        self.clock = getattr(file_search, "clock", datetime.now)
+        self.time_dates = DocumentDates(getattr(self.settings, "parsed_dir", None))
 
     def analyze_query(self, state: State) -> dict[str, Any]:
         question = self._current_question(state)
         history = self._conversation_context(state.get("messages", []))
         scope = state.get("scope_doc_ids") or []
-        document = self._document_turn(question, state)
-        if document is not None:
+        now = self.clock()
+        temporal = request_time(question, now) if self.documents is not None else {}
+        if temporal:
+            temporal = self.time_dates.select(temporal, self._rows(), scope)
+        document = None if temporal else self._document_turn(question, state)
+        if temporal:
+            intent = "find_file" if self.file_search is not None and self._obviously_find_file(question) else "knowledge"
+            plan = (self._plan(question, history) if temporal["doc_ids"] and history and not temporal["keywords"]
+                    else QueryPlan(intent=intent, rewritten_query=question[:500]))
+            if plan.intent in DOCUMENT_INTENTS:
+                plan = plan.model_copy(update={"intent": "knowledge"})
+        elif document is not None:
             plan = document.plan
         elif SMALL_TALK.match(question.strip()):
             # "你好" / "谢谢" / "你能做什么": the planner could only agree (see _enforce_plan_policy).
@@ -139,6 +152,7 @@ class AgentNodes(DocumentNodes):
             profile = classify_question(plan.rewritten_query)
         return {
             "question": question,
+            "temporal": temporal,
             "intent": plan.intent,
             "rewritten_query": plan.rewritten_query,
             "plan": plan.model_dump(),
@@ -278,6 +292,14 @@ class AgentNodes(DocumentNodes):
     def retrieve(self, state: State) -> dict[str, Any]:
         attempts = state.get("retrieval_attempts", 0) + 1
         scope = state.get("scope_doc_ids") or []
+        temporal = state.get("temporal") or {}
+        if temporal:
+            if not temporal["doc_ids"]:
+                return {"retrieval_attempts": attempts, "documents": [], "retrieve_chunks": [], "context_docs": [], "last_error": ""}
+            # Content dates constrain the answer, not the index search. Keep the
+            # unscoped KNN path, named-file recall and conversation preferences.
+            if temporal.get("basis") != "content":
+                scope = temporal["doc_ids"]
         # The question type caps how many reranked passages are kept (score cutoffs may keep
         # fewer) and, for questions of several parts, how many may come from one document.
         limits = self._retrieval_limits(state.get("answer_profile"))
@@ -295,6 +317,9 @@ class AgentNodes(DocumentNodes):
             else:
                 hits = self.retriever.retrieve(state["rewritten_query"], mode="hybrid_rerank", **limits)
             documents = [hit.to_dict() for hit in hits]
+            if temporal:
+                allowed_ids = set(temporal["doc_ids"])
+                documents = [d for d in documents if str(d.get("doc_id")) in allowed_ids]
             return {
                 "retrieval_attempts": attempts,
                 "retrieve_chunks": documents,
@@ -356,6 +381,14 @@ class AgentNodes(DocumentNodes):
         now = getattr(self.file_search, "clock", datetime.now)()
         filters = merge_planner_filter(parse_query(question, now), state.get("plan", {}).get("file_filter"), now)
         scope = set(state.get("scope_doc_ids") or []) or None
+        temporal = state.get("temporal") or {}
+        if temporal:
+            scope = set(temporal["doc_ids"])
+            if not scope:
+                return self.refuse(state)
+            # Business dates were already checked; do not filter again by import/mtime.
+            filters.time_range = None
+            filters.time_phrase = ""
         # Only conditions, or only a document type ("有哪些合同"): the list is the answer, so it
         # can run long (the UI folds it).
         listing = bool(getattr(self.file_search, "lists_type", lambda _: False)(filters))
@@ -377,6 +410,8 @@ class AgentNodes(DocumentNodes):
         files = result["files"]
         message = self._describe_files(files, filters, result["total"], result["unreadable"],
                                        typed=result.get("typed") if listing else None)
+        if temporal:
+            message = temporal["note"] + "\n\n" + message
         return {
             "answer": message,
             # The answer is shown as it is; what later turns send to the model leaves out the
@@ -520,7 +555,13 @@ class AgentNodes(DocumentNodes):
                 break
 
         selected = self._label_same_names(selected)
-        if getattr(self.settings, "dated_evidence", False) and multidoc.temporal_question(state.get("question", "")):
+        temporal = state.get("temporal") or {}
+        if temporal:
+            allowed_ids = set(temporal["doc_ids"])
+            selected = [d for d in selected if str(d.get("doc_id")) in allowed_ids]
+            if temporal.get("basis") != "content":
+                selected = [{**d, "date": temporal["dates"][str(d["doc_id"])]} for d in selected]
+        elif getattr(self.settings, "dated_evidence", False) and multidoc.temporal_question(state.get("question", "")):
             selected = self._with_dates(selected)
         return {"context_docs": selected}
 
@@ -600,6 +641,11 @@ class AgentNodes(DocumentNodes):
     @staticmethod
     def _nothing_found(state: State) -> str:
         """The plain reply when the search found nothing that answers the question."""
+        temporal = state.get("temporal") or {}
+        if temporal:
+            if not temporal["doc_ids"]:
+                return temporal["empty_message"]
+            return temporal["note"] + "\n\n在这些资料中没有找到能回答该问题的内容，未使用其他日期的资料代答。"
         if state.get("table_fallback") and (state.get("target_file") or {}).get("name"):
             return f"《{Path(state['target_file']['name']).stem}》里没有找到能回答这个问题的内容。"
         if state.get("scope_doc_ids"):
@@ -650,6 +696,16 @@ class AgentNodes(DocumentNodes):
             f"问题：\n{question}\n\n证据：\n{evidence}\n\n篇幅要求：{guidance}\n"
             f"引用要求：{CITATION_REMINDER}"
         )
+        temporal = state.get("temporal") or {}
+        if temporal:
+            prompt += (f"\n问题要求的时间范围：{time_label(temporal['start'], temporal['end'])}。"
+                       f"{temporal['note']}使用实际日期，不把上周称作本周。")
+            if temporal.get("basis") == "content":
+                prompt += ("文档开具/生成日期、税款所属期和业务实际发生日期不可混用；交税问题按缴纳/入库日期核对。"
+                           "如资料只记载其他年份，明确说所问年份没有依据，并说明找到的实际年份和金额。"
+                           "一份凭证的合计仅是该凭证覆盖的金额，不能当成全年总额；合计与明细不能重复累加。")
+            else:
+                prompt += "只回答上述限定时间内的资料。"
         notes = []
         if getattr(settings, "term_note", False) and state.get("intent") != "summarize_file":
             notes = near_term_notes(state["question"], [block["text"] for block in self._evidence_blocks(state)])
@@ -769,6 +825,18 @@ class AgentNodes(DocumentNodes):
         return "\n".join(lines) + "\n\n" + answer, lines
 
     def fact_check(self, state: State) -> dict[str, Any]:
+        temporal = state.get("temporal") or {}
+        content_time = temporal.get("basis") == "content"
+        if temporal:
+            documents = state.get("context_docs") or state.get("documents") or []
+            allowed = set(temporal["doc_ids"])
+            outside_scope = any(str(d.get("doc_id")) not in allowed for d in documents)
+            outside_dates = not content_time and any(not date_in_range(
+                temporal["dates"].get(str(d.get("doc_id")), ""), temporal["start"], temporal["end"]
+            ) for d in documents)
+            if not documents or outside_scope or outside_dates:
+                return {"grounded": False, "unsupported_claims": ["引用资料不符合本次日期范围"],
+                        "check_skipped": False, "check_mode": "temporal"}
         answer = state.get("answer", "")
         blocks = self._evidence_blocks(state)
         claims = cited_claims(answer)
@@ -793,7 +861,7 @@ class AgentNodes(DocumentNodes):
             # needs no model to confirm it; only the others are sent, each with its passages.
             literal = {
                 n for n, (claim, indexes, ok) in enumerate(resolved)
-                if ok and indexes and literally_supported(claim, [blocks[i]["text"] for i in indexes])
+                if not content_time and ok and indexes and literally_supported(claim, [blocks[i]["text"] for i in indexes])
             }
             pending = [item for n, item in enumerate(resolved) if n not in literal]
             timings.note(claims=len(resolved), literal_claims=len(literal))
@@ -819,6 +887,12 @@ class AgentNodes(DocumentNodes):
                 fact_check_prompt(False, subject), f"证据：\n{state.get('evidence', '')}\n\n回答：\n{answer}", "full",
             )
         try:
+            time_check = ""
+            if content_time:
+                time_check = (f"\n原问题：{state.get('question', '')}。其中{temporal['phrase']}指"
+                              f"{time_label(temporal['start'], temporal['end'])}。核对业务实际发生日期，"
+                              "开具日期不等于业务日期。不能把其他年份金额当成本年金额、单份凭证合计当成年总额。")
+                system += time_check
             result = self._invoke_structured(
                 FaithfulnessCheck, [SystemMessage(content=system), HumanMessage(content=content)], patience=patience
             )
@@ -831,7 +905,7 @@ class AgentNodes(DocumentNodes):
                 )
                 flagged = "\n".join(f"{n}. {claim}" for n, claim in enumerate(result.unsupported_claims, start=1))
                 result = self._invoke_structured(FaithfulnessCheck, [
-                    SystemMessage(content=fact_check_prompt(True, subject)),
+                    SystemMessage(content=fact_check_prompt(True, subject) + time_check),
                     HumanMessage(content=f"证据：\n{everything}\n\n待核对的陈述（依据：以上全部证据）：\n{flagged}"),
                 ], patience=patience)
                 mode = "cited+all"
@@ -870,6 +944,12 @@ class AgentNodes(DocumentNodes):
 
     def finish(self, state: State) -> dict[str, Any]:
         answer = state.get("answer", "")
+        temporal = state.get("temporal") or {}
+        if temporal and not state.get("refused"):
+            note = temporal["note"]
+            if not answer.startswith(note):
+                answer = note + "\n\n" + answer
+            return {"answer": answer, "messages": [AIMessage(content=answer)]}
         if state.get("intent") == "summarize_file":
             return self._finish_summary(state, answer)
         return {"messages": [AIMessage(content=answer)]}

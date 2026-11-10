@@ -95,6 +95,57 @@ LONG = (
     "初审通过后转交财务部门复核，复核完成后系统会自动通知申请人领取结果，整个流程通常需要三个工作日"
     "才能全部走完，遇到节假日顺延，因此请务必提前规划好时间，避免影响后续的报销与付款安排。"
 )
+
+
+def test_mixed_font_form_keeps_identity_dates_and_every_amount(tmp_path):
+    """Anonymous analogue of a certificate: CJK labels, Latin dates/IDs/money."""
+    book = Book()
+    book.new_page()
+    book.heading("缴款证明", 17)
+    book.line("本凭证用于核对实际缴款记录", size=11)
+    rows = [
+        ("单位名称", "星河测试科技有限公司", "识别号", "TEST1234567890123456"),
+        ("开具日期", "2026-08-11", "经办编号", "TEST-20260811-001"),
+        ("项目", "所属期间", "入库日期", "实缴金额"),
+        ("项目甲", "2025-04-01 / 2025-06-30", "2025-07-15", "123.45"),
+        ("项目乙", "2025-04-01 / 2025-06-30", "2025-07-15", "6.78"),
+        ("项目丙", "2025-06-30 / 2025-06-30", "2025-07-16", "9.01"),
+    ]
+    for values in rows:
+        book.y += 32
+        for x, value in zip((57, 180, 350, 460), values):
+            font = FONT if any('\u4e00' <= c <= '\u9fff' for c in value) else "helv"
+            book.page.insert_text((x, book.y), value, fontname=font, fontsize=11)
+    parsed = MultiFormatParser(ParserSettings()).parse(book.save(tmp_path / "样本纳税证明.pdf"))
+    text = "\n".join(unit.text for unit in parsed.units)
+    for values in rows:
+        for value in values:
+            assert value in text, value
+    assert parsed.metadata["figure_labels_dropped"] == 0
+
+
+def test_form_wrapped_values_and_same_size_diagram_labels_are_distinguished(tmp_path):
+    book = Book()
+    book.new_page()
+    for _ in range(5):
+        book.paragraph("这是一段用于建立正文排版的说明文字，所有内容都应当完整保留。")
+    top = book.y + 25
+    for y, cells in [(top, [(57, "登记机关"), (298, "开具日期"), (400, "2026-08-11")]),
+                     (top + 8, [(134, "行政服务中心")]),
+                     (top + 32, [(57, "单位名称"), (134, "星河测试公司"), (298, "识别号"), (400, "TEST123456789")])]:
+        for x, text in cells:
+            book.page.insert_text((x, y), text, fontname=FONT if any('\u4e00' <= c <= '\u9fff' for c in text) else "helv", fontsize=BODY)
+    labels = ["ALPHA_NODE", "BETA_NODE", "GAMMA_NODE"]
+    for x, text in zip((70, 240, 410), labels):
+        book.page.draw_rect(pymupdf.Rect(x - 5, top + 85, x + 100, top + 125))
+        book.page.insert_text((x, top + 110), text, fontname="helv", fontsize=BODY)
+    book.page.insert_text((160, top + 150), "图1-1 系统结构", fontname=FONT, fontsize=8)
+    parsed = MultiFormatParser(ParserSettings()).parse(book.save(tmp_path / "form-and-diagram.pdf"))
+    text = "\n".join(unit.text for unit in parsed.units)
+    assert all(value in text for value in ("登记机关", "2026-08-11", "星河测试公司", "TEST123456789", "图1-1 系统结构"))
+    assert not any(label in text for label in labels)
+
+
 FIRST = "本制度适用于公司全体员工的差旅与报销活动。员工出差前应当提交申请，并在返回后五个工作日内完成报销。"
 SECOND = "差旅标准按照职级划分，具体标准见附件一。超出标准的部分需要部门负责人另行审批，并说明理由。"
 

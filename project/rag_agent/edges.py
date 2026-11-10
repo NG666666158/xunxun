@@ -5,6 +5,8 @@ from .graph_state import State
 
 
 def route_after_analysis(state: State) -> str:
+    if state.get("temporal") and not state["temporal"]["doc_ids"]:
+        return "refuse"
     if state.get("plan", {}).get("needs_clarification"):
         return "clarification"
     return {

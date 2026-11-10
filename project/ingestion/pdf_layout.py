@@ -37,7 +37,7 @@ from .models import DocumentUnit
 
 # Bump whenever the extracted text changes, so files parsed by an older version are
 # re-indexed by the library's start-up reconcile.
-PDF_PARSER_VERSION = 8
+PDF_PARSER_VERSION = 10
 # Scanned pages are rendered at this zoom for recognition (2.0 = 144 dpi). 1.5 detects text a
 # quarter faster but merges English words ("Scanned2026"), so it stays at 2.0.
 PAGE_ZOOM = 2.0
@@ -672,7 +672,8 @@ class _Assembler:
         full = row.x1 >= right - max(1.5 * body, 0.03 * (right - left))
         if len(row.cells) > 1:
             bodyish = sum(
-                cell.chars for cell in row.cells if layout.is_body_size(cell.size, 0.15) and cell.font in layout.body_fonts
+                cell.chars for cell in row.cells
+                if layout.is_body_size(cell.size, 0.15) and cell.font in layout.body_fonts
             )
             if bodyish * 3 >= 2 * sum(cell.chars for cell in row.cells) or max(cell.chars for cell in row.cells) >= 30:
                 return "table"  # a sentence-long cell is never a figure label
@@ -751,6 +752,33 @@ class _Assembler:
         ``tables=False`` leaves numeric label grids as labels, for telling figures apart.
         """
         kinds = [self.kind(row) for row in rows]
+        # Mixed-font forms: preserve aligned label/value rows with dates or IDs,
+        # rather than accepting every body-sized diagram label. Require multiple
+        # structured rows; one horizontal row of diagram boxes is not a form.
+        value = re.compile(r"^(?=.*\d)[\dA-Za-z\s.,:/年月至日¥￥$%+−–—-]+$")
+        for start in range(len(rows)) if tables else ():
+            if len(rows[start].cells) < 3 or kinds[start] not in ("table", "label"):
+                continue
+            group = [start]
+            anchors = [c.x0 for c in rows[start].cells]
+            for index in range(start + 1, min(start + 8, len(rows))):
+                row, prev = rows[index], rows[group[-1]]
+                if row.center - prev.center > 5 * self.layout.body_size:
+                    break
+                if kinds[index] == "line" and len(row.cells) == 1:
+                    continue  # a wrapped value between two aligned form rows
+                if kinds[index] not in ("table", "label") or len(row.cells) < 3:
+                    break
+                aligned = sum(any(abs(c.x0 - x) <= self.layout.body_size for x in anchors) for c in row.cells)
+                if aligned < 2:
+                    break
+                group.append(index)
+            structured = sum(any(value.fullmatch(c.text.strip()) for c in rows[i].cells)
+                             and any(c.font in self.layout.body_fonts and _CJK.search(c.text) for c in rows[i].cells)
+                             for i in group)
+            if len(group) >= 2 and structured >= 2:
+                for index in group:
+                    kinds[index] = "table"
         # Tables set smaller than the body (papers) look like figure labels: a run of
         # multi-cell rows, several of them mostly numbers, is a table.
         start = 0 if tables else len(rows)

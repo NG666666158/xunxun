@@ -9,6 +9,8 @@ from langgraph.graph.message import add_messages
 class State(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]
     question: str
+    # Frozen once per turn: requested/effective local dates and permitted documents.
+    temporal: dict[str, Any]
     intent: str
     rewritten_query: str
     plan: dict[str, Any]
