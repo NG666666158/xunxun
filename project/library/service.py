@@ -1481,7 +1481,16 @@ class LibraryService:
         with self._mutex:
             self._move_rules(src, dest)
         root = self.registry.root_for_path(dest)
-        if root is None or path_excluded(dest, root["path"]) or self._decision(dest, root).excluded:
+        if root is not None and self._decision(dest, root).excluded:
+            # The watcher already knows the destination. Purge immediately rather
+            # than relying on NTFS file-ID lookup (unavailable on other hosts).
+            with self._mutex:
+                record = self.registry.get_by_path(src)
+                records = [record] if record else self.registry.files_under(src)
+                for item in records:
+                    self.remove_file(item["file_id"], source="auto")
+            return
+        if root is None or path_excluded(dest, root["path"]):
             self.handle_path(src)
             return
         with self._mutex:

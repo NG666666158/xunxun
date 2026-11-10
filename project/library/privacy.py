@@ -79,7 +79,8 @@ def clean_pattern(raw: str) -> str:
 
 
 def pattern_matches(pattern: str, name: str) -> bool:
-    return fnmatch.fnmatchcase(_key(name), _key(pattern))
+    # Privacy patterns have the same case-insensitive meaning on every host.
+    return fnmatch.fnmatchcase(name.lower(), pattern.lower())
 
 
 @dataclass(frozen=True)

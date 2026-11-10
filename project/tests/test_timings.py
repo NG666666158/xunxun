@@ -7,6 +7,7 @@ import json
 import threading
 import time
 import zipfile
+from types import SimpleNamespace
 
 from langchain_core.messages import HumanMessage
 
@@ -15,17 +16,20 @@ from rag_agent.graph import create_agent_graph
 from tests.test_graph_integration import FakeLLM, FakeParentStore, FakeRetriever, GraphSettings
 
 
-def test_stages_add_up_only_inside_an_active_turn():
+def test_stages_add_up_only_inside_an_active_turn(monkeypatch):
+    clock = iter((10.0, 10.01, 10.02, 10.04, 10.05))
+    monkeypatch.setattr(timings, "time", SimpleNamespace(perf_counter=lambda: next(clock)))
     with timings.stage("embed"):
         pass  # no turn: nothing to record, nothing raised
-    turn = timings.TurnTimings()
+    turn = timings.TurnTimings(started=10.0)
     with timings.activate(turn):
         with timings.stage("search"):
-            time.sleep(0.01)
+            pass
         with timings.stage("search"):
             pass
     record = turn.finish(intent="knowledge")
-    assert record["stages"]["search"] >= 10
+    assert record["stages"]["search"] == 30
+    assert record["total_ms"] == 50
     assert record["counts"] == {"search": 2}
     assert record["intent"] == "knowledge"
     assert timings.current() is None

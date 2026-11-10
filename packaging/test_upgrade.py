@@ -320,6 +320,7 @@ def main() -> int:
             version = old.get("/health/live")[1].get("version")
             check(version == args.old_version, "old backend runs on the data copy", results, version)
             status = old.wait_library()
+            previous_backups = {b["name"] for b in old.get("/data-safety")[1].get("backups", [])}
         before = counts(data / "knowledge.sqlite3")
         print("before", before, status["counts"], flush=True)
 
@@ -344,7 +345,8 @@ def main() -> int:
             check(safety.get("state") == "ok", "database check passes", results, f"{safety.get('check_ms')} ms")
             # An old version with data safety (1.1.0) kept its own copy on its first run: look for
             # the one this upgrade made, labelled with the version it replaced.
-            upgrade = [b for b in safety.get("backups", []) if b.get("reason") == "upgrade" and b.get("app_version") == args.old_version]
+            upgrade = [b for b in safety.get("backups", []) if b.get("reason") == "upgrade"
+                       and b.get("app_version") == args.old_version and b.get("name") not in previous_backups]
             check(len(upgrade) == 1, "a copy was kept before the upgrade", results, upgrade[0].get("size") if upgrade else "")
             check(settings.get("onboarding_done") is False and settings.get("data_notice_seen") is False, "the notice is still to be shown", results)
             status = new.wait_library()

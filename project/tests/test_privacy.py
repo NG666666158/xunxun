@@ -317,13 +317,18 @@ def test_renamed_excluded_folder_stays_excluded(lib, desk, monkeypatch):
     assert [rule["value"] for rule in lib.list_roots()[0]["rules"]] == ["旧合同"]
 
 
-def test_file_moved_into_an_excluded_folder_leaves_the_library(lib, desk):
+@pytest.mark.parametrize("move_folder", [False, True])
+def test_file_moved_into_an_excluded_folder_leaves_the_library(lib, desk, monkeypatch, move_folder):
     lib.add_root(str(desk), background=False)
     lib.add_rule(action="exclude", path=str(desk / "合同"))
     lib.run_until_idle()
     record = _record(lib, "制度.md")
-    os.replace(desk / "公开" / "制度.md", desk / "合同" / "制度.md")
-    lib.handle_move(str(desk / "公开" / "制度.md"), str(desk / "合同" / "制度.md"))
+    source = desk / "公开" if move_folder else desk / "公开" / "制度.md"
+    destination = desk / "合同" / source.name
+    # A move event must enforce exclusion even without NTFS destination lookup.
+    monkeypatch.setattr(service_module, "resolve_file_id", lambda *_: winfs.UNSUPPORTED)
+    os.replace(source, destination)
+    lib.handle_move(str(source), str(destination))
     assert lib.registry.get_file(record["file_id"]) is None
     assert not lib.store.has_document(record["file_id"]) and record["file_id"] in lib.purged
 
