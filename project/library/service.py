@@ -1487,8 +1487,10 @@ class LibraryService:
             with self._mutex:
                 record = self.registry.get_by_path(src)
                 records = [record] if record else self.registry.files_under(src)
-                for item in records:
-                    self.remove_file(item["file_id"], source="auto")
+            # Each removal takes the lock itself; purging a whole folder must not hold it
+            # for the watcher and the queue the whole time.
+            for item in records:
+                self.remove_file(item["file_id"], source="auto")
             return
         if root is None or path_excluded(dest, root["path"]):
             self.handle_path(src)

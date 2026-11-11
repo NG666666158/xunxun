@@ -22,6 +22,27 @@ DOCUMENT_SUBJECT = re.compile(r"文件|文档|资料|会议|例会|纪要|报告
 # A business action's date can differ from the date of the document describing it.
 BUSINESS_ACTION = re.compile(r"(?:[交缴付收退].{0,6}[税费款钱]|纳税)(?!证明|凭证)|营收|营业收入|销售额|发货|到货|交付|出入库")
 YEAR = re.compile(r"(?<!\d)((?:19|20)\d{2})年(?:度)?(?!\d)")
+# Names that begin with a time word but name a product or programme ("今日头条怎么打不开").
+NOT_TIME = re.compile(r"今日(?:头条|说法|关注|资本|俄罗斯|美国|影评|水印)")
+
+
+def _relative(question: str) -> list[re.Match]:
+    """Time words of the question, leaving out those that only start a name."""
+    names = [m.span() for m in NOT_TIME.finditer(question)]
+    return [m for m in RELATIVE.finditer(question) if not any(a <= m.start() < b for a, b in names)]
+
+
+# "创下了怎样的记录": a record set, not a document kept.
+ACHIEVEMENT = re.compile(r"(?:创|破|刷新)[^，。？！,.?!]{0,6}$")
+
+
+def _subject(question: str, pos: int = 0) -> re.Match | None:
+    """The first word naming a document, from ``pos`` on."""
+    for match in DOCUMENT_SUBJECT.finditer(question, pos):
+        if match[0] == "记录" and ACHIEVEMENT.search(question[:match.start()]):
+            continue
+        return match
+    return None
 
 
 def dates(text: str) -> set[str]:
@@ -37,8 +58,9 @@ def dates(text: str) -> set[str]:
 
 def request_time(question: str, now: datetime) -> dict:
     """Keep ordinary historical/content dates and bare '最近/最新' on their old path."""
-    relative = RELATIVE.search(question)
-    phrases = {m[0] for m in RELATIVE.finditer(question)}
+    relatives = _relative(question)
+    relative = relatives[0] if relatives else None
+    phrases = {m[0] for m in relatives}
     if len(phrases) > 1 and len({parse_query(p, now).time_range for p in phrases}) > 1:
         return {}  # Comparisons need several periods, not one hard document scope.
     explicit = DATE.search(question)
@@ -51,15 +73,46 @@ def request_time(question: str, now: datetime) -> dict:
     action = BUSINESS_ACTION.search(question)
     # "本周报告中纳税情况" dates the report; "今年缴税的证明" dates payments.
     anchor = relative or explicit
-    subject = DOCUMENT_SUBJECT.search(question, anchor.end())
+    subject = _subject(question, anchor.end())
     dates_document = subject and (action is None or subject.start() < action.start())
     document_time = parsed.time_field != "any" or find_file_cue(question) == "strong" or dates_document or (not action and (
-        parsed.doc_type or parsed.file_types or DOCUMENT_SUBJECT.search(question)))
+        parsed.doc_type or parsed.file_types or _subject(question)))
     return {"phrase": parsed.time_phrase, "start": start.date().isoformat(),
             "end": end.date().isoformat(), "field": parsed.time_field,
             "basis": "document" if document_time else "content",
             "now": now.isoformat(), "keywords": parsed.name_keywords,
-            "subject": subject[0].replace("例会", "会议") if subject else ""}
+            "subject": subject[0].replace("例会", "会议") if subject else "",
+            # An explicit date may be the day an event in the text happened, not a document's date.
+            # "2023年7月……环比上月": the range comes from the explicit date, "上月" is relative to it.
+            "explicit": relative is None or not any(m[0] in parsed.time_phrase for m in relatives),
+            # Payments, revenue, deliveries: dated by when they happened, not by their certificate.
+            "action": bool(action)}
+
+
+def answer_rules(request: dict) -> str:
+    """What the answer prompt adds for a time-scoped question."""
+    rules = (f"\n问题要求的时间范围：{label(request['start'], request['end'])}。"
+             f"{request.get('note', '')}使用实际日期，不把上周称作本周。")
+    if request.get("basis") != "content":
+        return rules + "只回答上述限定时间内的资料。"
+    if not request.get("action"):
+        return rules + "按资料正文记载的实际日期回答；所问时间范围内没有记载时，明确说所问时间没有依据，并说明找到的实际日期。"
+    # The wording 1.0.1 shipped and measured for payment questions, unchanged.
+    rules += ("文档开具/生成日期、税款所属期和业务实际发生日期不可混用；交税问题按缴纳/入库日期核对。"
+              "如资料只记载其他年份，明确说所问年份没有依据，并说明找到的实际年份和金额。"
+              "一份凭证的合计仅是该凭证覆盖的金额，不能当成全年总额；合计与明细不能重复累加。")
+    return rules
+
+
+def check_rules(request: dict, question: str = "") -> str:
+    """What the fact check adds when the answer must hold dates found in the text."""
+    if request.get("basis") != "content":
+        return ""
+    rules = f"\n原问题：{question}。其中{request['phrase']}指{label(request['start'], request['end'])}。"
+    if not request.get("action"):
+        return rules + "核对资料记载的实际日期。"
+    # The wording 1.0.1 shipped and measured for payment questions, unchanged.
+    return rules + "核对业务实际发生日期，开具日期不等于业务日期。不能把其他年份金额当成本年金额、单份凭证合计当成年总额。"
 
 
 def label(start: str, end: str) -> str:
@@ -127,25 +180,35 @@ class DocumentDates:
                 self._cache.popitem(last=False)
         return result
 
-    def select(self, request: dict, rows: list[dict], scope: list[str]) -> dict:
+    @staticmethod
+    def _usable(row: dict, allowed: set | None, include_named: bool) -> bool:
+        """Files a time-scoped turn may use: in scope, not deleted; files kept by name only
+        only when the turn lists files (their name and dates may be read, never their text)."""
+        if allowed is not None and row["file_id"] not in allowed:
+            return False
+        if row.get("status") in ("recycled", "deleted"):
+            return False
+        return include_named or not (row.get("content_mode") == "name" or row.get("status") == "named")
+
+    def _by_content(self, request: dict, rows: list[dict], allowed: set | None, include_named: bool) -> dict:
+        # A certificate issued this year may describe last year's payments, and a news report
+        # its event's day without carrying that date itself. Keep the documents available;
+        # the answer and the check inspect the dates in their text.
+        start, end = request["start"], request["end"]
+        ids = sorted(str(row["file_id"]) for row in rows if self._usable(row, allowed, include_named))
+        return {**request, "basis": "content", "dates": {}, "doc_ids": ids, "fallback": False,
+                "note": f"问题中的{request['phrase']}指 {label(start, end)}，以下按资料记载的实际发生日期核对。",
+                "empty_message": "当前范围内没有可用于回答的资料。"}
+
+    def select(self, request: dict, rows: list[dict], scope: list[str], include_named: bool = False) -> dict:
         start, end = request["start"], request["end"]
         known = {}
         eligible = []
         allowed = set(scope) if scope else None
         if request.get("basis") == "content":
-            # A certificate issued this year may describe last year's payments.
-            # Keep documents available; the answer/checker must inspect dates in their content.
-            ids = sorted(str(row["file_id"]) for row in rows
-                         if (allowed is None or row["file_id"] in allowed)
-                         and row.get("content_mode") != "name"
-                         and row.get("status") not in ("named", "recycled", "deleted"))
-            return {**request, "dates": {}, "doc_ids": ids, "fallback": False,
-                    "note": f"问题中的{request['phrase']}指 {label(start, end)}，以下按资料记载的实际发生日期核对。",
-                    "empty_message": "当前范围内没有可用于回答的资料。"}
+            return self._by_content(request, rows, allowed, include_named)
         for row in rows:
-            if allowed is not None and row["file_id"] not in allowed:
-                continue
-            if row.get("content_mode") == "name" or row.get("status") in ("named", "recycled", "deleted"):
+            if not self._usable(row, allowed, include_named):
                 continue
             field = request["field"]
             if field in ("added", "modified"):
@@ -182,6 +245,9 @@ class DocumentDates:
                 fallback = True
                 note = (f"今天是 {now.date().isoformat()}，星期一。没有找到本周（{label(request['start'], request['end'])}）日期可确认的资料；"
                         f"你可能把今天记成了周日，想问的是上周。以下按上周（{label(start, end)}）的相关资料回答。")
+        if not selected and request.get("explicit"):
+            # "2023年7月26日的闭门会议": no document is dated that day, but one may tell of it.
+            return self._by_content(request, rows, allowed, include_named)
         missing = f"没有找到{request['phrase']}（{label(request['start'], request['end'])}）日期可确认的资料，无法据此回答。可以补充资料，或指定其他日期。"
         return {**request, "start": start, "end": end, "dates": selected,
                 "doc_ids": sorted(selected), "fallback": fallback, "note": note,

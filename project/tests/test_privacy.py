@@ -380,3 +380,22 @@ def test_an_images_cached_reading_is_forgotten(tmp_path):
     other = _write(cache / "ab" / "abcdef.txt", "another image")
     assert forget_readings(image, settings) == 2
     assert not any(path.exists() for path in readings) and other.exists()
+
+
+def test_moving_into_an_excluded_folder_purges_without_holding_the_library_lock(lib, desk, monkeypatch):
+    # Purging a whole folder can take a while; the watcher and the queue must not wait on it.
+    lib.add_root(str(desk), background=False)
+    lib.add_rule(action="exclude", path=str(desk / "合同"))
+    lib.run_until_idle()
+    held = []
+    original = lib.remove_file
+
+    def remove(file_id, source="user"):
+        held.append(lib._mutex._is_owned())
+        original(file_id, source=source)
+
+    monkeypatch.setattr(lib, "remove_file", remove)
+    monkeypatch.setattr(service_module, "resolve_file_id", lambda *_: winfs.UNSUPPORTED)
+    os.replace(desk / "公开", desk / "合同" / "公开")
+    lib.handle_move(str(desk / "公开"), str(desk / "合同" / "公开"))
+    assert held and not any(held)

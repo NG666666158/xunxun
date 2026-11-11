@@ -27,7 +27,7 @@ from retrieval.file_filters import (
     parse_query,
 )
 from retrieval.hybrid_retriever import HybridRetriever
-from retrieval.temporal import DocumentDates, in_range as date_in_range, label as time_label, request_time
+from retrieval.temporal import DocumentDates, answer_rules, check_rules, in_range as date_in_range, request_time
 from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error, transient_error
 from .answering import (
     cited_claims,
@@ -116,11 +116,13 @@ class AgentNodes(DocumentNodes):
         scope = state.get("scope_doc_ids") or []
         now = self.clock()
         temporal = request_time(question, now) if self.documents is not None else {}
+        finding = bool(temporal) and self.file_search is not None and self._obviously_find_file(question)
         if temporal:
-            temporal = self.time_dates.select(temporal, self._rows(), scope)
+            # Listing files may include those kept by name only (found by name and date).
+            temporal = self.time_dates.select(temporal, self._rows(), scope, include_named=finding)
         document = None if temporal else self._document_turn(question, state)
         if temporal:
-            intent = "find_file" if self.file_search is not None and self._obviously_find_file(question) else "knowledge"
+            intent = "find_file" if finding else "knowledge"
             plan = (self._plan(question, history) if temporal["doc_ids"] and history and not temporal["keywords"]
                     else QueryPlan(intent=intent, rewritten_query=question[:500]))
             if plan.intent in DOCUMENT_INTENTS:
@@ -698,14 +700,8 @@ class AgentNodes(DocumentNodes):
         )
         temporal = state.get("temporal") or {}
         if temporal:
-            prompt += (f"\n问题要求的时间范围：{time_label(temporal['start'], temporal['end'])}。"
-                       f"{temporal['note']}使用实际日期，不把上周称作本周。")
-            if temporal.get("basis") == "content":
-                prompt += ("文档开具/生成日期、税款所属期和业务实际发生日期不可混用；交税问题按缴纳/入库日期核对。"
-                           "如资料只记载其他年份，明确说所问年份没有依据，并说明找到的实际年份和金额。"
-                           "一份凭证的合计仅是该凭证覆盖的金额，不能当成全年总额；合计与明细不能重复累加。")
-            else:
-                prompt += "只回答上述限定时间内的资料。"
+            # Payment rules only for payment questions ("今年交了多少税"), not "今年的起征点".
+            prompt += answer_rules(temporal)
         notes = []
         if getattr(settings, "term_note", False) and state.get("intent") != "summarize_file":
             notes = near_term_notes(state["question"], [block["text"] for block in self._evidence_blocks(state)])
@@ -887,12 +883,8 @@ class AgentNodes(DocumentNodes):
                 fact_check_prompt(False, subject), f"证据：\n{state.get('evidence', '')}\n\n回答：\n{answer}", "full",
             )
         try:
-            time_check = ""
-            if content_time:
-                time_check = (f"\n原问题：{state.get('question', '')}。其中{temporal['phrase']}指"
-                              f"{time_label(temporal['start'], temporal['end'])}。核对业务实际发生日期，"
-                              "开具日期不等于业务日期。不能把其他年份金额当成本年金额、单份凭证合计当成年总额。")
-                system += time_check
+            time_check = check_rules(temporal, state.get("question", "")) if content_time else ""
+            system += time_check
             result = self._invoke_structured(
                 FaithfulnessCheck, [SystemMessage(content=system), HumanMessage(content=content)], patience=patience
             )

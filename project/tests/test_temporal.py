@@ -297,3 +297,76 @@ def test_real_graph_correction_or_empty_result_without_extra_model_calls(tmp_pat
         assert result["context_docs"][0]["date"] == day
     else:
         assert result["refused"] and "2026-11-09" in result["answer"]
+
+
+# ---- review of 1.0.1 (release_1_0_2): false time words, undated corpora, rule scope, name-only files
+
+@pytest.mark.parametrize("query", ["今日头条怎么打不开", "今日说法讲了哪个案子", "今日资本投了哪些公司"])
+def test_names_starting_with_a_time_word_are_not_time_questions(query):
+    assert not request_time(query, datetime(2026, 11, 11))
+
+
+def test_today_itself_is_still_a_time_word():
+    assert request_time("今日的会议纪要有什么重点", datetime(2026, 11, 11))["start"] == "2026-11-11"
+
+
+def test_an_explicit_date_on_undated_documents_is_checked_in_content_not_refused(tmp_path):
+    # News and minutes often carry no date in their name or fields; the date is in the text.
+    rows = [row(1, "news06073.txt"), row(2, "news09948.txt")]
+    nodes, _ = make_nodes(tmp_path, rows)
+    state = nodes.analyze_query({"question": "麦卡锡在2023年7月26日的闭门会议中提到了哪两项内容", "messages": []})
+    assert route_after_analysis(state) != "refuse"
+    assert state["temporal"]["basis"] == "content"
+    assert state["temporal"]["doc_ids"] == [rows[0]["file_id"], rows[1]["file_id"]]
+    assert "2023-07-26" in state["temporal"]["note"]
+
+
+def test_an_explicit_date_still_scopes_to_a_document_dated_that_day(tmp_path):
+    dated, other = row(1, "会议纪要_2023-07-26.docx"), row(2, "会议纪要_2023-07-19.docx")
+    result = select(tmp_path, query="2023年7月26日的会议纪要有什么重点", rows=[dated, other])
+    assert result["basis"] == "document" and result["doc_ids"] == [dated["file_id"]]
+
+
+def test_a_relative_week_with_nothing_dated_still_refuses_plainly(tmp_path):
+    nodes, _ = make_nodes(tmp_path, [row(1, "例会纪要.docx")])
+    state = nodes.analyze_query({"question": "这周例会有什么重点", "messages": []})
+    assert route_after_analysis(state) == "refuse"
+
+
+def test_payment_rules_are_given_only_to_payment_questions():
+    from retrieval.temporal import answer_rules, check_rules
+    now = datetime(2026, 11, 11)
+    tax = request_time("星河科技今年交了多少税", now)
+    policy = request_time("今年的个税起征点是多少", now)
+    assert tax["basis"] == policy["basis"] == "content"
+    assert "缴纳" in answer_rules(tax) and "凭证" in check_rules(tax)
+    assert "缴纳" not in answer_rules(policy) and "凭证" not in answer_rules(policy)
+    assert "凭证" not in check_rules(policy) and "2026-01-01" in check_rules(policy)
+
+
+def test_files_kept_by_name_only_are_still_found_by_time(tmp_path):
+    named = row(1, "证件扫描_2026-11-03.pdf", content_mode="name", status="named")
+    read = row(2, "周报_2026-11-04.docx")
+    request = request_time("找一下上周的文件", datetime(2026, 11, 11))
+    found = DocumentDates(tmp_path).select(request, [named, read], [], include_named=True)
+    assert found["doc_ids"] == sorted([named["file_id"], read["file_id"]])
+    # Answering from content never uses them (they have none to read).
+    assert select(tmp_path, query="上周周报有什么重点", rows=[named, read])["doc_ids"] == [read["file_id"]]
+    nodes, _ = make_nodes(tmp_path, [named, read])
+    nodes.file_search = SimpleNamespace(search=None, clock=nodes.clock, best_name_match=lambda _: 0)
+    state = nodes.analyze_query({"question": "找一下上周的文件", "messages": []})
+    assert state["intent"] == "find_file" and named["file_id"] in state["temporal"]["doc_ids"]
+
+
+def test_a_relative_word_next_to_an_explicit_month_follows_the_explicit_month(tmp_path):
+    rows = [row(1, "国民安居指数报告.pdf")]
+    nodes, _ = make_nodes(tmp_path, rows)
+    state = nodes.analyze_query({"question": "2023年7月全国重点城市新房均价是多少元，环比上月涨了还是跌了？", "messages": []})
+    assert state["temporal"]["start"] == "2023-07-01"
+    assert route_after_analysis(state) != "refuse" and state["temporal"]["basis"] == "content"
+
+
+def test_a_record_set_is_not_a_document():
+    result = request_time("今年七月地球气温创下了怎样的记录？", datetime(2026, 11, 11))
+    assert result["basis"] == "content"
+    assert request_time("这周的巡检记录有什么问题", datetime(2026, 11, 11))["basis"] == "document"
