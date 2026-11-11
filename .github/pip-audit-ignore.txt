@@ -1,0 +1,6 @@
+# Known vulnerabilities the pip-audit check (scripts/audit_deps.py) accepts for now.
+# One per line: the ID pip-audit prints (or one of its aliases), then why it is safe to wait.
+# A line without a reason fails the check. Remove the line once the package is upgraded.
+#
+# Example:
+# PYSEC-2026-1845  pytest's shared /tmp directory on multi-user UNIX machines; pytest only runs in CI, it does not ship

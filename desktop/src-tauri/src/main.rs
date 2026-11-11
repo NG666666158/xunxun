@@ -23,6 +23,7 @@ const TITLE: &str = "寻寻";
 // First launch builds jieba's dictionary cache and imports LangChain; allow for slow disks.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 const LOG_HINT: &str = r"%APPDATA%\EnterpriseKnowledgeBase\logs\backend.log";
+const UPDATE_CHECK_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The running backend process, killed on exit.
 struct Backend(Mutex<Option<Child>>);
@@ -336,9 +337,29 @@ fn update_configured(app: AppHandle) -> bool {
         .is_some_and(|endpoints| !endpoints.is_empty())
 }
 
+/// Where updates come from: the build's endpoint, or `XUNXUN_UPDATE_ENDPOINT` (an https
+/// latest.json) so the owner can try a GitHub pre-release from an installed copy; see "测试版"
+/// in packaging/README_RELEASE.md. Either way the download must be a newer version signed with
+/// the build's key. The installer's restart does not pass the variable on.
+fn updater_builder(app: &AppHandle) -> Result<tauri_plugin_updater::UpdaterBuilder, String> {
+    let builder = app.updater_builder();
+    match std::env::var("XUNXUN_UPDATE_ENDPOINT").ok().filter(|url| !url.trim().is_empty()) {
+        Some(url) => {
+            let url = tauri::Url::parse(url.trim()).map_err(|e| format!("XUNXUN_UPDATE_ENDPOINT: {e}"))?;
+            builder.endpoints(vec![url]).map_err(|e| e.to_string())
+        }
+        None => Ok(builder),
+    }
+}
+
+/// Also run by the page by itself (updatecheck.js), so a check that hangs gives up rather
+/// than holding back the next one; the download in install_update has no such limit.
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = updater_builder(&app)?
+        .timeout(UPDATE_CHECK_TIMEOUT)
+        .build()
+        .map_err(|e| e.to_string())?;
     let update = updater.check().await.map_err(|e| e.to_string())?;
     Ok(update.map(|update| serde_json::json!({ "version": update.version, "notes": update.body })))
 }
@@ -348,7 +369,7 @@ async fn check_update(app: AppHandle) -> Result<Option<serde_json::Value>, Strin
 /// this process. Data stays in %APPDATA%, the installer never touches it.
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = updater_builder(&app)?.build().map_err(|e| e.to_string())?;
     let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
         return Err("已经是最新版本。".into());
     };
