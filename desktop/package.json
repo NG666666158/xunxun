@@ -1,7 +1,7 @@
 {
   "name": "enterprise-kb-desktop",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Tauri 2 shell for the enterprise knowledge base (UI from project/ui/static, backend from packaging/dist/rag-backend)",
   "scripts": {
     "frontend": "node scripts/prepare-frontend.mjs",
