@@ -1,0 +1,123 @@
+{
+ "files": 1610,
+ "batch": 1,
+ "tokens_per_minute": 9000.0,
+ "steps": [
+  {
+   "doc_type": "简历",
+   "question": "DC-001",
+   "first_ask": {
+    "elapsed_ms": 3147,
+    "untyped": 1541,
+    "typed": 0,
+    "hit1": 0.0,
+    "hit3": 1.0,
+    "type5": 0.6,
+    "mention5": 1,
+    "mention_first": 1.0,
+    "type_recall": 0.0
+   },
+   "moved_up": 64,
+   "outcomes": {
+    "built": 64
+   },
+   "build_seconds": 363.2,
+   "calls": 64,
+   "tokens": 55111,
+   "second_ask": {
+    "elapsed_ms": 1086,
+    "untyped": 1477,
+    "typed": 13,
+    "hit1": 1.0,
+    "hit3": 1.0,
+    "type5": 1.0,
+    "mention5": 0,
+    "mention_first": 0.0,
+    "type_recall": 0.65
+   },
+   "other_questions_now": {
+    "hit1": 1.0,
+    "type5": 1.0,
+    "type_recall": 0.65
+   }
+  },
+  {
+   "doc_type": "合同",
+   "question": "DC-007",
+   "first_ask": {
+    "elapsed_ms": 1094,
+    "untyped": 1477,
+    "typed": 1,
+    "hit1": 1.0,
+    "hit3": 1.0,
+    "type5": 0.6,
+    "mention5": 0,
+    "mention_first": 0.0,
+    "type_recall": 0.08333333333333333
+   },
+   "moved_up": 120,
+   "outcomes": {
+    "built": 120
+   },
+   "build_seconds": 747.3,
+   "calls": 120,
+   "tokens": 109051,
+   "second_ask": {
+    "elapsed_ms": 1250,
+    "untyped": 1357,
+    "typed": 13,
+    "hit1": 1.0,
+    "hit3": 1.0,
+    "type5": 1.0,
+    "mention5": 0,
+    "mention_first": 0.0,
+    "type_recall": 1.0
+   },
+   "other_questions_now": {
+    "hit1": 1.0,
+    "type5": 1.0,
+    "type_recall": 1.0
+   }
+  },
+  {
+   "doc_type": "论文",
+   "question": "DC-011",
+   "first_ask": {
+    "elapsed_ms": 1085,
+    "untyped": 1357,
+    "typed": 1,
+    "hit1": 0.0,
+    "hit3": 0.0,
+    "type5": 0.0,
+    "mention5": 2,
+    "mention_first": 1.0,
+    "type_recall": 0.0
+   },
+   "moved_up": 114,
+   "outcomes": {
+    "built": 114
+   },
+   "build_seconds": 725.0,
+   "calls": 114,
+   "tokens": 108410,
+   "second_ask": {
+    "elapsed_ms": 896,
+    "untyped": 1243,
+    "typed": 11,
+    "hit1": 0.0,
+    "hit3": 0.0,
+    "type5": 0.4,
+    "mention5": 1,
+    "mention_first": 1.0,
+    "type_recall": 0.5
+   },
+   "other_questions_now": {
+    "hit1": 0.0,
+    "type5": 0.4,
+    "type_recall": 0.5
+   }
+  }
+ ],
+ "cards_written": 298,
+ "rate_limited": 0
+}

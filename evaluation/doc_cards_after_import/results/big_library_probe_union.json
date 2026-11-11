@@ -1,0 +1,32 @@
+{
+ "简历": {
+  "word16+desc16": "6/20 of 27",
+  "word24+desc16": "10/20 of 35",
+  "word32+desc0": "12/20 of 32",
+  "word0+desc32": "2/20 of 32",
+  "word32+desc16": "12/20 of 42",
+  "word32+desc32": "12/20 of 56",
+  "word48+desc16": "15/20 of 58",
+  "word64+desc0": "19/20 of 64"
+ },
+ "合同": {
+  "word16+desc16": "10/12 of 24",
+  "word24+desc16": "11/12 of 31",
+  "word32+desc0": "11/12 of 32",
+  "word0+desc32": "6/12 of 32",
+  "word32+desc16": "12/12 of 39",
+  "word32+desc32": "12/12 of 47",
+  "word48+desc16": "12/12 of 55",
+  "word64+desc0": "11/12 of 64"
+ },
+ "论文": {
+  "word16+desc16": "3/16 of 25",
+  "word24+desc16": "3/16 of 33",
+  "word32+desc0": "0/16 of 32",
+  "word0+desc32": "6/16 of 32",
+  "word32+desc16": "3/16 of 40",
+  "word32+desc32": "6/16 of 53",
+  "word48+desc16": "4/16 of 53",
+  "word64+desc0": "4/16 of 64"
+ }
+}
