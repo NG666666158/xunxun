@@ -1,0 +1,341 @@
+# Build the Windows installer on GitHub and put it in a DRAFT release: what
+# packaging/README_RELEASE.md describes doing by hand. This workflow never publishes. The owner
+# downloads the draft, tests it, and presses Publish.
+#
+#   push tag v1.2.0              checks, CI tests, build, draft release "寻寻 1.2.0"
+#   Run workflow, on a tag       the same, e.g. to retry: an existing draft is updated; a
+#                                published release is never touched
+#   Run workflow, on a branch    checks, tests and build only; the files stay a workflow artifact
+#
+# Settings > Secrets and variables > Actions:
+#   secret   TAURI_SIGNING_PRIVATE_KEY            required: the updater key (xunxun-updater.key)
+#   secret   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   required: its password
+#   secret   SIGNPATH_API_TOKEN                   optional: Windows code signing; without it the
+#                                                 installer is built unsigned, as today
+#   variable SIGNPATH_ORGANIZATION_ID             required with the token
+#   variable SIGNPATH_PROJECT_SLUG                optional, default xunxun
+#   variable SIGNPATH_SIGNING_POLICY_SLUG         optional, default release-signing
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    # Seconds, not the half hour of tests and build: a tag that does not match the files stops here.
+    name: Tag, version and secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      release: ${{ steps.check.outputs.release }}
+      codesign: ${{ steps.secrets.outputs.codesign }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check the tag against the version and the CHANGELOG
+        id: check
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          python3 packaging/release_check.py --tag "$TAG" --notes-out release-notes/notes.md --github-output "$GITHUB_OUTPUT"
+          if [ -n "$TAG" ]; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Check the signing secrets
+        id: secrets
+        env:
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          RELEASE: ${{ steps.check.outputs.release }}
+        run: |
+          if [ -z "$UPDATER_KEY" ]; then
+            echo "::error::Secret TAURI_SIGNING_PRIVATE_KEY is not set; see packaging/README_RELEASE.md"
+            exit 1
+          fi
+          codesign=off
+          if [ -z "$SIGNPATH_TOKEN" ]; then
+            echo "::notice::SIGNPATH_API_TOKEN is not set: the installer is built without code signing"
+          elif [ -z "$SIGNPATH_ORGANIZATION" ]; then
+            echo "::error::SIGNPATH_API_TOKEN is set but the variable SIGNPATH_ORGANIZATION_ID is not"
+            exit 1
+          elif [ "$RELEASE" != true ]; then
+            echo "::notice::Code signing runs for tags only; this build from a branch is not signed"
+          else
+            codesign=on
+          fi
+          echo "codesign=$codesign" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes/notes.md
+          if-no-files-found: error
+          overwrite: true  # a re-run uploads under the same name
+          retention-days: 7
+
+  tests:
+    name: CI tests
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build the installer
+    needs: [version, tests]
+    runs-on: windows-latest
+    # The build itself needs well under an hour; each code-signing request may wait up to an hour
+    # for approval in SignPath.
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read  # the SignPath action reads this job and downloads its artifacts
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      CODESIGN: ${{ needs.version.outputs.codesign }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # No dependency caches in this job: what is shipped (and signed) is built on a clean runner
+      # from the lock files alone.
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          # The local-OCR manifest (project/ingestion/ocr_runtime.json) pins cp310 wheels.
+          python-version: "3.10.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Show the toolchain
+        run: |
+          python --version
+          node --version
+          rustc --version
+          cargo --version
+
+      - name: Install the backend's dependencies
+        run: python -m pip install -r requirements-lock.txt -r packaging/requirements-build.txt
+
+      - name: Build the backend (PyInstaller)
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
+        run: ./packaging/build_desktop.ps1 -Python $env:PYTHON -SkipTests -BackendOnly
+
+      # Code signing, part 1: the backend has to be signed before Tauri packs it into the installer.
+      # Only rag-backend.exe: SignPath Foundation signs a project's own binaries, not the Python
+      # runtime's or the libraries' DLLs and .pyd files (packaging/README_RELEASE.md, 代码签名).
+      - name: Upload the backend for code signing
+        id: backend-unsigned
+        if: env.CODESIGN == 'on'
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-unsigned
+          path: packaging/dist/rag-backend/rag-backend.exe
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+      - name: Code-sign the backend (SignPath)
+        if: env.CODESIGN == 'on'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'xunxun' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: backend
+          github-artifact-id: ${{ steps.backend-unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ env.VERSION }}"
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed/backend
+
+      - name: Put the signed backend in place
+        if: env.CODESIGN == 'on'
+        run: |
+          Copy-Item signed/backend/rag-backend.exe packaging/dist/rag-backend/rag-backend.exe -Force
+          $signature = Get-AuthenticodeSignature packaging/dist/rag-backend/rag-backend.exe
+          if ($signature.Status -ne 'Valid') { throw "rag-backend.exe: signature is $($signature.Status)" }
+          Write-Host "rag-backend.exe signed by $($signature.SignerCertificate.Subject)"
+
+      - name: Check the backend starts
+        run: |
+          ./packaging/dist/rag-backend/rag-backend.exe --help
+          if ($LASTEXITCODE) { throw "rag-backend.exe --help failed (exit $LASTEXITCODE)" }
+
+      - name: Build the installer (Tauri, NSIS) with the updater signature
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: ./packaging/build_desktop.ps1 -Python $env:PYTHON -SkipTests -SkipBackend -Config packaging/updater.conf.json
+
+      - name: Name the assets as in earlier releases
+        # GitHub asset names cannot be Chinese: 寻寻_<v>_x64-setup.exe -> Xunxun_<v>_x64-setup.exe
+        run: |
+          $bundle = "desktop/src-tauri/target/release/bundle/nsis"
+          $built = @(Get-ChildItem $bundle -Filter "*_${env:VERSION}_x64-setup.exe")
+          if ($built.Count -ne 1) { throw "expected one installer for $env:VERSION in $bundle, found $($built.Count)" }
+          $name = "Xunxun_${env:VERSION}_x64-setup.exe"
+          New-Item -ItemType Directory release -Force | Out-Null
+          Copy-Item $built[0].FullName "release/$name"
+          Copy-Item "$($built[0].FullName).sig" "release/$name.sig"
+
+      # Code signing, part 2: the installer. Authenticode signing changes the file, so the updater
+      # signature written by tauri build no longer matches it and is made again afterwards.
+      - name: Upload the installer for code signing
+        id: installer-unsigned
+        if: env.CODESIGN == 'on'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-unsigned
+          path: release/Xunxun_${{ env.VERSION }}_x64-setup.exe
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+      - name: Code-sign the installer (SignPath)
+        if: env.CODESIGN == 'on'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'xunxun' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.installer-unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ env.VERSION }}"
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed/installer
+
+      - name: Put the signed installer in place and sign the update again
+        if: env.CODESIGN == 'on'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $name = "Xunxun_${env:VERSION}_x64-setup.exe"
+          Copy-Item "signed/installer/$name" "release/$name" -Force
+          $signature = Get-AuthenticodeSignature "release/$name"
+          if ($signature.Status -ne 'Valid') { throw "${name}: signature is $($signature.Status)" }
+          Write-Host "$name signed by $($signature.SignerCertificate.Subject)"
+          Remove-Item "release/$name.sig"
+          Push-Location desktop
+          try {
+            npx tauri signer sign --app-version $env:VERSION "../release/$name"
+            if ($LASTEXITCODE) { throw "tauri signer sign failed (exit $LASTEXITCODE)" }
+          } finally {
+            Pop-Location
+          }
+          if (-not (Test-Path "release/$name.sig")) { throw "tauri signer sign wrote no release/$name.sig" }
+
+      - name: Write latest.json
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          $name = "Xunxun_${env:VERSION}_x64-setup.exe"
+          python packaging/make_latest_json.py --setup "release/$name" --version $env:VERSION `
+            --url "https://github.com/$env:REPO/releases/download/v$env:VERSION/$name" --out release/latest.json
+
+      - name: Check the update the way the app will
+        # Signed by the key whose public half every installed copy carries, over these exact
+        # bytes, for this version; latest.json agrees. A wrong secret fails here, not on users' PCs.
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          python -m pip install cryptography==50.0.2
+          python packaging/verify_update.py --dir release --version $env:VERSION --repo $env:REPO
+
+      - name: Summary
+        run: |
+          $name = "Xunxun_${env:VERSION}_x64-setup.exe"
+          $setup = Get-Item "release/$name"
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          $signature = (Get-AuthenticodeSignature $setup.FullName).Status
+          @(
+            "### $name",
+            "",
+            "- size: $([math]::Round($setup.Length / 1MB, 1)) MB",
+            "- SHA-256: ``$hash``",
+            "- Authenticode: $signature",
+            "- updater signature checked against packaging/updater.conf.json"
+          ) | Add-Content $env:GITHUB_STEP_SUMMARY
+
+      - name: Keep the release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: xunxun-${{ env.VERSION }}
+          path: |
+            release/Xunxun_${{ env.VERSION }}_x64-setup.exe
+            release/Xunxun_${{ env.VERSION }}_x64-setup.exe.sig
+            release/latest.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  release:
+    name: Draft the GitHub release
+    needs: [version, build]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Download the release files
+        uses: actions/download-artifact@v8
+        with:
+          name: xunxun-${{ needs.version.outputs.version }}
+          path: release
+
+      - name: Download the release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: release-notes
+
+      - name: Create or update the draft release
+        # Draft only. Nothing here publishes a release or changes a published one: the owner tests
+        # the draft and publishes it by hand (packaging/README_RELEASE.md).
+        run: |
+          files=(release/Xunxun_${VERSION}_x64-setup.exe release/Xunxun_${VERSION}_x64-setup.exe.sig release/latest.json)
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != "true" ]; then
+              echo "::error::$TAG is already published; this workflow never changes a published release"
+              exit 1
+            fi
+            gh release upload "$TAG" "${files[@]}" --clobber
+            gh release edit "$TAG" --title "寻寻 $VERSION" --notes-file release-notes/notes.md
+          else
+            gh release create "$TAG" "${files[@]}" --draft --verify-tag --title "寻寻 $VERSION" --notes-file release-notes/notes.md
+          fi
+          echo "Draft release: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

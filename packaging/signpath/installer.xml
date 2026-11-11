@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "installer" (slug: installer), used by
+  .github/workflows/release.yml after tauri build. The artifact is a ZIP holding
+  Xunxun_<version>_x64-setup.exe. Tauri's NSIS installer carries ProductName 寻寻 and
+  ProductVersion <version>.
+
+  The installer is signed as a whole: SignPath cannot open an NSIS installer, so EnterpriseKB.exe
+  and the uninstaller inside it stay unsigned (packaging/README_RELEASE.md, 代码签名).
+
+  Draft: check it in SignPath with a sample artifact before the first signed release.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="Xunxun_${version}_x64-setup.exe" product-name="寻寻" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "backend" (slug: backend), used by .github/workflows/release.yml
+  before tauri build. The artifact is a ZIP holding rag-backend.exe only.
+
+  Only rag-backend.exe is signed: SignPath Foundation signs a project's own binaries, not the
+  Python runtime's or the libraries' DLLs and .pyd files in _internal/ (https://signpath.org/terms).
+  Product name and version come from packaging/backend.spec (tauri.conf.json), e.g. 寻寻 / 1.0.3.
+
+  Draft: check it in SignPath with a sample artifact (Artifact configurations > Update from
+  artifact sample) before the first signed release.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="rag-backend.exe" product-name="寻寻" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

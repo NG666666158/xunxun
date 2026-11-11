@@ -7,12 +7,38 @@
 # deliberate: onefile unpacks to %TEMP% on every start, which is slower and is what
 # antivirus heuristics flag most often. The Tauri shell ships this folder as a resource.
 
+import json
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules, copy_metadata
+from PyInstaller.utils.win32.versioninfo import (
+    FixedFileInfo, StringFileInfo, StringStruct, StringTable, VarFileInfo, VarStruct, VSVersionInfo,
+)
 
 REPO = Path(SPECPATH).resolve().parent
 PROJECT = REPO / "project"
+
+# File properties for rag-backend.exe, written like the shell's and the installer's (product name
+# and version from tauri.conf.json). Task Manager shows the description, and code signing through
+# SignPath checks the product name and version of every file it signs.
+TAURI = json.loads((REPO / "desktop" / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
+APP_VERSION = TAURI["version"]
+_VERSION_NUMBERS = (*(int(part) for part in APP_VERSION.split(".")), 0)
+VERSION_INFO = VSVersionInfo(
+    ffi=FixedFileInfo(filevers=_VERSION_NUMBERS, prodvers=_VERSION_NUMBERS),
+    kids=[
+        StringFileInfo([StringTable("040904B0", [
+            StringStruct("CompanyName", TAURI["bundle"]["publisher"]),
+            StringStruct("FileDescription", f"{TAURI['productName']} 后台"),
+            StringStruct("FileVersion", APP_VERSION),
+            StringStruct("InternalName", "rag-backend"),
+            StringStruct("OriginalFilename", "rag-backend.exe"),
+            StringStruct("ProductName", TAURI["productName"]),
+            StringStruct("ProductVersion", APP_VERSION),
+        ])]),
+        VarFileInfo([VarStruct("Translation", [0x0409, 1200])]),
+    ],
+)
 
 # jieba ships POS tagging, keyword extraction and a Paddle LAC model we never use (~20 MB).
 JIEBA_UNUSED = ("jieba/posseg", "jieba/analyse", "jieba/lac_small", "jieba\\posseg", "jieba\\analyse", "jieba\\lac_small")
@@ -85,6 +111,7 @@ exe = EXE(
     console=True,
     upx=False,
     icon=str(REPO / "desktop" / "src-tauri" / "icons" / "icon.ico"),
+    version=VERSION_INFO,
 )
 
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="rag-backend")

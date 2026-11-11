@@ -5,14 +5,17 @@
 # Prerequisites (once): .venv with requirements.txt + packaging\requirements-build.txt,
 # Rust (rustup, MSVC toolchain), Visual Studio 2022 Build Tools (C++), Node.js.
 #
-#   powershell -ExecutionPolicy Bypass -File packaging\build_desktop.ps1 [-SkipBackend] [-SkipTests] [-Python <path>] [-Config <json>]
+#   powershell -ExecutionPolicy Bypass -File packaging\build_desktop.ps1 [-SkipBackend] [-SkipTests] [-BackendOnly] [-Python <path>] [-Config <json>]
 #
 # -Python picks the interpreter, e.g. the main checkout's .venv when building from a git
 # worktree that has none of its own. -Config adds a Tauri config on top of tauri.conf.json:
 # turning updates on, or the rename (packaging/README_RELEASE.md); give it once per file.
+# -BackendOnly stops after PyInstaller, so the backend can be code-signed before a second run
+# with -SkipBackend packs it into the installer (.github/workflows/release.yml does this).
 param(
     [switch]$SkipBackend,
     [switch]$SkipTests,
+    [switch]$BackendOnly,
     [string]$Python = "",
     [string[]]$Config = @()
 )
@@ -44,6 +47,7 @@ try {
             throw "vec0.dll missing from packaging\dist\rag-backend"
         }
     }
+    if ($BackendOnly) { return }
     Push-Location desktop
     try {
         Step "npm ci" { npm ci --no-fund --no-audit }

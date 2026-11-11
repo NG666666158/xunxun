@@ -16,6 +16,7 @@ markdown_docs/
 parent_store/
 docs/*
 !docs/BENCHMARKS.md
+!docs/code-signing-policy.md
 notebooks/
 data/uploads/
 data/parsed/
