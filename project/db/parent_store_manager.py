@@ -6,6 +6,7 @@ text so a child hit can be expanded before answer generation.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -16,12 +17,22 @@ from config import Settings, get_settings
 
 
 class ParentStoreManager:
+    # Documents whose parents stay in memory, most recently used last. Unbounded, importing a
+    # library kept every file's text in memory for the rest of the session.
+    cache_documents = 256
+
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.directory = Path(self.settings.parent_store_dir)
         self.directory.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._cache: dict[str, dict[str, dict[str, str]]] = {}
+        self._cache: OrderedDict[str, dict[str, dict[str, str]]] = OrderedDict()
+
+    def _remember(self, doc_id: str, payload: dict[str, dict[str, str]]) -> None:
+        self._cache[doc_id] = payload
+        self._cache.move_to_end(doc_id)
+        while len(self._cache) > self.cache_documents:
+            self._cache.popitem(last=False)
 
     def has_document(self, doc_id: str) -> bool:
         return self._path(doc_id).is_file()
@@ -39,7 +50,8 @@ class ParentStoreManager:
                 encoding="utf-8",
             )
             temporary.replace(target)
-            self._cache[doc_id] = payload
+            # Read back from disk when a question needs it: most files indexed in a batch are not.
+            self._cache.pop(doc_id, None)
         return len(payload)
 
     def get(self, parent_id: str) -> dict[str, str] | None:
@@ -92,7 +104,7 @@ class ParentStoreManager:
         with self._lock:
             temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             temporary.replace(target)
-            self._cache[doc_id] = payload
+            self._remember(doc_id, payload)
 
     def delete_document(self, doc_id: str) -> None:
         with self._lock:
@@ -102,6 +114,7 @@ class ParentStoreManager:
     def _load(self, doc_id: str) -> dict[str, dict[str, str]]:
         with self._lock:
             if doc_id in self._cache:
+                self._cache.move_to_end(doc_id)
                 return self._cache[doc_id]
             path = self._path(doc_id)
             if not path.is_file():
@@ -109,7 +122,7 @@ class ParentStoreManager:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError(f"invalid parent store file: {path}")
-            self._cache[doc_id] = payload
+            self._remember(doc_id, payload)
             return payload
 
     def _path(self, doc_id: str) -> Path:

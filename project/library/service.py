@@ -32,13 +32,14 @@ import threading
 import time
 from typing import Any, Callable, Iterable, Iterator
 
-from ingestion import ocr_runtime
+from ingestion import embed_pacing, ocr_runtime
 from ingestion.images import DEFAULT_IMAGE_MODE, IMAGE_MODES, estimate_seconds, forget_readings, is_image
 from ingestion.parsers import parser_version, pdf_image_mode, stable_doc_id, usable_extensions
 from ingestion.priority import BELOW_NORMAL, lower_current_thread
 from services.model_clients import background_calls
 from . import privacy, winfs
-from .jobs import LIGHT, JobQueue, Slots, estimate as estimate_job
+from .estimate import batch_seconds
+from .jobs import LIGHT, LONG, OCR, JobQueue, Slots, estimate as estimate_job
 from .registry import LOST_STATUSES, FileRegistry, SEARCHABLE_STATUSES, new_id, normalize_path, path_key
 from .scanner import (
     FileFacts,
@@ -60,12 +61,11 @@ resolve_file_id = winfs.resolve
 # Image choices a file can hold: image files use IMAGE_MODES; a PDF's scanned pages
 # "local" / "cloud", or "off" once the user declined.
 PDF_IMAGE_MODES = ("local", "cloud", "off")
-# What the import estimate assumes (design/LIBRARY_SYNC_AND_IMAGES.md §4): parsing at about
-# 30k characters a second plus a little per file, ~1.5 s per embedding request of 32 chunks.
-SECONDS_PER_FILE = 0.2
-CHARACTERS_PER_SECOND = 30000
-SECONDS_PER_EMBEDDING_REQUEST = 1.5
+# Children of the import estimate (the seconds come from library/estimate.py).
 CHARACTERS_PER_CHUNK = 600
+# Optional per-file work (document cards, home-page questions) waits while at least this many
+# files are queued or being read (pause_for_background).
+BULK_FILES = 20
 # A file that failed on the network or a model service is tried again after these delays
 # (seconds); after the last one it waits for the next start, as before.
 RETRY_DELAYS = (15, 30, 60, 120, 240)
@@ -220,6 +220,11 @@ class LibraryService:
         self.reconcile()
         for number in range(self.workers):
             self._spawn(self._worker_loop, f"library-indexer-{number}")
+        # Recognition has workers of its own: the queue puts images and scans after the text
+        # (they cost more per file), and without them recognition only started once the text
+        # was done -- the last third of an import (evaluation/import_speed_v1).
+        for number in range(self._slots.ocr_jobs):
+            self._spawn(self._worker_loop, f"library-ocr-{number}", (OCR, LONG))
         if watch:
             from .watcher import FolderWatcher
 
@@ -499,23 +504,34 @@ class LibraryService:
         }
 
     def _estimate(self, totals: dict[str, Any], figures_mode: str) -> dict[str, Any]:
+        """Seconds to read the batch, per way of reading its images (library/estimate.py):
+        the stages run side by side, so the slowest one decides."""
         documents = max(0, totals["indexable"] - totals["images"])
-        chunks = math.ceil(totals["estimated_characters"] / CHARACTERS_PER_CHUNK)
+        characters = int(totals["estimated_characters"])
+        chunks = math.ceil(characters / CHARACTERS_PER_CHUNK)
         requests = math.ceil(chunks / 32) + documents  # children in batches of 32, plus one file entry each
         images = totals["images"]
+        figures = totals["estimated_figures"] if figures_mode in ("local", "cloud") else 0
+        pacing = {
+            "tokens_per_minute": embed_pacing.PACER.known, "burst_tokens": embed_pacing.PACER.available_burst(),
+            "workers": self.workers, "ocr_jobs": self._slots.ocr_jobs,
+        }
         by_mode = {}
         for mode in IMAGE_MODES:
             seconds = estimate_seconds(mode, images)
-            by_mode[mode] = {"seconds": round(seconds), "cloud_calls": images if mode == "cloud" else 0}
+            batch = batch_seconds(documents, characters, seconds, figures, figures_mode, **pacing)
+            by_mode[mode] = {"seconds": round(seconds), "cloud_calls": images if mode == "cloud" else 0,
+                             "total_seconds": batch["seconds"], "bound": batch["bound"]}
+        text = batch_seconds(documents, characters, 0.0, figures, figures_mode, **pacing)
         return {
             "documents": documents,
             "chunks": chunks,
             "embedding_requests": requests + 2 * images,
-            "text_seconds": round(
-                documents * SECONDS_PER_FILE
-                + totals["estimated_characters"] / CHARACTERS_PER_SECOND
-                + requests * SECONDS_PER_EMBEDDING_REQUEST
-            ),
+            "embedding_tokens": text["tokens"],
+            "tokens_per_minute": round(pacing["tokens_per_minute"]),
+            # Text alone (no images), and the whole batch per image mode: what the UI shows.
+            "text_seconds": text["seconds"],
+            "total_seconds": {mode: by_mode[mode]["total_seconds"] for mode in IMAGE_MODES},
             "images": by_mode,
             # Figures inside PDFs follow the separate "图片理解" setting.
             "pdf_figures": totals["estimated_figures"],
@@ -1182,10 +1198,11 @@ class LibraryService:
             outcomes.append(outcome)
         return outcomes
 
-    def _worker_loop(self) -> None:
+    def _worker_loop(self, kinds: tuple[str, ...] | None = None) -> None:
         """One of several workers: take the best job that may start (slow recognition jobs are
-        capped, see jobs.Slots), never a file another worker is indexing. Runs below normal
-        priority: a question being answered gets the processor first."""
+        capped, see jobs.Slots), never a file another worker is indexing; ``kinds``: only jobs
+        of these kinds (the recognition workers). Runs below normal priority: a question being
+        answered gets the processor first."""
         lower_current_thread(BELOW_NORMAL)
         while not self._stopping.is_set():
             self.pause_for_questions()
@@ -1193,10 +1210,12 @@ class LibraryService:
                 job = None
                 while not self._stopping.is_set():
                     running = Counter(entry["kind"] for entry in self._running.values())
-                    job = self._queue.pop(
-                        lambda candidate: candidate.file_id not in self._running
-                        and self._slots.allows(candidate.kind, running)
-                    )
+                    if kinds is None or self._queue.has(kinds):
+                        job = self._queue.pop(
+                            lambda candidate: candidate.file_id not in self._running
+                            and (kinds is None or candidate.kind in kinds)
+                            and self._slots.allows(candidate.kind, running)
+                        )
                     if job is not None:
                         # Reserved here, under the lock, so two workers cannot both take a slow slot.
                         self._running[job.file_id] = {"file_id": job.file_id, "kind": job.kind, "started": time.time()}
@@ -1261,6 +1280,26 @@ class LibraryService:
                 if remaining <= 0:
                     return
                 self._answer_cond.wait(min(remaining, 1.0))
+
+    def importing(self) -> bool:
+        """A big batch is being read: a folder being scanned, or BULK_FILES or more files queued."""
+        with self._wake:
+            waiting = len(self._queue) + len(self._running)
+        return bool(self._scanning) or waiting >= BULK_FILES
+
+    def pause_for_background(self) -> None:
+        """For optional work done per indexed file (document cards, home-page questions): wait
+        while a question is answered, and while a big batch is being read. Those builders keep
+        their own queues, so they catch up once the text of every file is searchable instead of
+        taking model calls, rate limits and the database's write lock from the import."""
+        self.pause_for_questions()
+        waited = False
+        while self.importing() and not self._stopping.is_set():
+            waited = True
+            with self._wake:
+                self._wake.wait(timeout=5)
+        if waited:
+            self.pause_for_questions()
 
     # ---------------- one job ----------------
 
@@ -1400,7 +1439,9 @@ class LibraryService:
             "pause": lambda: self._pause_or_stop(file_id),
             "progress": lambda done, total: self._job_progress(file_id, done, total),
         })
-        return tuple(self.indexer(record["path"], file_id, record["name"], **options))
+        # Its embedding requests (children, the file entry) keep to the account's token limit.
+        with embed_pacing.paced():
+            return tuple(self.indexer(record["path"], file_id, record["name"], **options))
 
     def _pause_or_stop(self, file_id: str) -> None:
         """Between pages and embedding requests: wait while a question is answered, and stop

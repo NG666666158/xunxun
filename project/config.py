@@ -114,6 +114,12 @@ class Settings(BaseSettings):
     index_ocr_jobs: int = 2
     index_long_jobs: int = 1
     index_api_concurrency: int = 4
+    # Embedding tokens a minute the library starts at, and the most it may grow to
+    # (ingestion/embed_pacing.py): SiliconFlow refuses past the account's limit (about 500k a
+    # minute for bge-m3 on the account measured, evaluation/import_speed_v1); the pacer finds it.
+    index_embed_tpm: float = 450_000
+    index_embed_tpm_max: float = 4_000_000
+    index_embed_burst: float = 1_500_000
 
     milvus_uri: str = "http://127.0.0.1:19530"
     milvus_token: str = "root:Milvus"

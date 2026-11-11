@@ -145,12 +145,12 @@ class RAGSystem:
                 chat_model=self._card_model,
                 files=self._card_files,
                 eligible=self._card_eligible,
-                pause=self.library.pause_for_questions,
+                pause=self.library.pause_for_background,
             )
             self.library.on_indexed = self._file_indexed
             # Home-page questions are built in the background; they wait while a question is
-            # answered, as indexing does (they use the same account and rate limits).
-            self.suggestions.pause = self.library.pause_for_questions
+            # answered, as indexing does, and while a big batch is read (same account and rate limits).
+            self.suggestions.pause = self.library.pause_for_background
             self.library.on_dropped = self._file_removed
             # Text dropped for good (removed, excluded, kept by name only) also leaves the
             # index file's free pages and the backups.

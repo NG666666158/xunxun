@@ -53,6 +53,7 @@ class JobQueue:
         self._heap: list[Job] = []
         self._jobs: dict[str, Job] = {}
         self._seq = itertools.count()
+        self._counts: Counter = Counter()
 
     def add(self, file_id: str, cost: float, kind: str = LIGHT, urgent: bool = False) -> bool:
         """Queue a file, or move it forward when it becomes urgent. True when anything changed."""
@@ -61,6 +62,9 @@ class JobQueue:
         if current is not None and current.rank <= rank:
             return False
         job = Job(rank, float(cost), next(self._seq), file_id, kind)
+        if current is not None:
+            self._counts[current.kind] -= 1
+        self._counts[kind] += 1
         self._jobs[file_id] = job
         heapq.heappush(self._heap, job)
         return True
@@ -78,16 +82,23 @@ class JobQueue:
                 continue
             found = job
             del self._jobs[job.file_id]
+            self._counts[job.kind] -= 1
             break
         for job in skipped:
             heapq.heappush(self._heap, job)
         return found
 
     def discard(self, file_id: str) -> None:
-        self._jobs.pop(file_id, None)
+        job = self._jobs.pop(file_id, None)
+        if job is not None:
+            self._counts[job.kind] -= 1
 
     def kinds(self) -> Counter:
-        return Counter(job.kind for job in self._jobs.values())
+        return +self._counts
+
+    def has(self, kinds: tuple[str, ...]) -> bool:
+        """Any job of these kinds waiting (without going through the queue)."""
+        return any(self._counts[kind] > 0 for kind in kinds)
 
     def __contains__(self, file_id: object) -> bool:
         return file_id in self._jobs
