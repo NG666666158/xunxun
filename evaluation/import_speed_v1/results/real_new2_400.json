@@ -1,0 +1,585 @@
+{
+ "fake_embed": null,
+ "fake_tpm": 0.0,
+ "fake_rerank": 0.0,
+ "overrides": {
+  "watch_enabled": false,
+  "doc_cards": false
+ },
+ "image_mode": "local",
+ "suggestions": false,
+ "wall_seconds": 197.9,
+ "first_indexed_seconds": 1.1,
+ "t_50pct_indexed": 34.8,
+ "t_90pct_indexed": 142.1,
+ "t_100pct_indexed": 197.9,
+ "inspect_seconds": 0.73,
+ "scan_done_seconds": 2.6,
+ "files": {
+  "pending": 0,
+  "indexing": 0,
+  "indexed": 400,
+  "named": 0,
+  "failed": 0,
+  "unsupported": 0,
+  "missing": 0,
+  "offline": 0,
+  "recycled": 0
+ },
+ "chunks": 9025,
+ "failed": [],
+ "peak_rss_mb": 785,
+ "pacer": {
+  "tokens_per_minute": 876923,
+  "requests": 954,
+  "tokens": 2596271.9,
+  "waited": 345.98,
+  "limited": 0,
+  "cuts": 0
+ },
+ "tokens_seen": [
+  [
+   1,
+   3534,
+   450000
+  ],
+  [
+   11,
+   104021,
+   450000
+  ],
+  [
+   21,
+   288167,
+   450000
+  ],
+  [
+   31,
+   513560,
+   450000
+  ],
+  [
+   41,
+   749605,
+   450000
+  ],
+  [
+   51,
+   893600,
+   450000
+  ],
+  [
+   61,
+   1079034,
+   450000
+  ],
+  [
+   71,
+   1210004,
+   495000
+  ],
+  [
+   81,
+   1293455,
+   495000
+  ],
+  [
+   91,
+   1382235,
+   544500
+  ],
+  [
+   101,
+   1476565,
+   544500
+  ],
+  [
+   111,
+   1569463,
+   598950
+  ],
+  [
+   121,
+   1667977,
+   598950
+  ],
+  [
+   131,
+   1772022,
+   658845
+  ],
+  [
+   141,
+   1875214,
+   658845
+  ],
+  [
+   151,
+   1991528,
+   724730
+  ],
+  [
+   161,
+   2114199,
+   724730
+  ],
+  [
+   171,
+   2242119,
+   797202
+  ],
+  [
+   181,
+   2365308,
+   797202
+  ],
+  [
+   191,
+   2505831,
+   876923
+  ]
+ ],
+ "answering": {},
+ "during_import": {
+  "suggestion_builds": 0,
+  "doc_cards_built": 0
+ },
+ "doc_cards": {
+  "built": 0,
+  "cached": 0,
+  "failed": 0,
+  "skipped": 0,
+  "tokens": 0,
+  "seconds": 0.0,
+  "rate_limited": 0,
+  "pending": 0
+ },
+ "drain": {},
+ "database_locked_warnings": 0,
+ "suggestions_built": 0,
+ "estimate": {
+  "documents": 368,
+  "chunks": 6167,
+  "embedding_requests": 625,
+  "embedding_tokens": 2719209,
+  "tokens_per_minute": 450000,
+  "text_seconds": 274,
+  "total_seconds": {
+   "local": 274,
+   "cloud": 485,
+   "name": 274
+  },
+  "images": {
+   "local": {
+    "seconds": 80,
+    "cloud_calls": 0,
+    "total_seconds": 274,
+    "bound": "embedding"
+   },
+   "cloud": {
+    "seconds": 413,
+    "cloud_calls": 32,
+    "total_seconds": 485,
+    "bound": "recognition"
+   },
+   "name": {
+    "seconds": 5,
+    "cloud_calls": 0,
+    "total_seconds": 274,
+    "bound": "embedding"
+   }
+  },
+  "pdf_figures": 0,
+  "pdf_figure_mode": "off",
+  "pdf_figure_cloud_calls": 0
+ },
+ "stages": {
+  "chunk": {
+   "seconds": 0.74,
+   "calls": 401
+  },
+  "commit (chunk+vectors+write)": {
+   "seconds": 649.68,
+   "calls": 401,
+   "errors": 1.0,
+   "error_400": 1.0
+  },
+  "embed.http": {
+   "seconds": 622.7,
+   "calls": 954,
+   "http.texts": 9445.0,
+   "http.chars": 4708114.0,
+   "http.errors": 1.0,
+   "http.error_400": 1.0
+  },
+  "embed.wait_for_slot": {
+   "seconds": 26.3,
+   "calls": 954
+  },
+  "file_entry": {
+   "seconds": 86.14,
+   "calls": 400
+  },
+  "index_document": {
+   "seconds": 999.89,
+   "calls": 401,
+   "errors": 1.0,
+   "error_400": 1.0
+  },
+  "job (_index)": {
+   "seconds": 1095.69,
+   "calls": 401
+  },
+  "parents.save": {
+   "seconds": 3.2,
+   "calls": 400
+  },
+  "parse": {
+   "seconds": 350.17,
+   "calls": 401
+  },
+  "parse:docx": {
+   "seconds": 56.73,
+   "calls": 100
+  },
+  "parse:jpg": {
+   "seconds": 134.96,
+   "calls": 15
+  },
+  "parse:md": {
+   "seconds": 0.36,
+   "calls": 61
+  },
+  "parse:pdf": {
+   "seconds": 5.17,
+   "calls": 104
+  },
+  "parse:png": {
+   "seconds": 149.01,
+   "calls": 17
+  },
+  "parse:pptx": {
+   "seconds": 2.08,
+   "calls": 32
+  },
+  "parse:txt": {
+   "seconds": 0.21,
+   "calls": 32
+  },
+  "parse:xlsx": {
+   "seconds": 1.64,
+   "calls": 40
+  },
+  "parsed.json_dumps": {
+   "seconds": 0.11,
+   "calls": 400
+  },
+  "pause_for_questions": {
+   "seconds": 0.05,
+   "calls": 4445
+  },
+  "registry.update_file": {
+   "seconds": 4.29,
+   "calls": 802
+  },
+  "sha256": {
+   "seconds": 1.64,
+   "calls": 401
+  },
+  "sql.file_entries": {
+   "seconds": 7.03,
+   "calls": 400
+  },
+  "sql.replace_document (incl. tokenize)": {
+   "seconds": 50.52,
+   "calls": 400
+  },
+  "sql.tokenize": {
+   "seconds": 31.34,
+   "calls": 400
+  },
+  "sql.vectors_by_text": {
+   "seconds": 0.42,
+   "calls": 401
+  },
+  "vectors (reuse+embed)": {
+   "seconds": 577.75,
+   "calls": 401,
+   "errors": 1.0,
+   "error_400": 1.0
+  }
+ },
+ "code": "claude/import-speed-v1",
+ "progress": [
+  [
+   0.6,
+   0,
+   42,
+   6
+  ],
+  [
+   3.6,
+   12,
+   382,
+   6
+  ],
+  [
+   5.6,
+   32,
+   362,
+   6
+  ],
+  [
+   7.7,
+   45,
+   349,
+   6
+  ],
+  [
+   9.8,
+   62,
+   332,
+   6
+  ],
+  [
+   11.9,
+   75,
+   319,
+   6
+  ],
+  [
+   14.0,
+   93,
+   301,
+   6
+  ],
+  [
+   16.1,
+   107,
+   287,
+   6
+  ],
+  [
+   18.2,
+   121,
+   273,
+   6
+  ],
+  [
+   20.4,
+   130,
+   264,
+   6
+  ],
+  [
+   22.5,
+   142,
+   252,
+   6
+  ],
+  [
+   24.8,
+   155,
+   239,
+   6
+  ],
+  [
+   26.9,
+   166,
+   228,
+   6
+  ],
+  [
+   28.9,
+   175,
+   219,
+   6
+  ],
+  [
+   31.6,
+   188,
+   206,
+   6
+  ],
+  [
+   34.2,
+   199,
+   195,
+   6
+  ],
+  [
+   36.5,
+   205,
+   188,
+   6
+  ],
+  [
+   38.6,
+   211,
+   182,
+   6
+  ],
+  [
+   40.7,
+   227,
+   166,
+   6
+  ],
+  [
+   42.9,
+   239,
+   154,
+   6
+  ],
+  [
+   44.9,
+   253,
+   140,
+   6
+  ],
+  [
+   47.1,
+   261,
+   132,
+   6
+  ],
+  [
+   49.8,
+   272,
+   121,
+   6
+  ],
+  [
+   52.6,
+   281,
+   112,
+   6
+  ],
+  [
+   54.8,
+   287,
+   106,
+   6
+  ],
+  [
+   57.5,
+   294,
+   99,
+   6
+  ],
+  [
+   60.2,
+   300,
+   93,
+   6
+  ],
+  [
+   63.5,
+   307,
+   86,
+   6
+  ],
+  [
+   67.7,
+   314,
+   79,
+   6
+  ],
+  [
+   71.0,
+   318,
+   75,
+   6
+  ],
+  [
+   75.1,
+   322,
+   71,
+   6
+  ],
+  [
+   83.4,
+   326,
+   67,
+   6
+  ],
+  [
+   90.6,
+   331,
+   62,
+   6
+  ],
+  [
+   96.2,
+   336,
+   57,
+   6
+  ],
+  [
+   105.0,
+   342,
+   51,
+   6
+  ],
+  [
+   117.8,
+   347,
+   46,
+   6
+  ],
+  [
+   125.6,
+   353,
+   40,
+   6
+  ],
+  [
+   138.9,
+   359,
+   34,
+   6
+  ],
+  [
+   147.9,
+   364,
+   29,
+   6
+  ],
+  [
+   154.9,
+   370,
+   23,
+   6
+  ],
+  [
+   164.8,
+   375,
+   20,
+   4
+  ],
+  [
+   180.6,
+   381,
+   14,
+   4
+  ],
+  [
+   188.0,
+   388,
+   7,
+   4
+  ],
+  [
+   190.1,
+   396,
+   0,
+   4
+  ],
+  [
+   197.9,
+   400,
+   0,
+   0
+  ]
+ ]
+}

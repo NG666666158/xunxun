@@ -1,0 +1,461 @@
+{
+ "fake_embed": null,
+ "fake_tpm": 0.0,
+ "fake_rerank": 0.0,
+ "overrides": {
+  "watch_enabled": false,
+  "doc_cards": false
+ },
+ "image_mode": "local",
+ "suggestions": false,
+ "wall_seconds": 319.7,
+ "first_indexed_seconds": 1.1,
+ "t_50pct_indexed": 30.2,
+ "t_90pct_indexed": 171.9,
+ "t_100pct_indexed": 319.7,
+ "inspect_seconds": 0.98,
+ "scan_done_seconds": 1.6,
+ "files": {
+  "pending": 0,
+  "indexing": 0,
+  "indexed": 400,
+  "named": 0,
+  "failed": 0,
+  "unsupported": 0,
+  "missing": 0,
+  "offline": 0,
+  "recycled": 0
+ },
+ "chunks": 9025,
+ "failed": [],
+ "peak_rss_mb": 766,
+ "pacer": {
+  "tokens_per_minute": 964615,
+  "requests": 953,
+  "tokens": 2590246.6,
+  "waited": 390.33,
+  "limited": 0,
+  "cuts": 0
+ },
+ "doc_cards": {
+  "built": 0,
+  "cached": 0,
+  "failed": 0,
+  "skipped": 0,
+  "tokens": 0,
+  "seconds": 0.0,
+  "rate_limited": 0,
+  "pending": 0
+ },
+ "drain": {},
+ "estimate": {
+  "documents": 368,
+  "chunks": 6167,
+  "embedding_requests": 625,
+  "text_seconds": 1038,
+  "images": {
+   "local": {
+    "seconds": 80,
+    "cloud_calls": 0
+   },
+   "cloud": {
+    "seconds": 413,
+    "cloud_calls": 32
+   },
+   "name": {
+    "seconds": 5,
+    "cloud_calls": 0
+   }
+  },
+  "pdf_figures": 0,
+  "pdf_figure_mode": "off",
+  "pdf_figure_cloud_calls": 0
+ },
+ "stages": {
+  "chunk": {
+   "seconds": 0.47,
+   "calls": 400
+  },
+  "commit (chunk+vectors+write)": {
+   "seconds": 616.57,
+   "calls": 400
+  },
+  "embed.http": {
+   "seconds": 639.07,
+   "calls": 953,
+   "http.texts": 9425.0,
+   "http.chars": 4697448.0
+  },
+  "embed.wait_for_slot": {
+   "seconds": 0.01,
+   "calls": 953
+  },
+  "file_entry": {
+   "seconds": 71.52,
+   "calls": 400
+  },
+  "index_document": {
+   "seconds": 922.87,
+   "calls": 400
+  },
+  "job (_index)": {
+   "seconds": 999.81,
+   "calls": 400
+  },
+  "parents.save": {
+   "seconds": 1.67,
+   "calls": 400
+  },
+  "parse": {
+   "seconds": 306.26,
+   "calls": 400
+  },
+  "parse:docx": {
+   "seconds": 23.6,
+   "calls": 100
+  },
+  "parse:jpg": {
+   "seconds": 133.91,
+   "calls": 15
+  },
+  "parse:md": {
+   "seconds": 0.19,
+   "calls": 60
+  },
+  "parse:pdf": {
+   "seconds": 2.92,
+   "calls": 104
+  },
+  "parse:png": {
+   "seconds": 144.05,
+   "calls": 17
+  },
+  "parse:pptx": {
+   "seconds": 0.79,
+   "calls": 32
+  },
+  "parse:txt": {
+   "seconds": 0.08,
+   "calls": 32
+  },
+  "parse:xlsx": {
+   "seconds": 0.71,
+   "calls": 40
+  },
+  "parsed.json_dumps": {
+   "seconds": 0.08,
+   "calls": 400
+  },
+  "pause_for_questions": {
+   "seconds": 0.03,
+   "calls": 4440
+  },
+  "registry.update_file": {
+   "seconds": 1.76,
+   "calls": 800
+  },
+  "sha256": {
+   "seconds": 2.26,
+   "calls": 400
+  },
+  "sql.file_entries": {
+   "seconds": 3.66,
+   "calls": 400
+  },
+  "sql.replace_document (incl. tokenize)": {
+   "seconds": 33.51,
+   "calls": 400
+  },
+  "sql.tokenize": {
+   "seconds": 23.25,
+   "calls": 400
+  },
+  "sql.vectors_by_text": {
+   "seconds": 0.24,
+   "calls": 400
+  },
+  "vectors (reuse+embed)": {
+   "seconds": 575.99,
+   "calls": 400
+  }
+ },
+ "code": "claude/import-speed-v1",
+ "progress": [
+  [
+   0.5,
+   0,
+   71,
+   4
+  ],
+  [
+   2.6,
+   15,
+   381,
+   4
+  ],
+  [
+   4.7,
+   32,
+   364,
+   4
+  ],
+  [
+   6.7,
+   48,
+   348,
+   4
+  ],
+  [
+   8.8,
+   63,
+   333,
+   4
+  ],
+  [
+   10.8,
+   83,
+   313,
+   4
+  ],
+  [
+   13.0,
+   99,
+   297,
+   4
+  ],
+  [
+   15.0,
+   116,
+   280,
+   4
+  ],
+  [
+   17.1,
+   130,
+   266,
+   4
+  ],
+  [
+   19.4,
+   146,
+   250,
+   4
+  ],
+  [
+   21.5,
+   157,
+   239,
+   4
+  ],
+  [
+   23.7,
+   168,
+   228,
+   4
+  ],
+  [
+   25.8,
+   182,
+   214,
+   4
+  ],
+  [
+   28.5,
+   193,
+   203,
+   4
+  ],
+  [
+   30.7,
+   203,
+   193,
+   4
+  ],
+  [
+   32.8,
+   217,
+   179,
+   4
+  ],
+  [
+   35.0,
+   231,
+   165,
+   4
+  ],
+  [
+   37.0,
+   249,
+   147,
+   4
+  ],
+  [
+   39.1,
+   261,
+   135,
+   4
+  ],
+  [
+   41.2,
+   270,
+   126,
+   4
+  ],
+  [
+   43.9,
+   283,
+   113,
+   4
+  ],
+  [
+   46.5,
+   292,
+   104,
+   4
+  ],
+  [
+   49.8,
+   300,
+   96,
+   4
+  ],
+  [
+   53.0,
+   304,
+   92,
+   4
+  ],
+  [
+   59.6,
+   308,
+   88,
+   4
+  ],
+  [
+   67.4,
+   312,
+   84,
+   4
+  ],
+  [
+   74.8,
+   316,
+   80,
+   4
+  ],
+  [
+   82.0,
+   320,
+   76,
+   4
+  ],
+  [
+   94.0,
+   324,
+   72,
+   4
+  ],
+  [
+   105.9,
+   328,
+   68,
+   4
+  ],
+  [
+   116.8,
+   332,
+   64,
+   4
+  ],
+  [
+   130.4,
+   336,
+   60,
+   4
+  ],
+  [
+   138.4,
+   340,
+   56,
+   4
+  ],
+  [
+   150.7,
+   344,
+   52,
+   4
+  ],
+  [
+   166.8,
+   351,
+   45,
+   4
+  ],
+  [
+   170.4,
+   356,
+   40,
+   4
+  ],
+  [
+   172.4,
+   363,
+   33,
+   4
+  ],
+  [
+   181.0,
+   367,
+   30,
+   3
+  ],
+  [
+   194.2,
+   371,
+   27,
+   2
+  ],
+  [
+   211.6,
+   375,
+   23,
+   2
+  ],
+  [
+   230.5,
+   379,
+   19,
+   2
+  ],
+  [
+   251.3,
+   383,
+   15,
+   2
+  ],
+  [
+   267.6,
+   387,
+   11,
+   2
+  ],
+  [
+   282.4,
+   391,
+   7,
+   2
+  ],
+  [
+   301.8,
+   395,
+   3,
+   2
+  ],
+  [
+   319.7,
+   400,
+   0,
+   0
+  ]
+ ]
+}

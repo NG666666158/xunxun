@@ -1,0 +1,18 @@
+{
+ "files": [
+  400,
+  400
+ ],
+ "only_before": 0,
+ "only_after": 0,
+ "chunks": [
+  9025,
+  9025
+ ],
+ "files_with_different_chunks": 0,
+ "files_with_different_parents": 0,
+ "vectors_compared": 9025,
+ "cosine_min": 0.998991,
+ "cosine_mean": 0.999955,
+ "vectors_below_0.999": 2
+}

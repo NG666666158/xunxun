@@ -1,0 +1,529 @@
+{
+ "fake_embed": null,
+ "fake_tpm": 0.0,
+ "fake_rerank": 0.0,
+ "overrides": {
+  "watch_enabled": false,
+  "doc_cards": false
+ },
+ "image_mode": "local",
+ "suggestions": false,
+ "wall_seconds": 148.0,
+ "first_indexed_seconds": 0.5,
+ "t_50pct_indexed": 61.8,
+ "t_90pct_indexed": 126.2,
+ "t_100pct_indexed": 148.0,
+ "inspect_seconds": 1.56,
+ "scan_done_seconds": 2.1,
+ "files": {
+  "pending": 0,
+  "indexing": 0,
+  "indexed": 1500,
+  "named": 0,
+  "failed": 0,
+  "unsupported": 0,
+  "missing": 0,
+  "offline": 0,
+  "recycled": 0
+ },
+ "chunks": 6997,
+ "failed": [],
+ "peak_rss_mb": 440,
+ "pacer": {
+  "tokens_per_minute": 450000,
+  "known": 450000,
+  "requests": 3001,
+  "tokens": 2120637.4,
+  "waited": 0.0,
+  "limited": 0,
+  "cuts": 0
+ },
+ "tokens_seen": [
+  [
+   1,
+   3396,
+   450000
+  ],
+  [
+   11,
+   52700,
+   450000
+  ],
+  [
+   21,
+   95511,
+   450000
+  ],
+  [
+   31,
+   168017,
+   450000
+  ],
+  [
+   41,
+   266242,
+   450000
+  ],
+  [
+   51,
+   391064,
+   450000
+  ],
+  [
+   61,
+   512412,
+   450000
+  ],
+  [
+   71,
+   684456,
+   450000
+  ],
+  [
+   81,
+   908579,
+   450000
+  ],
+  [
+   91,
+   1190913,
+   450000
+  ],
+  [
+   101,
+   1507178,
+   450000
+  ],
+  [
+   111,
+   1593033,
+   450000
+  ],
+  [
+   122,
+   1671683,
+   450000
+  ],
+  [
+   132,
+   1820898,
+   450000
+  ],
+  [
+   142,
+   2010214,
+   450000
+  ]
+ ],
+ "answering": {},
+ "during_import": {
+  "suggestion_builds": 0,
+  "doc_cards_built": 0
+ },
+ "doc_cards": {
+  "built": 0,
+  "cached": 0,
+  "failed": 0,
+  "skipped": 0,
+  "tokens": 0,
+  "seconds": 0.0,
+  "rate_limited": 0,
+  "pending": 0
+ },
+ "drain": {},
+ "database_locked_warnings": 0,
+ "suggestions_built": 0,
+ "estimate": {
+  "documents": 1500,
+  "chunks": 5782,
+  "embedding_requests": 1681,
+  "embedding_tokens": 2722692,
+  "tokens_per_minute": 450000,
+  "text_seconds": 197,
+  "total_seconds": {
+   "local": 197,
+   "cloud": 197,
+   "name": 197
+  },
+  "images": {
+   "local": {
+    "seconds": 0,
+    "cloud_calls": 0,
+    "total_seconds": 197,
+    "bound": "embedding"
+   },
+   "cloud": {
+    "seconds": 0,
+    "cloud_calls": 0,
+    "total_seconds": 197,
+    "bound": "embedding"
+   },
+   "name": {
+    "seconds": 0,
+    "cloud_calls": 0,
+    "total_seconds": 197,
+    "bound": "embedding"
+   }
+  },
+  "pdf_figures": 0,
+  "pdf_figure_mode": "off",
+  "pdf_figure_cloud_calls": 0
+ },
+ "stages": {
+  "chunk": {
+   "seconds": 0.46,
+   "calls": 1501
+  },
+  "commit (chunk+vectors+write)": {
+   "seconds": 325.02,
+   "calls": 1501,
+   "errors": 1.0,
+   "error_400": 1.0
+  },
+  "embed.http": {
+   "seconds": 470.78,
+   "calls": 3001,
+   "http.texts": 8504.0,
+   "http.chars": 3853708.0,
+   "http.errors": 1.0,
+   "http.error_400": 1.0
+  },
+  "embed.wait_for_slot": {
+   "seconds": 0.05,
+   "calls": 3001
+  },
+  "file_entry": {
+   "seconds": 220.57,
+   "calls": 1500
+  },
+  "index_document": {
+   "seconds": 356.02,
+   "calls": 1501,
+   "errors": 1.0,
+   "error_400": 1.0
+  },
+  "job (_index)": {
+   "seconds": 588.99,
+   "calls": 1501
+  },
+  "parents.save": {
+   "seconds": 6.27,
+   "calls": 1500
+  },
+  "parse": {
+   "seconds": 30.89,
+   "calls": 1501
+  },
+  "parse:docx": {
+   "seconds": 23.98,
+   "calls": 427
+  },
+  "parse:md": {
+   "seconds": 0.33,
+   "calls": 256
+  },
+  "parse:pdf": {
+   "seconds": 3.02,
+   "calls": 376
+  },
+  "parse:pptx": {
+   "seconds": 1.33,
+   "calls": 136
+  },
+  "parse:txt": {
+   "seconds": 0.23,
+   "calls": 136
+  },
+  "parse:xlsx": {
+   "seconds": 1.99,
+   "calls": 170
+  },
+  "parsed.json_dumps": {
+   "seconds": 0.14,
+   "calls": 1500
+  },
+  "pause_for_questions": {
+   "seconds": 0.06,
+   "calls": 9411
+  },
+  "registry.update_file": {
+   "seconds": 6.01,
+   "calls": 3002
+  },
+  "sha256": {
+   "seconds": 1.81,
+   "calls": 1501
+  },
+  "sql.file_entries": {
+   "seconds": 13.08,
+   "calls": 1500
+  },
+  "sql.replace_document (incl. tokenize)": {
+   "seconds": 32.75,
+   "calls": 1500
+  },
+  "sql.tokenize": {
+   "seconds": 16.78,
+   "calls": 1500
+  },
+  "sql.vectors_by_text": {
+   "seconds": 0.68,
+   "calls": 1501
+  },
+  "vectors (reuse+embed)": {
+   "seconds": 272.49,
+   "calls": 1501,
+   "errors": 1.0,
+   "error_400": 1.0
+  }
+ },
+ "code": "claude/import-speed-v1",
+ "progress": [
+  [
+   0.5,
+   2,
+   496,
+   4
+  ],
+  [
+   4.1,
+   50,
+   1446,
+   4
+  ],
+  [
+   7.7,
+   95,
+   1401,
+   4
+  ],
+  [
+   11.3,
+   138,
+   1358,
+   4
+  ],
+  [
+   15.0,
+   183,
+   1313,
+   4
+  ],
+  [
+   18.6,
+   229,
+   1267,
+   4
+  ],
+  [
+   22.2,
+   271,
+   1225,
+   4
+  ],
+  [
+   25.8,
+   325,
+   1171,
+   4
+  ],
+  [
+   29.4,
+   371,
+   1125,
+   4
+  ],
+  [
+   33.0,
+   414,
+   1082,
+   4
+  ],
+  [
+   36.6,
+   460,
+   1036,
+   4
+  ],
+  [
+   40.2,
+   505,
+   991,
+   4
+  ],
+  [
+   43.8,
+   546,
+   950,
+   4
+  ],
+  [
+   47.4,
+   586,
+   910,
+   4
+  ],
+  [
+   51.0,
+   626,
+   870,
+   4
+  ],
+  [
+   54.6,
+   674,
+   822,
+   4
+  ],
+  [
+   58.2,
+   713,
+   783,
+   4
+  ],
+  [
+   61.8,
+   754,
+   741,
+   4
+  ],
+  [
+   65.4,
+   796,
+   699,
+   4
+  ],
+  [
+   69.1,
+   830,
+   665,
+   4
+  ],
+  [
+   72.7,
+   865,
+   630,
+   4
+  ],
+  [
+   76.4,
+   891,
+   604,
+   4
+  ],
+  [
+   80.1,
+   923,
+   572,
+   4
+  ],
+  [
+   83.9,
+   950,
+   545,
+   4
+  ],
+  [
+   87.6,
+   976,
+   519,
+   4
+  ],
+  [
+   91.8,
+   1001,
+   494,
+   4
+  ],
+  [
+   95.5,
+   1023,
+   472,
+   4
+  ],
+  [
+   99.3,
+   1049,
+   446,
+   4
+  ],
+  [
+   103.5,
+   1075,
+   420,
+   4
+  ],
+  [
+   107.1,
+   1126,
+   369,
+   4
+  ],
+  [
+   110.7,
+   1177,
+   318,
+   4
+  ],
+  [
+   114.3,
+   1222,
+   273,
+   4
+  ],
+  [
+   117.9,
+   1264,
+   231,
+   4
+  ],
+  [
+   121.5,
+   1304,
+   191,
+   4
+  ],
+  [
+   125.1,
+   1343,
+   152,
+   4
+  ],
+  [
+   128.7,
+   1377,
+   118,
+   4
+  ],
+  [
+   132.3,
+   1407,
+   88,
+   4
+  ],
+  [
+   136.5,
+   1437,
+   58,
+   4
+  ],
+  [
+   140.2,
+   1461,
+   34,
+   4
+  ],
+  [
+   144.4,
+   1483,
+   12,
+   4
+  ],
+  [
+   148.0,
+   1500,
+   0,
+   0
+  ]
+ ]
+}
