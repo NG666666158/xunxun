@@ -9,6 +9,9 @@
    files whose card has that type first (retrieval/doc_cards.py); files that only mention
    the word come after them. A question for nothing but the type ("有哪些合同") lists every
    file of it, newest first when asked ("最近的检测报告", "最新的论文").
+5. Files the user is looking at get their card first (``cards``, the DocCardBuilder): those
+   listed, and after a big import the likely ones of a type asked for that still have none
+   (``untyped`` says how many candidates wait, so the answer can say the list may be short).
 
 No generation and no fact check: this path is meant to answer in well under two seconds.
 """
@@ -18,6 +21,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import replace
 from datetime import datetime, timezone
+from itertools import zip_longest
 import logging
 import math
 import re
@@ -29,7 +33,7 @@ from typing import Any, Callable
 from config import Settings, get_settings
 from core import timings
 from library.registry import SEARCHABLE_STATUSES
-from .doc_cards import matching_types, name_doc_type, subject_matches, type_words
+from .doc_cards import matching_types, name_doc_type, subject_matches, type_probe, type_words
 from .file_filters import RECENT_ALONE, FileFilters, name_match, parse_query
 from .types import SearchHit
 
@@ -54,6 +58,9 @@ RELATIVE_CUTOFF = 0.3
 # and entries join the rerank), so "张三的简历" can tell the resumes apart.
 TYPE_CHUNK_POOL = 12
 TYPE_ENTRY_POOL = 8
+# A type question while files still wait for their card: this many of them for the type word
+# and as many for the type's description (their file entries) get theirs first.
+TYPE_PROBE_FILES = 32
 
 
 def _local_iso(value: Any) -> str:
@@ -94,6 +101,10 @@ class FileSearchService:
         self._vectors_lock = threading.Lock()
         self._names: list[str] = []
         self._names_at = -1e9
+        # The document card builder (RAGSystem sets it): files looked at get their card first.
+        self.cards = None
+        # Type probes run in a thread (no wait in the search); False runs them inline (tests).
+        self.probe_in_background = True
 
     # ---------------- public ----------------
 
@@ -111,15 +122,17 @@ class FileSearchService:
         topic = filters.topic.strip()
         results: list[dict[str, Any]] = []
         unreadable = self._unreadable(filters, scope) if not topic else 0
+        pool: list[str] = []
         if files:
             names = {doc_id: name_match(filters.name_keywords, row["name"]) for doc_id, row in files.items()}
             if topic:
-                results = self._rank_by_content(topic, files, names, set(files) if restricted else None, filters)
+                results = self._rank_by_content(topic, files, names, set(files) if restricted else None, filters, pool)
             else:
                 results = self._rank_by_metadata(files, names, filters)
         total = len(results)
         typed = sum("type" in item["matched_by"] for item in results)
         results = results[: max(1, int(limit))]
+        untyped = self._ask_for_cards(results, filters, files, pool)
         return {
             "query": query,
             "filters": filters.to_dict(),
@@ -132,6 +145,8 @@ class FileSearchService:
             "total_candidates": len(files),
             # Files meeting the conditions that could not be read, so they are not in the total.
             "unreadable": unreadable,
+            # A type question: candidate files still waiting for their document card.
+            "untyped": untyped,
             "files": results,
         }
 
@@ -220,7 +235,9 @@ class FileSearchService:
         names: dict[str, float],
         doc_ids: set[str] | None,
         filters: FileFilters | None = None,
+        pool: list[str] | None = None,
     ) -> list[dict[str, Any]]:
+        """``pool``: filled with every file the search reached, best first."""
         typed = self._typed_files(filters, files)
         pure = bool(typed) and not filters.type_rest
         chunks: list[SearchHit] = []
@@ -277,6 +294,8 @@ class FileSearchService:
                 snippets = [{"text": _snippet(entry_texts[doc_id]), "locator": "", "heading": "", "score": None}]
             # [tier, score, doc_id, matched_by, snippets]; tier > 0 only for the type asked for.
             ranked.append([0, score, doc_id, matched, snippets])
+        if pool is not None:
+            pool.extend(item[2] for item in sorted(ranked, key=lambda item: item[1], reverse=True))
         if typed:
             ranked = self._by_type(ranked, typed, pure, filters, files)
         else:
@@ -295,6 +314,62 @@ class FileSearchService:
         return results
 
     # ---------------- document types ----------------
+
+    def _ask_for_cards(
+        self,
+        listed: list[dict[str, Any]],
+        filters: FileFilters | None,
+        files: dict[str, dict[str, Any]],
+        pool: list[str],
+    ) -> int:
+        """The files listed get their document card first; with a type question, so do the
+        files it reached and those most like the type (``_probe``) that still have none.
+        Returns how many candidates still wait for their card (0 unless a type question)."""
+        cards = self.cards
+        if cards is None or not getattr(self.settings, "doc_cards", False):
+            return 0
+        try:
+            cards.prioritize([item["file_id"] for item in listed])
+            if filters is None or not filters.doc_type or not self._type_search_on():
+                return 0
+            have = self.store.doc_card_hashes()
+            waiting = {
+                doc_id for doc_id, row in files.items()
+                if doc_id not in have and row.get("status") in SEARCHABLE_STATUSES
+                and row.get("content_mode") != "name" and not name_doc_type(str(row.get("name", "")))
+            }
+            if waiting:
+                cards.prioritize([doc_id for doc_id in pool if doc_id in waiting])
+                if self.probe_in_background:
+                    threading.Thread(target=self._probe, args=(filters.doc_type, waiting),
+                                     name="type-probe", daemon=True).start()
+                else:
+                    self._probe(filters.doc_type, waiting)
+            return len(waiting)
+        except Exception as exc:
+            logger.warning("File search: document cards not queued: %s", exc)
+            return 0
+
+    def _probe(self, doc_type: str, waiting: set[str]) -> list[str]:
+        """The files without a card most like ``doc_type``, queued for their card: their file
+        entries searched for the type word and for the type's description, taken in turn (the
+        word finds resumes and contracts, the description paper abstracts; measured in
+        evaluation/doc_cards_after_import). Returns them, most alike first."""
+        if not hasattr(self.store, "search_file_entries") or self.cards is None:
+            return []
+        rankings = []
+        for text in dict.fromkeys((doc_type, type_probe(doc_type))):
+            try:
+                entries = self.store.search_file_entries(text, self._embed(text), limit=TYPE_PROBE_FILES,
+                                                         doc_ids=waiting)
+            except Exception as exc:
+                logger.warning("File search: type probe failed: %s", exc)
+                continue
+            rankings.append([entry["doc_id"] for entry in entries])
+        found = list(dict.fromkeys(doc_id for row in zip_longest(*rankings) for doc_id in row if doc_id))
+        if found:
+            self.cards.prioritize(found)
+        return found
 
     def _type_search_on(self) -> bool:
         return bool(getattr(self.settings, "doc_type_search", False)) and hasattr(self.store, "doc_cards")

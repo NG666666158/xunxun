@@ -37,7 +37,7 @@ from library.registry import SEARCHABLE_STATUSES
 from library.preview import (
     CONVERTED_IMAGES, PowerPointPdfConverter, PreviewError, PreviewPrefetcher, WordPdfConverter, preview_kind, preview_plan,
 )
-from retrieval.doc_cards import OTHER_TYPE, file_card
+from retrieval.doc_cards import OTHER_TYPE, file_card, name_doc_type
 from retrieval.file_filters import FILE_TYPES, parse_query, resolve_time
 from suggestions import privacy as suggestion_privacy
 from suggestions.service import overview as suggestion_overview
@@ -707,7 +707,8 @@ def _file_cards(library, records: list[dict[str, Any]]) -> dict[str, dict[str, A
 @app.get("/api/v1/library/types")
 def library_types():
     """Document types in the library with how many files each, for the type filter; and how
-    many readable files still wait for their card (they are filled in in the background)."""
+    many readable files still wait for their card (they are filled in in the background; a
+    file whose own name gives the type needs none), with the time left at the current pace."""
     library = _library()
     records = library.registry.list_files(statuses=SEARCHABLE_STATUSES)
     cards = _file_cards(library, records)
@@ -720,13 +721,24 @@ def library_types():
         try:
             have = store.doc_card_hashes()
             pending = sum(1 for record in records
-                          if record["file_id"] not in have and record.get("content_mode") != "name")
+                          if record["file_id"] not in have and record.get("content_mode") != "name"
+                          and not name_doc_type(str(record.get("name", ""))))
         except Exception as exc:
             logger.warning("Document cards unavailable for the type list: %s", exc)
+    seconds_left = None
+    builder = getattr(system, "doc_cards", None)
+    if enabled and pending and builder is not None:
+        try:
+            pace = builder.progress()
+            if pace.get("tokens_per_minute"):
+                seconds_left = round(pending * pace["tokens_per_file"] / pace["tokens_per_minute"] * 60)
+        except Exception as exc:
+            logger.debug("Document card progress unavailable: %s", exc)
     types = sorted(((name, n) for name, n in counts.items() if n and name != OTHER_TYPE), key=lambda item: (-item[1], item[0]))
     if counts[OTHER_TYPE]:
         types.append((OTHER_TYPE, counts[OTHER_TYPE]))
-    return {"types": [{"type": name, "count": n} for name, n in types], "pending": pending, "enabled": enabled}
+    return {"types": [{"type": name, "count": n} for name, n in types], "pending": pending, "enabled": enabled,
+            "seconds_left": seconds_left}
 
 
 @app.post("/api/v1/files/{file_id}/relocate")
@@ -890,6 +902,7 @@ def open_file(file_id: str, request: Request):
     path = record["path"]
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="原文件已不存在，可以在阅读面板中查看已索引的内容。")
+    _looked_at(file_id)
     if sys.platform == "win32":
         os.startfile(path)  # noqa: S606 - a registered file the user asked to open
     else:
@@ -1072,11 +1085,22 @@ def _unparsed_document(doc_id: str) -> dict | None:
     }
 
 
+def _looked_at(doc_id: str) -> None:
+    """A file opened or read in the app gets its document card first."""
+    cards = getattr(system, "doc_cards", None)
+    if cards is not None and getattr(settings, "doc_cards", False):
+        try:
+            cards.prioritize([doc_id])
+        except Exception as exc:
+            logger.debug("Document card not queued for %s: %s", doc_id, exc)
+
+
 @app.get("/api/v1/documents/{doc_id}")
 def get_document(doc_id: str):
     document = system.get_document(doc_id) or _unparsed_document(doc_id)
     if document is None:
         raise HTTPException(status_code=404, detail="文档不存在或尚未完成解析。")
+    _looked_at(doc_id)
     ext = Path(document.get("path") or document["source"]).suffix or document.get("file_type", "")
     kind = preview_kind(ext)
     word = kind in WORD_KINDS and document["has_file"] and word_converter().available()

@@ -93,3 +93,6 @@ evaluation/external/
 !evaluation/suite/fixtures/ci/vectors.npz
 data/logs/
 release/
+
+# doc_cards_after_import: reply caches and question details (content of the public sets)
+evaluation/doc_cards_after_import/work/

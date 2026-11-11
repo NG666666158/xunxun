@@ -293,16 +293,27 @@ class Settings(BaseSettings):
 
     # ---- Finding files by document type ("找一下我的简历": the word 简历 is in neither the file
     # name nor its text). Measured in evaluation/doc_cards_v1/REPORT.md; each is its own switch.
-    # * doc_cards: one chat-model call per file (its name and first doc_card_chars characters)
-    #   writes a card: 类型 / 对象 / 时间 / 摘要 (retrieval/doc_cards.py). Built in the background,
-    #   at least doc_card_interval_seconds apart, waiting while a question is answered; never
-    #   for files kept by name only. Existing files are filled in after start.
+    # * doc_cards: a chat-model call reads a file's name and first doc_card_chars characters
+    #   and writes its card: 类型 / 对象 / 时间 / 摘要 (retrieval/doc_cards.py). Built in the
+    #   background, waiting while a question is answered; never for files kept by name only,
+    #   nor for those whose own name gives the type ("01 申报书.pdf"). Files the user is looking
+    #   at (listed by a search, opened, likely matches of a type question) go first, then the
+    #   newest. doc_card_batch > 1 lets that many files share one call: about 35 % fewer tokens,
+    #   but Qwen3-8B then got the type right for 0.70 to 0.75 of the public set instead of 0.89,
+    #   so it stays 1. Paced by tokens: doc_card_tokens_per_minute of the account's chat-model
+    #   budget, doc_card_idle_tokens_per_minute once nobody has asked anything for ten minutes,
+    #   nothing for doc_card_cool_down_seconds after a question; at least
+    #   doc_card_interval_seconds between calls. Measured in evaluation/doc_cards_after_import.
     # * doc_type_search: a question naming a type ranks files whose card has that type first;
     #   files that only mention the word come after them (needs the cards).
     # * doc_card_owner: "我的简历" puts cards about owner_name (the user's own name) first.
     doc_cards: bool = True
     doc_card_chars: int = 900
     doc_card_interval_seconds: float = 3.0
+    doc_card_batch: int = 1
+    doc_card_tokens_per_minute: float = 9000.0
+    doc_card_idle_tokens_per_minute: float = 15000.0
+    doc_card_cool_down_seconds: float = 60.0
     doc_type_search: bool = True
     doc_card_owner: bool = False
     owner_name: str = ""

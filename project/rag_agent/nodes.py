@@ -412,6 +412,9 @@ class AgentNodes(DocumentNodes):
         files = result["files"]
         message = self._describe_files(files, filters, result["total"], result["unreadable"],
                                        typed=result.get("typed") if listing else None)
+        if result.get("untyped"):
+            # Right after a big import some files still wait for their document card.
+            message += f"\n\n还有 {result['untyped']:,} 个文件在判断类型，列表可能不全，稍后再问一次。"
         if temporal:
             message = temporal["note"] + "\n\n" + message
         return {

@@ -187,6 +187,9 @@ class LibraryService:
         # Questions being answered: the queue waits meanwhile (see pause_for_questions).
         self._answering = 0
         self._answer_cond = threading.Condition()
+        # When the last question was answered (time.monotonic(); None: none yet), for
+        # background work that gives answers room for a while (doc cards).
+        self._answered_at: float | None = None
         # Recent changes for the UI's toasts; seq only grows.
         self._changes: deque[dict[str, Any]] = deque(maxlen=2000)
         self._change_seq = 0
@@ -1267,7 +1270,15 @@ class LibraryService:
         finally:
             with self._answer_cond:
                 self._answering -= 1
+                self._answered_at = time.monotonic()
                 self._answer_cond.notify_all()
+
+    def idle_seconds(self) -> float:
+        """Seconds since the last question was answered: 0 while one is, inf when none was."""
+        with self._answer_cond:
+            if self._answering:
+                return 0.0
+            return float("inf") if self._answered_at is None else time.monotonic() - self._answered_at
 
     def pause_for_questions(self) -> None:
         """Wait (at most ``index_yield_max_seconds``) while a question is being answered.
