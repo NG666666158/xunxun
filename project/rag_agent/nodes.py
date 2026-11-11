@@ -28,7 +28,15 @@ from retrieval.file_filters import (
 )
 from retrieval.hybrid_retriever import HybridRetriever
 from retrieval.temporal import DocumentDates, answer_rules, check_rules, in_range as date_in_range, request_time
-from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error, transient_error
+from services.model_clients import (
+    MODEL_SERVICE_ERRORS,
+    budget_left,
+    chat_busy,
+    describe_model_error,
+    error_kind,
+    retry_after,
+    transient_error,
+)
 from .answering import (
     cited_claims,
     classify_question,
@@ -171,6 +179,7 @@ class AgentNodes(DocumentNodes):
             "unsupported_claims": [],
             "last_error": "",
             "model_error": "",
+            "error_kind": "",
             "check_skipped": False,
             "check_mode": "",
             "term_notes": [],
@@ -337,6 +346,7 @@ class AgentNodes(DocumentNodes):
                 "documents": [],
                 "context_docs": [],
                 "last_error": f"{type(exc).__name__}: {exc}",
+                "error_kind": error_kind(exc),
             }
 
     def _retrieval_limits(self, profile: str | None) -> dict[str, Any]:
@@ -408,6 +418,7 @@ class AgentNodes(DocumentNodes):
                 "refused": True,
                 "files": [],
                 "last_error": f"{type(exc).__name__}: {exc}",
+                "error_kind": error_kind(exc),
             }
         files = result["files"]
         message = self._describe_files(files, filters, result["total"], result["unreadable"],
@@ -721,7 +732,7 @@ class AgentNodes(DocumentNodes):
             )
         except MODEL_SERVICE_ERRORS as exc:
             logger.warning("Answer generation failed: %r", exc)
-            return {"answer": "", "evidence": evidence, "citations": citations, "model_error": describe_model_error(exc),
+            return {"answer": "", "evidence": evidence, "citations": citations, "model_error": describe_model_error(exc), "error_kind": error_kind(exc),
                     "answer_steps": steps}
         answer = str(response.content).strip()
         if getattr(settings, "citation_repair", False) and not whole_file:
@@ -975,11 +986,23 @@ class AgentNodes(DocumentNodes):
                 return llm.invoke(messages)
             except Exception as exc:
                 limited = isinstance(exc, openai.RateLimitError)
+                kind = error_kind(exc)
+                if kind in ("busy", "rate_limit"):
+                    # Background model work steps aside while this question retries.
+                    chat_busy.note(str(getattr(self.settings, "llm_model", "")),
+                                   float(getattr(self.settings, "busy_pause_seconds", 60.0) or 0.0))
                 if not (limited or (patience > 0 and transient_error(exc))) or delay is None:
                     raise
+                # A 429 / 503 may say how long to wait; never less than that.
+                delay = max(delay, retry_after(exc) or 0.0)
                 if patience > 0 and time.monotonic() - started + delay > patience + self.patience_slack:
                     raise
-                logger.warning("Model %s, retrying in %.0fs", "rate limited" if limited else f"failed ({exc!r})", delay)
+                left = budget_left()
+                if left is not None and delay > left:
+                    # The question's waiting budget is spent: end the turn, the user can ask again.
+                    raise
+                logger.warning("Model %s (%s), retrying in %.0fs", "rate limited" if limited else f"failed ({exc!r})",
+                               kind, delay)
                 if patience > 0:
                     self._progress({"kind": "waiting", "reason": "rate_limit" if limited else "busy",
                                     "waited": round(waited), "seconds": round(delay)})

@@ -31,7 +31,7 @@ from core.rag_system import RAGSystem
 from ingestion import ocr_runtime
 from ingestion.images import load_pages as load_image_pages
 from ingestion.slides import deck_preview, media_part
-from services.model_clients import describe_model_error
+from services.model_clients import MANUAL_RETRY_KINDS, describe_model_error, error_kind
 from library import FILE_STATUSES, LibraryError
 from library.registry import SEARCHABLE_STATUSES
 from library.preview import (
@@ -1233,11 +1233,12 @@ def chat_stream(request: ChatRequest):
     rag = _ready_system()
     thread_id = request.thread_id or rag.new_thread_id()
     scope = _chat_scope(rag, request.scope)
-    return _sse_response(rag, request.question, thread_id, scope, received_at=received)
+    return _sse_response(rag, request.question, thread_id, scope, received_at=received, retry=request.retry)
 
 
 def _sse_response(
-    rag: RAGSystem, question: str, thread_id: str, scope: list[str] | None = None, received_at: float | None = None
+    rag: RAGSystem, question: str, thread_id: str, scope: list[str] | None = None, received_at: float | None = None,
+    retry: bool = False,
 ) -> StreamingResponse:
 
     def events() -> Iterator[str]:
@@ -1247,15 +1248,21 @@ def _sse_response(
                 options["scope"] = scope
             if received_at is not None:
                 options["received_at"] = received_at
+            if retry:
+                options["retry"] = True
             stream = rag.stream(question, thread_id, **options)
             for event in stream:
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as exc:
-            logger.exception("Streaming chat failed")
+            kind = error_kind(exc)
+            # Every failed turn leaves its cause in backend.log (kind, type, message).
+            logger.exception("Streaming chat failed (%s: %s)", kind, type(exc).__name__)
             error = {
                 "event": "error",
                 "message": describe_model_error(exc),
                 "thread_id": thread_id,
+                "kind": kind,
+                "retryable": kind in MANUAL_RETRY_KINDS,
             }
             yield f"data: {json.dumps(error, ensure_ascii=False)}\n\n"
         finally:

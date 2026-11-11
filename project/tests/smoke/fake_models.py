@@ -6,6 +6,7 @@ that shares its words. The key decides how the account behaves:
 
 * ``sk-bad...``   rejected (401)
 * ``sk-empty...`` valid, but out of balance (402 on everything except listing models)
+* ``sk-busy-N`` the first N chat requests overloaded (429, code 50609), then answered; ``sk-busy`` always
 """
 
 from __future__ import annotations
@@ -90,9 +91,22 @@ def create_app() -> FastAPI:
         scored = sorted(((score(data["query"], doc), i) for i, doc in enumerate(data["documents"])), reverse=True)
         return {"results": [{"index": i, "relevance_score": s} for s, i in scored[: data.get("top_n") or None]]}
 
+    # "sk-busy-N": the first N requests to write an answer are refused as overloaded (429, code
+    # 50609), then the model answers again; "sk-busy": always overloaded. Background calls (cards,
+    # suggestions) are not refused, so the count belongs to the question being asked.
+    busy = {"refused": 0}
+
     @app.post("/v1/chat/completions")
     async def chat(request: Request):
+        key = request.headers.get("authorization", "").removeprefix("Bearer ")
         data = await request.json()
+        writing = "基于用户知识库文档回答问题" in str((data.get("messages") or [{}])[0].get("content", ""))
+        if key.startswith("sk-busy") and writing:
+            limit = key.removeprefix("sk-busy").lstrip("-")
+            if not limit.isdigit() or busy["refused"] < int(limit):
+                busy["refused"] += 1
+                return JSONResponse({"code": 50609, "message": "System is too busy now. Please try again later."},
+                                    status_code=429)
         text = reply(data["messages"])
         usage = {"prompt_tokens": 1, "completion_tokens": len(text), "total_tokens": 1 + len(text)}
         if not data.get("stream"):

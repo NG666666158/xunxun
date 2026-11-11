@@ -803,6 +803,12 @@ body.home .thread { min-height: 100%; max-width: none; padding: 0 24px; display:
 @keyframes knot-in { from { transform: scale(0); } }
 
 .error-box { padding: 11px 14px; border-radius: var(--r-md); font-size: 14px; background: var(--red-soft); color: var(--red-text); }
+/* "重新提问" under a failed answer, with the countdown to asking again by itself. */
+.retry-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.retry-row .btn svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.retry-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--label-3); }
+.retry-cancel { padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
+.retry-cancel:hover { text-decoration: underline; }
 
 /* Follow-ups */
 .followups { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

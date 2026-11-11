@@ -224,6 +224,13 @@ class Settings(BaseSettings):
     # passages), and the answer says it was only checked that way. 0: three short retries on a
     # rate limit, then the answer is shown unchecked (1.2.0).
     fact_check_patience_seconds: float = 75.0
+    # All the waiting one question may do across its model calls (answer, check, verdict, table,
+    # retrieval): past it the turn ends with an error the user can retry with one click, instead
+    # of each call waiting its full patience in turn. 0: no turn-wide limit.
+    turn_retry_budget_seconds: float = 90.0
+    # After the chat model answers "too busy" or a rate limit, background model work (document
+    # cards, home-page suggestions, follow-ups written ahead) waits this long.
+    busy_pause_seconds: float = 60.0
     # The rule check before the model check: a cited statement whose number or model name is
     # in no passage fails the check without a model call.
     rule_precheck: bool = False

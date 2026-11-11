@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import logging
 import queue
@@ -41,6 +42,127 @@ def transient_error(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code == 429 or exc.response.status_code >= 500
     return isinstance(exc, (httpx.TransportError, TimeoutError, ConnectionError))
+
+
+# ---------------- what went wrong, for the user and for retrying ----------------
+
+# busy: the model's servers are overloaded (429, code 50609); rate_limit: the account's per-minute
+# budget is used up (429); network: dropped or timed out; server: 5xx; auth: bad key or no access;
+# balance: 402; bad_request: the request itself (other 4xx); unknown: anything else.
+ERROR_KINDS = ("busy", "rate_limit", "network", "server", "auth", "balance", "bad_request", "unknown")
+# The app waits and tries again by itself (within the turn's budget).
+AUTO_RETRY_KINDS = frozenset({"busy", "rate_limit", "network", "server"})
+# Asking again may help, so the answer offers "重新提问"; auth and balance need the settings.
+MANUAL_RETRY_KINDS = AUTO_RETRY_KINDS | {"unknown"}
+
+
+def _status_kind(status: int, busy: bool) -> str:
+    if status == 429:
+        return "busy" if busy else "rate_limit"
+    if status in (401, 403):
+        return "auth"
+    if status == 402:
+        return "balance"
+    if status >= 500:
+        return "server"
+    return "bad_request"
+
+
+def error_kind(exc: BaseException) -> str:
+    """One of ERROR_KINDS for an exception raised while answering."""
+    if isinstance(exc, MissingApiKeyError):
+        return "auth"
+    if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
+        return "network"
+    if isinstance(exc, openai.APIStatusError):
+        return _status_kind(exc.status_code, _server_busy(exc))
+    if isinstance(exc, httpx.HTTPStatusError):
+        return _status_kind(exc.response.status_code, "too busy" in exc.response.text.lower())
+    if isinstance(exc, (httpx.TransportError, TimeoutError, ConnectionError)):
+        return "network"
+    return "unknown"
+
+
+def retry_after(exc: BaseException, cap: float = 60.0) -> float | None:
+    """The wait a 429 / 503 asked for (``Retry-After`` in seconds), at most ``cap``."""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None) or {}
+    try:
+        value = float(headers.get("retry-after") or headers.get("Retry-After") or "")
+    except (TypeError, ValueError):
+        return None
+    return min(max(value, 0.0), cap)
+
+
+class ServiceBusy:
+    """The chat model said it is overloaded or rate limited: for a while, background model
+    work (document cards, home-page suggestions, follow-ups written ahead) leaves the model
+    to the question being answered instead of competing with its retries."""
+
+    def __init__(self, clock=time.monotonic, sleep=time.sleep):
+        self._until: dict[str, float] = {}
+        self._lock = threading.Lock()
+        self.clock, self.sleep = clock, sleep
+
+    def note(self, model: str, seconds: float = 60.0) -> None:
+        with self._lock:
+            self._until[model] = max(self._until.get(model, 0.0), self.clock() + seconds)
+
+    def left(self, model: str) -> float:
+        with self._lock:
+            return max(0.0, self._until.get(model, 0.0) - self.clock())
+
+    def wait(self, model: str, limit: float = 120.0, step: float = 1.0) -> float:
+        """Sleep while ``model`` is noted busy, at most ``limit`` seconds; returns the wait."""
+        waited = 0.0
+        while waited < limit and (left := self.left(model)) > 0:
+            pause = min(step, left, limit - waited)
+            self.sleep(pause)
+            waited += pause
+        return waited
+
+    def clear(self) -> None:
+        with self._lock:
+            self._until.clear()
+
+
+chat_busy = ServiceBusy()
+
+
+# A question's model calls share one budget for waiting (turn_retry_budget_seconds): past it the
+# turn ends with a retryable error and the user can ask again, instead of waiting for minutes.
+_turn_deadline: ContextVar[float | None] = ContextVar("turn_deadline", default=None)
+
+
+@contextmanager
+def turn_budget(seconds: float | None) -> Iterator[None]:
+    token = _turn_deadline.set(time.monotonic() + seconds if seconds and seconds > 0 else None)
+    try:
+        yield
+    finally:
+        _turn_deadline.reset(token)
+
+
+def budget_left() -> float | None:
+    """Seconds of waiting this turn may still spend; None outside a budgeted turn."""
+    deadline = _turn_deadline.get()
+    return None if deadline is None else deadline - time.monotonic()
+
+
+def within_budget(iterator: Iterable, seconds: float | None) -> Iterator:
+    """Yield from ``iterator`` with one turn budget current while each item is produced (a
+    streamed answer may be stepped from a different thread each time, as in timings.iterate)."""
+    deadline = time.monotonic() + seconds if seconds and seconds > 0 else None
+    iterator = iter(iterator)
+    while True:
+        token = _turn_deadline.set(deadline)
+        try:
+            item = next(iterator)
+        except StopIteration:
+            return
+        finally:
+            _turn_deadline.reset(token)
+        yield item
 
 
 # Background work (indexing) waits longer between tries than a question being answered.

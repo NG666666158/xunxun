@@ -451,12 +451,14 @@ class DocCardBuilder:
 
     def _ask(self, name: str, opening: str) -> tuple[dict[str, str], int]:
         from langchain_core.messages import HumanMessage
-        from services.model_clients import background_calls, transient_error
+        from services.model_clients import background_calls, chat_busy, transient_error
 
         if self._model is None:
             self._model = self.chat_model()
         prompt = CARD_PROMPT.format(name=name, text=opening or "（无文字内容）")
         for attempt in range(len(self.RETRY_DELAYS) + 1):
+            # The model answered a question "too busy" a moment ago: leave it to the question.
+            chat_busy.wait(self.model_name, limit=self.MAX_INTERVAL * 4)
             try:
                 with background_calls.slot():
                     message = self._model.invoke([HumanMessage(content=prompt)])

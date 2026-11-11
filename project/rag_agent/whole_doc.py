@@ -34,7 +34,7 @@ import openai
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from core.timings import bind_context
-from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error
+from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error, error_kind
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,7 @@ class ReadResult:
     cached: int = 0
     unread: list[int] = field(default_factory=list)  # passage indexes that could not be read
     error: str = ""  # why, for the reader
+    error_kind: str = ""  # services.model_clients.ERROR_KINDS
     fatal: bool = False  # a bad key, no balance: nothing else will work either
     calls: int = 0
     input_tokens: int = 0
@@ -370,6 +371,7 @@ def read_passages(
 
     def note_error(exc: Exception) -> None:
         result.error = result.error or describe_model_error(exc)
+        result.error_kind = result.error_kind or error_kind(exc)
         if isinstance(exc, (openai.AuthenticationError, openai.PermissionDeniedError)) or (
             isinstance(exc, openai.APIStatusError) and exc.status_code == 402
         ):
