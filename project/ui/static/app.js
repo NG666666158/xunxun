@@ -3991,6 +3991,15 @@ if (TAURI?.core) {
     showView("chat");
     askAboutFile(payload.file_id, payload.name || "");
   });
+  // The backend stopped unexpectedly and the shell started it again (same address and
+  // token): say so, and ask again for everything the page shows.
+  TAURI.event?.listen("backend-restarted", () => {
+    toast("后台已重启");
+    checkHealth().then(() => (document.querySelector("#view-library.active") ? pollStatus() : watchLibrary()));
+    loadConversations();
+    loadDocs();
+    loadSuggestions();
+  });
 }
 
 /* ---------------- scope picker events ---------------- */

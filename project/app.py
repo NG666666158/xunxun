@@ -15,6 +15,8 @@ from pathlib import Path
 import sys
 import threading
 import time
+import traceback
+from typing import Callable, Iterable
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -53,6 +55,62 @@ def configure_logging(log_dir: Path, level: str) -> None:
         stream.setFormatter(formatter)
         handlers.append(stream)
     logging.basicConfig(level=level.upper(), handlers=handlers, force=True)
+
+
+def _known_secrets() -> list[str]:
+    """The API key and the launch token, read when a crash happens (the key can change)."""
+    try:
+        from config import get_settings
+
+        settings = get_settings()
+        return [settings.siliconflow_api_key, settings.app_token]
+    except Exception:
+        return [os.environ.get("RAG_APP_TOKEN", "")]
+
+
+def install_exception_hooks(secrets: Callable[[], Iterable[str]] = _known_secrets) -> None:
+    """Uncaught exceptions, in the main thread or any other, go to backend.log with their
+    traceback. The packaged backend has no console, so Python's own hooks printed them into
+    nothing: a crashed worker thread, or the error that ended the process, left no trace.
+
+    Known secrets are taken out before the text is written. The rest is scrubbed like any
+    other log entry when the log is exported (core/diagnostics.py keeps the headline, the
+    traceback positions and the exception's class, never its message)."""
+    logger = logging.getLogger("app.uncaught")
+
+    def write(where: str, exc_type, exc_value, exc_tb) -> None:
+        text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb)).rstrip()
+        try:
+            from core.diagnostics import scrub_text
+
+            text = scrub_text(text, list(secrets()))
+        except Exception:
+            text = "\n".join(line for line in text.splitlines() if line.lstrip().startswith(("File ", "Traceback")))
+        logger.critical("Uncaught exception in %s\n%s", where, text)
+
+    previous_hook = sys.excepthook
+    previous_thread_hook = threading.excepthook
+
+    def main_hook(exc_type, exc_value, exc_tb) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            previous_hook(exc_type, exc_value, exc_tb)
+            return
+        try:
+            write("the main thread", exc_type, exc_value, exc_tb)
+        except Exception:
+            previous_hook(exc_type, exc_value, exc_tb)
+
+    def thread_hook(args: threading.ExceptHookArgs) -> None:
+        if args.exc_type is SystemExit:
+            return
+        name = args.thread.name if args.thread is not None else "an unknown thread"
+        try:
+            write(f"thread {name}", args.exc_type, args.exc_value, args.exc_traceback)
+        except Exception:
+            previous_thread_hook(args)
+
+    sys.excepthook = main_hook
+    threading.excepthook = thread_hook
 
 
 def watch_parent(pid: int, interval: float = 1.0) -> None:
@@ -95,6 +153,7 @@ def main(argv: list[str] | None = None) -> None:
 
     settings = get_settings()
     configure_logging(settings.log_dir, settings.log_level)
+    install_exception_hooks()
     if args.parent_pid:
         watch_parent(args.parent_pid)
 
