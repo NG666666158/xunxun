@@ -7,31 +7,31 @@
 aiosqlite==0.22.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
-anyio==4.15.1
+anyio==4.16.0
 backoff==2.2.1
 backports-asyncio-runner==1.2.0 ; python_full_version < '3.11'
 backports-tarfile==1.2.0 ; python_full_version < '3.12'
 cachetools==7.2.4
-certifi==2026.10.19
+certifi==2026.10.23
 cffi==2.1.1 ; platform_python_implementation != 'PyPy' and sys_platform == 'linux'
 charset-normalizer==3.5.2
-click==8.5.0
+click==8.5.1
 colorama==0.4.6 ; sys_platform == 'win32'
 coloredlogs==15.0.1
 cryptography==50.0.2 ; sys_platform == 'linux'
 distro==1.9.0
 et-xmlfile==2.0.0
 exceptiongroup==1.3.1 ; python_full_version < '3.11'
-fastapi==0.151.0
+fastapi==0.162.2
 flatbuffers==25.12.19
-googleapis-common-protos==1.75.5
-grpcio==1.84.0
+googleapis-common-protos==1.76.0
+grpcio==1.85.1
 h11==0.16.0
 httpcore==1.0.9
-httpcore2==2.14.0 ; sys_platform != 'emscripten'
+httpcore2==2.16.0 ; sys_platform != 'emscripten'
 httptools==0.9.0
 httpx==0.28.1
-httpx2==2.14.0
+httpx2==2.16.0
 httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten'
 humanfriendly==10.0
 idna==3.20
@@ -42,39 +42,39 @@ jaraco-context==6.1.2
 jaraco-functools==4.6.0
 jeepney==0.9.0 ; sys_platform == 'linux'
 jieba==0.42.1
-jiter==0.17.0
-jsonpatch==1.36
-jsonpointer==3.4
+jiter==0.19.0
+jsonpatch==1.44
+jsonpointer==3.10
 keyring==25.7.0
-langchain-core==1.6.12
-langchain-openai==1.7.2
-langchain-protocol==0.0.19
+langchain-core==1.7.6
+langchain-openai==1.7.4
+langchain-protocol==0.0.21
 langfuse==4.18.0
-langgraph==1.2.16
-langgraph-checkpoint==4.3.0
-langgraph-checkpoint-sqlite==3.1.1
+langgraph==1.2.20
+langgraph-checkpoint==4.3.1
+langgraph-checkpoint-sqlite==3.1.3
 langgraph-prebuilt==1.1.1
-langgraph-sdk==0.4.8
-langsmith==0.14.11
+langgraph-sdk==0.4.14
+langsmith==0.14.17
 lxml==6.1.3
-markdown==3.10.3
-more-itertools==11.1.0
-mpmath==1.3.0
-numpy==2.2.6
-onnxruntime==1.23.2
+markdown==3.11.3
+more-itertools==11.2.1
+mpmath==1.4.1
+numpy==2.5.4
+onnxruntime==1.31.1
 openai==2.54.0
 opencv-python==5.0.0.93
 openpyxl==3.1.5
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
 opentelemetry-exporter-http-transport==0.66b1
 opentelemetry-exporter-otlp-common==0.66b1
-opentelemetry-exporter-otlp-proto-common==1.45.1
-opentelemetry-exporter-otlp-proto-http==1.45.1
-opentelemetry-proto==1.45.1
-opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-common==1.45.2
+opentelemetry-exporter-otlp-proto-http==1.45.2
+opentelemetry-proto==1.45.2
+opentelemetry-sdk==1.45.2
 opentelemetry-semantic-conventions==0.66b1
 orjson==3.13.0
-ormsgpack==1.12.2
+ormsgpack==1.13.1
 packaging==26.3
 pandas==2.3.3
 pillow==12.3.0
@@ -83,34 +83,34 @@ protobuf==7.36.2
 pyclipper==1.4.0
 pycparser==3.11 ; python_full_version < '3.11' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'
 pycparser==3.12 ; python_full_version >= '3.11' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'
-pydantic==2.14.1
-pydantic-core==2.50.1
-pydantic-settings==2.15.0
+pydantic==2.14.3
+pydantic-core==2.50.4
+pydantic-settings==2.16.2
 pygments==2.21.0
 pymilvus==2.6.17
 pymupdf==1.28.2
 pyreadline3==3.5.6 ; sys_platform == 'win32'
-pytest==9.0.3
-pytest-asyncio==1.4.0
+pytest==9.2.0
+pytest-asyncio==1.4.1.post1
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.4
-python-multipart==0.0.32
-pytz==2026.5
+python-multipart==0.0.33
+pytz==2026.6
 pywin32==311 ; sys_platform == 'win32'
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
 pyyaml==6.0.3
 rapidocr-onnxruntime==1.4.4
-regex==2026.9.29
+regex==2026.11.9
 reportlab==4.5.1
 requests==2.34.2
 requests-toolbelt==1.0.0
 secretstorage==3.5.0 ; sys_platform == 'linux'
-shapely==2.1.2
+shapely==2.2.0
 six==1.17.0
 sniffio==1.3.1
 sqlite-vec==0.1.9
-starlette==1.7.0
+starlette==1.10.0
 sympy==1.14.0
 tenacity==9.2.1
 tiktoken==0.14.0
@@ -118,8 +118,8 @@ tomli==2.5.0 ; python_full_version < '3.11'
 tqdm==4.70.1
 truststore==0.10.5 ; sys_platform != 'emscripten'
 typing-extensions==4.16.0
-typing-inspection==0.4.4
-tzdata==2026.5
+typing-inspection==0.4.5
+tzdata==2026.6
 urllib3==2.8.0
 uuid-utils==0.18.0
 uvicorn==0.54.0
@@ -127,7 +127,7 @@ uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
 watchdog==6.0.0
 watchfiles==1.3.0
 websockets==16.1.1
-wrapt==2.5.1
+wrapt==2.5.2
 xxhash==4.0.2
 zipp==4.1.2 ; python_full_version < '3.12'
 zstandard==0.25.0
