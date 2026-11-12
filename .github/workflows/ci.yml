@@ -55,6 +55,27 @@ jobs:
         # File by file: `node --test <directory>` does not work on every Node version.
         run: for test in project/tests/js/*.cjs; do node --test "$test" || exit 1; done
 
+  dependency-audit:
+    # Known vulnerabilities in the pinned Python packages: users import arbitrary PDF, Word,
+    # Excel and image files. Fails on any; to accept one for now, add its ID and the reason
+    # to .github/pip-audit-ignore.txt. Same command locally: scripts/audit_deps.py.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install pip-audit
+        run: python -m pip install pip-audit==2.10.1
+
+      - name: Audit requirements-lock.txt
+        run: python scripts/audit_deps.py --desc
+
   browser-smoke:
     # Guided start, add a file, ask, open the preview: real backend, fake model service, no key.
     strategy:

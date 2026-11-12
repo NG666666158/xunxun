@@ -1,0 +1,61 @@
+# Weekly update pull requests, a few at a time: minor and patch updates in one group per
+# ecosystem, major updates one by one. Users import arbitrary PDF, Word, Excel and image files,
+# so the parsers' fixes matter; the pip-audit job in workflows/ci.yml fails on known
+# vulnerabilities in between. Security updates follow their own (repository) settings.
+#
+# pip: Dependabot edits requirements.txt and the pins in requirements-lock.txt in place. The
+# lock is built from the release environment (see its header), so take a pull request as the
+# list of what to update, and regenerate the lock that way before a release.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 3
+    groups:
+      python:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: cargo
+    directory: "/desktop/src-tauri"
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 2
+    groups:
+      rust:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: npm
+    directory: "/desktop"
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 2
+    groups:
+      node:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

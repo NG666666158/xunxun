@@ -2743,6 +2743,21 @@ $("#openDataDir").addEventListener("click", async () => {
 
 /* ---------------- updates (builds with a release host) ---------------- */
 
+/** The new version the last check found (null: none), from the button or the daily check. */
+let pendingUpdate = null;
+
+/* A quiet notice only: a dot on the settings button and the 关于 tab, and the about row
+   offers it. Nothing installs until the user confirms the update sheet. */
+function showUpdateNotice(update) {
+  pendingUpdate = update || null;
+  const gear = $("#openSettings");
+  gear.classList.toggle("has-dot", !!pendingUpdate);
+  gear.title = pendingUpdate ? `设置 · 有新版本 ${pendingUpdate.version}` : "设置";
+  $("#aboutTab").classList.toggle("has-dot", !!pendingUpdate);
+  $("#updateCheck").textContent = pendingUpdate ? "更新" : "检查更新";
+  if (pendingUpdate) $("#updateState").textContent = `有新版本 ${pendingUpdate.version}`;
+}
+
 async function checkForUpdate() {
   const button = $("#updateCheck");
   const state = $("#updateState");
@@ -2750,6 +2765,7 @@ async function checkForUpdate() {
   state.textContent = "正在检查…";
   try {
     const update = await TAURI.core.invoke("check_update");
+    showUpdateNotice(update);
     if (!update) { state.textContent = "已经是最新版本"; return; }
     state.textContent = `有新版本 ${update.version}`;
     const ok = await UI.confirmSheet({
@@ -3330,7 +3346,7 @@ function closeSettings() {
   settingsState.opener?.focus?.({ preventScroll: true });
 }
 
-$("#openSettings").addEventListener("click", () => openSettings());
+$("#openSettings").addEventListener("click", () => (pendingUpdate ? openSettings("about", "#updateCheck") : openSettings()));
 $("#settingsClose").addEventListener("click", closeSettings);
 $("#settingsScrim").addEventListener("click", closeSettings);
 $("#settingsTabs").addEventListener("change", (e) => {
@@ -4016,6 +4032,9 @@ if (TAURI?.core) {
     if (!configured) return;
     $("#updateGroup").hidden = false;
     $("#updateCheck").addEventListener("click", checkForUpdate);
+    // By itself too: once after each start, then daily while 寻寻 stays in the tray.
+    const updates = UpdateCheck.schedule({ check: () => TAURI.core.invoke("check_update"), found: showUpdateNotice });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) updates.tick(); });
   }).catch(() => {});
 }
 Safety.init({

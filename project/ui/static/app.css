@@ -528,6 +528,16 @@ textarea.input:focus { background: var(--surface); box-shadow: inset 0 0 0 1px v
 .status-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width var(--d-slow) var(--ease-out); }
 #openSettings svg { width: 19px; height: 19px; transition: transform var(--d-slow) var(--spring); }
 #openSettings:hover svg { transform: rotate(45deg); }
+/* A new version is out (app.js showUpdateNotice): a small dot, no badge count, no banner. */
+#openSettings.has-dot { position: relative; }
+#openSettings.has-dot::after {
+  content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
+#aboutTab.has-dot span::after {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%;
+  background: var(--accent); vertical-align: 2px;
+}
 
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: var(--bg); }
 .topbar { display: none; }

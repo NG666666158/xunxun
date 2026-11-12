@@ -67,6 +67,71 @@
 
 改名为“寻寻”从 1.0.0 起已启用，见 [rename/README.md](rename/README.md)。
 
+### 已装的寻寻什么时候发现新版本
+
+启动后约一分钟查一次，之后只要还开着（包括关到托盘），每天查一次；没联网或 GitHub 打不开，一小时后再试，失败只写在控制台里。查到新版本只在设置按钮和“关于”上亮一个小点，点“更新”看说明，确认后才下载安装。“检查更新”按钮照旧可用。调度逻辑在 `project/ui/static/updatecheck.js`。
+
+## 测试版（GitHub 预发布）
+
+先发成预发布，自己装上试过再转正。用户手里的寻寻收不到预发布：
+
+- 已装的版本只读 `releases/latest/download/latest.json`。这个地址指向仓库的“最新版本”（[链接到发布](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases)）。
+- GitHub 的“最新版本”是最近一个非预发布、非草稿的版本，预发布也不能被设为最新。见 [REST 文档](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)：“The latest release is the most recent non-prerelease, non-draft release”，以及 `make_latest` 一项。
+
+所以预发布期间所有人还停在上一个正式版；一旦转正，所有人下次检查时都会收到。
+
+### 1. 发测试版
+
+版本号照常往上加，不加 `-beta`：`bump_version.py` 只认 `x.y.z`，安装包和更新也靠它比较新旧。打包、改英文文件名、生成 `latest.json`、导出源码、打标签，都和上面“发布到 GitHub”的 1～3 步一样。`latest.json` 里的下载地址照常写 `releases/download/v<版本>/...`，转正时不用重新生成。
+
+只有建 Release 时加 `--prerelease`：
+
+```bash
+gh release create v1.0.4 --repo NG666666158/xunxun --prerelease --title "寻寻 1.0.4 测试版" --notes-file <说明> release/Xunxun_1.0.4_x64-setup.exe release/Xunxun_1.0.4_x64-setup.exe.sig release/latest.json
+```
+
+确认用户那边的地址还是上一个正式版：
+
+```bash
+curl -sL https://github.com/NG666666158/xunxun/releases/latest/download/latest.json
+```
+
+### 2. 自己装上试
+
+- **手动安装**：从预发布页面下载 `Xunxun_<版本>_x64-setup.exe`，覆盖安装。和用户手动升级的路径一样。
+- **从上一版点“检查更新”**：这才是真正的更新流程（下载、验签、关后台、安装、重启）。已装的版本平时只看正式版。从带 `XUNXUN_UPDATE_ENDPOINT` 的版本起（本改动之后的第一个版本），可以让它这一次改看测试版的 `latest.json`。先在托盘右键“退出”寻寻（第二个实例只会唤起正在运行的那个），再在 PowerShell 里：
+
+  ```powershell
+  $exe = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\寻寻.lnk").TargetPath
+  $env:XUNXUN_UPDATE_ENDPOINT = "https://github.com/NG666666158/xunxun/releases/download/v1.0.4/latest.json"
+  & $exe
+  ```
+
+  约一分钟后设置按钮上会出现小点（顺便验证了自动检查）；或直接在“设置 → 关于”点“检查更新”。确认后它会下载、验签、安装并重启。重启后不再带这个变量，又回到只看正式版。
+
+  这个变量只改“去哪里找”：安装包仍要用你的私钥签名、版本号仍要比当前高，否则拒绝。不带这个变量的旧版本（1.0.2 及以前），从它们升级只能用 `test_upgrade.py --as-update` 模拟（和更新时的安装方式相同），或在转正后用一台装着旧版的电脑点一次“检查更新”。
+
+### 3. 测试版有问题
+
+不要在同一个版本号下替换安装包：装过 1.0.4 测试版的电脑不会再“更新”到另一个 1.0.4。修好后发下一个号（1.0.5）的测试版。
+
+`CHANGELOG.md` 里把 1.0.4 小节的内容挪回“未发布”、删掉 1.0.4 的标题，再 `bump_version.py 1.0.5`。这样 1.0.5 的说明（也是 `latest.json` 里用户看到的更新说明）包含全部变化。没转正的 1.0.4 预发布可以留着，也可以删掉：
+
+```bash
+gh release delete v1.0.4 --repo NG666666158/xunxun --cleanup-tag
+```
+
+### 4. 转为正式版
+
+不用重新上传，同一组文件直接转正：
+
+```bash
+gh release edit v1.0.4 --repo NG666666158/xunxun --prerelease=false --latest --title "寻寻 1.0.4"
+curl -sL https://github.com/NG666666158/xunxun/releases/latest/download/latest.json   # 应该是 1.0.4
+```
+
+已装的寻寻在下次启动、或开着时一天之内会查到。
+
 ## 需要你决定的事
 
 下面三件事要花钱或对外发布，都还没做。**建议先定托管**：第一批发出去的安装包如果没有开启更新，那些用户以后只能手动升级。
