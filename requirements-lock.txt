@@ -87,7 +87,7 @@ pydantic==2.14.1
 pydantic-core==2.50.1
 pydantic-settings==2.15.0
 pygments==2.21.0
-pymilvus==2.6.17
+pymilvus==3.0.2
 pymupdf==1.28.2
 pyreadline3==3.5.6 ; sys_platform == 'win32'
 pytest==9.0.3
