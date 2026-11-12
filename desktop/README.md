@@ -11,12 +11,15 @@
                                     --parent-pid <外壳 PID>（外壳崩溃时后台自行退出）
 ```
 
+后台运行中意外退出（崩溃、被任务管理器结束）时，外壳用同样的端口和令牌再启动它一次，并发出 `backend-restarted` 事件，页面提示“后台已重启”并重新读取状态，不用刷新。10 分钟内第二次退出就不再启动，改为重新打开启动窗口，显示退出码和 `backend.log` 的位置。退出程序、更新和 `restart_app` 都先把后台标记为“正在停止”，这些情况下的退出不会触发重启。后台里没有被捕获的异常（主线程和其他线程）带着调用栈写进 `backend.log`，Key 和令牌先被隐去。
+
 ## 安全模型
 
 - 后台只绑定 `127.0.0.1`，端口每次随机分配。
 - 外壳每次启动生成 32 字节随机令牌，通过**环境变量**传给后台（不放在命令行，避免出现在进程列表里），并只通过初始化脚本注入给自己的 webview。
 - 后台的 `TokenAuthMiddleware`（`project/api/security.py`）要求除 `GET /api/v1/health/live` 以外的**所有**请求带 `X-App-Token`（或 `Authorization: Bearer`），否则返回 401，包括 `/ui`。网页即使对 localhost 发起跨站请求，也拿不到令牌。
-- CORS 只放行 Tauri 的源（`http://tauri.localhost`）和开发用的 `:8000`；自定义请求头会强制预检。
+- 带了 `Origin` 而且不是 Tauri 的源（`http://tauri.localhost` 等）的请求，不管带没带令牌，一律返回 403。浏览器发跨站请求时总会带上发起页面的 `Origin`，所以即使令牌泄露（日志、截图），网页也用不了后台；没有 `Origin` 的请求（外壳的健康检查、本机脚本）只看令牌。
+- CORS 在桌面版只放行 Tauri 的源；不带令牌的开发模式另外放行 `:8000`。自定义请求头会强制预检。
 - 外壳的 CSP：`script-src 'self'`，`connect-src` 只允许 `127.0.0.1` 和 IPC。
 - 硅基流动 API Key 通过 `keyring` 存入 Windows 凭据管理器（服务名 `EnterpriseKnowledgeBase`，用户名 `siliconflow_api_key`），不写入任何文件；接口只返回打码后的值。
 

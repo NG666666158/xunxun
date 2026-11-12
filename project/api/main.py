@@ -47,7 +47,7 @@ from .schemas import (
     SettingsUpdate, SuggestionEvent,
 )
 from .errors import ErrorDetailMiddleware
-from .security import TokenAuthMiddleware
+from .security import DESKTOP_ORIGINS, TokenAuthMiddleware
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -77,6 +77,15 @@ async def lifespan(_app: FastAPI):
         system.library.stop()
 
 
+DEVELOPMENT_ORIGINS = ("http://127.0.0.1:8000", "http://localhost:8000")
+
+
+def cors_origins(token: str) -> list[str]:
+    """The Tauri webviews serve the UI from their own origin and call this backend. With a
+    token (the desktop app) nothing else may, and the token check refuses other origins too."""
+    return list(DESKTOP_ORIGINS) if token else [*DEVELOPMENT_ORIGINS, *DESKTOP_ORIGINS]
+
+
 app = FastAPI(
     lifespan=lifespan,
     title=settings.app_name,
@@ -90,14 +99,7 @@ app.add_middleware(ErrorDetailMiddleware, on_damage=lambda exc: system.safety.no
 app.add_middleware(TokenAuthMiddleware, token_provider=lambda: settings.app_token)
 app.add_middleware(
     CORSMiddleware,
-    # The Tauri webview serves the UI from its own origin and calls this backend.
-    allow_origins=[
-        "http://127.0.0.1:8000",
-        "http://localhost:8000",
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-        "tauri://localhost",
-    ],
+    allow_origins=cors_origins(settings.app_token),
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],

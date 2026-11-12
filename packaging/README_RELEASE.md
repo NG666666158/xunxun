@@ -27,6 +27,14 @@
 
    `--work` 要用短路径，否则 `backend\_internal` 下的文件会超过 260 字符。它不能启动外壳（第二个实例只会唤起已运行的那个），外壳的流程要靠单独身份的测试版，见文末。
 
+5. 长时间运行测试（约 45 分钟，可以和上一步同时跑）。脚本在临时数据目录上启动打包好的后台，接本机的假模型服务（不联网、不用 Key、不读凭据管理器），导入 3000 个小文件（txt、md、docx、xlsx、pdf、pptx 混合），再挂着监控这个文件夹 30 分钟，每 3 分钟增、改、改名或删一个文件，每 15 秒像界面一样查一次状态。每分钟记一次后台的内存、句柄数和线程数：
+
+   ```bash
+   .venv/Scripts/python packaging/soak_test.py --backend-exe packaging/dist/rag-backend/rag-backend.exe --out release/soak
+   ```
+
+   导入完成后先预热 5 分钟，之后的样本里，开头 3 个和结尾 3 个的中位数相比，内存（RSS）多出 100 MB、句柄多出 300 或线程多出 15 就算失败；后台中途退出、`backend.log` 里有未捕获的异常也算失败。失败时退出码为 1。每分钟的数字在 `--out` 下的 `soak.csv`，结论在 `summary.json`（含每小时的增长斜率），发版说明里可以引用。`--files`、`--idle-minutes` 和三个上限都能改；`--project project` 改为直接跑源码。正在运行的寻寻不受影响。
+
 ## 发布到 GitHub（1.0.0 起）
 
 代码在两个仓库：
@@ -146,3 +154,15 @@
 ## 更新流程的测试方法
 
 外壳不能和已运行的寻寻同时跑（同一 `identifier` 只会唤起已有窗口），所以用单独身份的测试版。步骤和结果见 [rename/README.md](rename/README.md) 末尾。
+
+后台守护（后台意外退出时外壳自动重启它）也这样测。只编译外壳、不打安装包，换一个 `identifier`，后台用 `RAG_BACKEND_EXE` 指过去：
+
+```powershell
+'{ "identifier": "com.xunxun.guardtest", "bundle": { "resources": null } }' | Set-Content $env:TEMP\guardtest.json
+cd desktop; npx tauri build --no-bundle --config $env:TEMP\guardtest.json
+$env:RAG_BACKEND_EXE = "$PWD\..\packaging\dist\rag-backend\rag-backend.exe"
+$env:PYTHON_KEYRING_BACKEND = "keyring.backends.null.Keyring"   # 不读真实的 Key
+src-tauri\target\release\EnterpriseKB.exe --data-dir <临时目录>
+```
+
+然后结束这个测试版外壳下面的 `rag-backend.exe`（按 PID，别按进程名，那样会连正在用的寻寻一起结束）：页面应提示“后台已重启”；10 分钟内再结束一次，应弹出启动窗口，显示退出码和 `<临时目录>\logs\backend.log`。测完删掉 `%LOCALAPPDATA%\com.xunxun.guardtest`。

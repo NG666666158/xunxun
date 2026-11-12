@@ -1,11 +1,12 @@
 // Desktop shell: starts the packaged Python backend on a random loopback port with a
 // per-launch token, waits for it to answer, then shows the UI. The backend dies with us.
+// If it dies first, it is started once more the same way (see `guard_backend`).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -23,9 +24,25 @@ const TITLE: &str = "寻寻";
 // First launch builds jieba's dictionary cache and imports LangChain; allow for slow disks.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 const LOG_HINT: &str = r"%APPDATA%\EnterpriseKnowledgeBase\logs\backend.log";
+// A backend that dies twice within this long is not started a third time.
+const RESTART_WINDOW: Duration = Duration::from_secs(10 * 60);
+const GUARD_INTERVAL: Duration = Duration::from_millis(500);
 
 /// The running backend process, killed on exit.
 struct Backend(Mutex<Option<Child>>);
+
+/// How the backend was started: a restart uses the same program, port and token, so the
+/// open windows keep talking to it without reloading.
+#[derive(Clone)]
+struct BackendLaunch {
+    exe: PathBuf,
+    port: u16,
+    token: String,
+}
+
+/// Set when the app quits or hands over to an update or a restart: from then on the
+/// backend's exit is expected and must not be answered with a new one.
+struct Stopping(AtomicBool);
 
 /// The script that tells a webview where the backend runs (set once it is live).
 struct DesktopScript(Mutex<Option<String>>);
@@ -95,7 +112,15 @@ fn data_dir_argument() -> Option<String> {
     None
 }
 
-fn spawn_backend(exe: &PathBuf, port: u16, token: &str) -> std::io::Result<Child> {
+/// Where the backend writes its log, for the error messages.
+fn log_hint() -> String {
+    match data_dir_argument() {
+        Some(dir) => Path::new(&dir).join("logs").join("backend.log").display().to_string(),
+        None => LOG_HINT.to_string(),
+    }
+}
+
+fn spawn_backend(exe: &Path, port: u16, token: &str) -> std::io::Result<Child> {
     let mut command = Command::new(exe);
     if let Some(dir) = data_dir_argument() {
         command.arg("--data-dir").arg(dir);
@@ -144,6 +169,139 @@ fn is_live(port: u16) -> bool {
     head.starts_with(b"HTTP/1.1 200")
 }
 
+/// The backend's exit status once it has exited; None while it runs or when there is none.
+fn backend_exit(app: &AppHandle) -> Option<ExitStatus> {
+    app.state::<Backend>()
+        .0
+        .lock()
+        .unwrap()
+        .as_mut()
+        .and_then(|child| child.try_wait().ok().flatten())
+}
+
+fn exit_message(status: ExitStatus) -> String {
+    format!("后台程序意外退出（{status}）。\n日志：{}", log_hint())
+}
+
+/// Wait until the backend answers on `port`; an error when it exits first or takes too long.
+fn wait_until_live(app: &AppHandle, port: u16) -> Result<(), String> {
+    let started = Instant::now();
+    loop {
+        if is_live(port) {
+            return Ok(());
+        }
+        if let Some(status) = backend_exit(app) {
+            return Err(exit_message(status));
+        }
+        if started.elapsed() > STARTUP_TIMEOUT {
+            return Err(format!("后台程序启动超时。\n日志：{}", log_hint()));
+        }
+        std::thread::sleep(Duration::from_millis(150));
+    }
+}
+
+fn stopping(app: &AppHandle) -> bool {
+    app.state::<Stopping>().0.load(Ordering::SeqCst)
+}
+
+#[derive(Debug, PartialEq)]
+enum AfterExit {
+    /// The app is quitting, updating or restarting: the backend was meant to stop.
+    Expected,
+    Restart,
+    /// It already died once within RESTART_WINDOW: show the error instead of looping.
+    GiveUp,
+}
+
+fn after_exit(stopping: bool, last_restart: Option<Instant>, now: Instant) -> AfterExit {
+    if stopping {
+        return AfterExit::Expected;
+    }
+    match last_restart {
+        Some(at) if now.saturating_duration_since(at) < RESTART_WINDOW => AfterExit::GiveUp,
+        _ => AfterExit::Restart,
+    }
+}
+
+/// Start the backend again exactly as before. The check against `Stopping` happens under
+/// the same lock `stop_backend` takes, so a quit during a restart never leaves one running.
+fn restart_backend(app: &AppHandle, launch: &BackendLaunch) -> Result<(), String> {
+    let mut child = spawn_backend(&launch.exe, launch.port, &launch.token)
+        .map_err(|e| format!("无法重新启动后台程序：{e}\n日志：{}", log_hint()))?;
+    {
+        let backend = app.state::<Backend>();
+        let mut slot = backend.0.lock().unwrap();
+        if stopping(app) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(());
+        }
+        *slot = Some(child);
+    }
+    wait_until_live(app, launch.port)
+}
+
+/// Runs for as long as the app does. When the backend exits on its own (a crash, or ended
+/// from Task Manager) it is started once more with the same port and token, and the
+/// windows hear "backend-restarted" so the page can say so and reload what it shows. A
+/// second exit within RESTART_WINDOW shows the error with the log's path instead.
+fn guard_backend(app: AppHandle, launch: BackendLaunch) {
+    let mut last_restart: Option<Instant> = None;
+    loop {
+        std::thread::sleep(GUARD_INTERVAL);
+        if stopping(&app) {
+            return;
+        }
+        let Some(status) = backend_exit(&app) else { continue };
+        match after_exit(stopping(&app), last_restart, Instant::now()) {
+            AfterExit::Expected => return,
+            AfterExit::GiveUp => {
+                eprintln!("backend exited again ({status}); not restarting");
+                show_error(&app, &exit_message(status));
+                return;
+            }
+            AfterExit::Restart => {
+                eprintln!("backend exited ({status}); starting it again");
+                last_restart = Some(Instant::now());
+                match restart_backend(&app, &launch) {
+                    Ok(()) if stopping(&app) => return,
+                    Ok(()) => {
+                        eprintln!("backend restarted on port {}", launch.port);
+                        let _ = app.emit("backend-restarted", ());
+                    }
+                    Err(_) if stopping(&app) => return,
+                    Err(message) => {
+                        show_error(&app, &message);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The startup window shows why the backend could not run. After startup it is gone, so it
+/// opens again, in front, with the message already in it.
+fn show_error(app: &AppHandle, message: &str) {
+    let literal = format!("{message:?}"); // a valid JS string literal for our messages
+    if let Some(splash) = app.get_webview_window(SPLASH) {
+        let _ = splash.eval(&format!("window.showError({literal})"));
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, SPLASH, WebviewUrl::App("splash.html".into()))
+        .title(TITLE)
+        .inner_size(420.0, 300.0)
+        .resizable(false)
+        .maximizable(false)
+        .center()
+        .always_on_top(true)
+        .initialization_script(&format!("window.__SHELL_ERROR__ = {literal};"))
+        .build();
+    if let Ok(window) = built {
+        let _ = window.set_focus();
+    }
+}
+
 fn launch(app: &AppHandle) -> Result<(), String> {
     let started = Instant::now();
     let exe = backend_exe(app)?;
@@ -151,26 +309,7 @@ fn launch(app: &AppHandle) -> Result<(), String> {
     let token = new_token();
     let child = spawn_backend(&exe, port, &token).map_err(|e| format!("无法启动后台程序：{e}"))?;
     *app.state::<Backend>().0.lock().unwrap() = Some(child);
-
-    loop {
-        if is_live(port) {
-            break;
-        }
-        let exited = app
-            .state::<Backend>()
-            .0
-            .lock()
-            .unwrap()
-            .as_mut()
-            .and_then(|child| child.try_wait().ok().flatten());
-        if let Some(status) = exited {
-            return Err(format!("后台程序意外退出（{status}）。\n日志：{LOG_HINT}"));
-        }
-        if started.elapsed() > STARTUP_TIMEOUT {
-            return Err(format!("后台程序启动超时。\n日志：{LOG_HINT}"));
-        }
-        std::thread::sleep(Duration::from_millis(150));
-    }
+    wait_until_live(app, port)?;
 
     // Only this webview learns where the backend is and the token it must send.
     let script = format!(
@@ -205,6 +344,8 @@ fn launch(app: &AppHandle) -> Result<(), String> {
     });
     let _ = window.set_focus();
     eprintln!("backend ready on port {port} after {} ms", started.elapsed().as_millis());
+    let handle = app.clone();
+    std::thread::spawn(move || guard_backend(handle, BackendLaunch { exe, port, token }));
     Ok(())
 }
 
@@ -364,7 +505,10 @@ fn restart_app(app: AppHandle) {
     app.restart();
 }
 
+/// Every caller means to end the backend (quit, update, restart, failed start), so the guard
+/// is told first and does not start it again.
 fn stop_backend(app: &AppHandle) {
+    app.state::<Stopping>().0.store(true, Ordering::SeqCst);
     if let Some(mut child) = app.state::<Backend>().0.lock().unwrap().take() {
         let _ = child.kill();
         let _ = child.wait();
@@ -380,6 +524,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Backend(Mutex::new(None)))
+        .manage(Stopping(AtomicBool::new(false)))
         .manage(DesktopScript(Mutex::new(None)))
         .manage(QuickShortcut(Mutex::new(None)))
         .manage(CloseToTray(AtomicBool::new(saved_close_to_tray())))
@@ -442,10 +587,42 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("failed to build the desktop shell")
-        .run(|app, event| {
+        .run(|app, event| match event {
+            // Quitting has begun: the backend's exit from here on is expected.
+            RunEvent::ExitRequested { .. } => app.state::<Stopping>().0.store(true, Ordering::SeqCst),
             // Closing the window (or 退出 in the tray) ends the app; take the backend with it.
-            if let RunEvent::Exit = event {
-                stop_backend(app);
-            }
+            RunEvent::Exit => stop_backend(app),
+            _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_unexpected_exit_restarts() {
+        assert_eq!(after_exit(false, None, Instant::now()), AfterExit::Restart);
+    }
+
+    #[test]
+    fn second_exit_within_ten_minutes_gives_up() {
+        let restarted = Instant::now();
+        let now = restarted + Duration::from_secs(9 * 60 + 59);
+        assert_eq!(after_exit(false, Some(restarted), now), AfterExit::GiveUp);
+    }
+
+    #[test]
+    fn exit_after_ten_quiet_minutes_restarts_again() {
+        let restarted = Instant::now();
+        let now = restarted + RESTART_WINDOW + Duration::from_secs(1);
+        assert_eq!(after_exit(false, Some(restarted), now), AfterExit::Restart);
+    }
+
+    #[test]
+    fn never_restarts_while_stopping() {
+        let now = Instant::now();
+        assert_eq!(after_exit(true, None, now), AfterExit::Expected);
+        assert_eq!(after_exit(true, Some(now), now), AfterExit::Expected);
+    }
 }

@@ -45,6 +45,8 @@
       msg.className = "error";
       msg.textContent = text;
     };
+    // Opened again after startup because the backend stopped for good: the message comes along.
+    if (window.__SHELL_ERROR__) window.showError(window.__SHELL_ERROR__);
   </script>
 </body>
 </html>
