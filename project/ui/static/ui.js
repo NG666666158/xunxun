@@ -731,14 +731,19 @@
   }
 
   /** Apple-style alert; resolves true for the confirming button, false otherwise. */
-  function confirmSheet({ title, message = "", confirm = "确定", cancel = "取消", danger = false } = {}) {
+  /** `groups` ([{ title, items }]) adds a list that scrolls inside the sheet, with the title
+      above it and `note` and the buttons below always in view; `subtitle` goes under the title. */
+  function confirmSheet({ title, message = "", confirm = "确定", cancel = "取消", danger = false, subtitle = "", groups = null, note = "" } = {}) {
     return new Promise((resolve) => {
       const before = doc.activeElement;
       const scrim = doc.createElement("div");
       scrim.className = "alert-scrim";
       const id = uid("alert");
-      scrim.innerHTML = `<div class="alert" role="alertdialog" aria-modal="true" aria-labelledby="${id}-t" aria-describedby="${id}-m">
-          <h3 id="${id}-t">${esc(title)}</h3>${message ? `<p id="${id}-m">${esc(message)}</p>` : ""}
+      const list = groups ? `<div class="alert-notes" id="${id}-m" tabindex="0">${groups.map((g) =>
+          `${g.title ? `<h4>${esc(g.title)}</h4>` : ""}${g.items.length ? `<ul>${g.items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}`).join("")}</div>` : "";
+      scrim.innerHTML = `<div class="alert${groups ? " with-notes" : ""}" role="alertdialog" aria-modal="true" aria-labelledby="${id}-t" aria-describedby="${id}-m">
+          <h3 id="${id}-t">${esc(title)}</h3>${subtitle ? `<p class="alert-sub">${esc(subtitle)}</p>` : ""}${message ? `<p id="${id}-m">${esc(message)}</p>` : ""}${list}
+          ${note ? `<p class="alert-note">${esc(note)}</p>` : ""}
           <div class="alert-actions">
             <button type="button" class="btn" data-answer="no">${esc(cancel)}</button>
             <button type="button" class="btn primary${danger ? " danger" : ""}" data-answer="yes">${esc(confirm)}</button>

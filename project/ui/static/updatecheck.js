@@ -51,5 +51,32 @@
     return { tick, state };
   }
 
-  root.UpdateCheck = { due, schedule, FIRST_MS, DAY_MS, RETRY_MS, TICK_MS };
+  /** Markdown marks a reader of the sheet does not need: links keep their text. */
+  const plain = (text) => text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|`)/g, "")
+    .trim();
+
+  /** Release notes (a CHANGELOG section) as groups: [{ title, items }]. Headings open a
+      group, "- " lines are its items, an indented line after an item joins it, and any other
+      text becomes an item of its own, so nothing the release said is dropped. */
+  function notes(text) {
+    const groups = [];
+    let group = null;
+    let inItem = false;
+    for (const raw of String(text || "").split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) { inItem = false; continue; }
+      const heading = line.match(/^#{1,6}\s+(.*)$/);
+      if (heading) { group = { title: plain(heading[1]), items: [] }; groups.push(group); inItem = false; continue; }
+      if (!group) { group = { title: "", items: [] }; groups.push(group); }
+      const bullet = line.match(/^(?:[-*+]|\d+[.)])\s+(.*)$/);
+      if (bullet) { group.items.push(plain(bullet[1])); inItem = true; }
+      else if (inItem && /^\s/.test(raw)) group.items[group.items.length - 1] += plain(line);
+      else { group.items.push(plain(line)); inItem = false; }
+    }
+    return groups.filter((g) => g.title || g.items.length);
+  }
+
+  root.UpdateCheck = { due, schedule, notes, FIRST_MS, DAY_MS, RETRY_MS, TICK_MS };
 })(typeof window !== "undefined" ? window : globalThis);

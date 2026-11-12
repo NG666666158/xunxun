@@ -2769,8 +2769,11 @@ async function checkForUpdate() {
     if (!update) { state.textContent = "已经是最新版本"; return; }
     state.textContent = `有新版本 ${update.version}`;
     const ok = await UI.confirmSheet({
-      title: `更新到 ${update.version}？`,
-      message: [update.notes, "寻寻会关闭并重新打开。资料和设置不受影响。"].filter(Boolean).join("\n\n"),
+      title: `更新到 ${update.version}`,
+      subtitle: "这一版的变化",
+      groups: UpdateCheck.notes(update.notes),
+      note: "寻寻会关闭并重新打开。资料和设置不受影响。",
+      cancel: "以后再说",
       confirm: "更新",
     });
     if (!ok) return;

@@ -105,3 +105,15 @@ test("a slow check is not started a second time", async () => {
   assert.equal(await first, true);
   assert.equal(calls, 1);
 });
+
+test("release notes become groups of plain items", () => {
+  const { notes } = globalThis.UpdateCheck;
+  const text = "### 新增\n\n- 失败的回答下方出现“重新提问”，见 [说明](docs/a.md)。\n- **密钥**无效时改为 `去设置`。\n\n### 修复\n\n- 第一行\n  接着写\n";
+  assert.deepEqual(notes(text), [
+    { title: "新增", items: ["失败的回答下方出现“重新提问”，见 说明。", "密钥无效时改为 去设置。"] },
+    { title: "修复", items: ["第一行接着写"] },
+  ]);
+  assert.deepEqual(notes("只是一句话"), [{ title: "", items: ["只是一句话"] }]);
+  assert.deepEqual(notes(""), []);
+  assert.deepEqual(notes(null), []);
+});

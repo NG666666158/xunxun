@@ -1265,6 +1265,23 @@ body.home .thread { min-height: 100%; max-width: none; padding: 0 24px; display:
 .alert p { margin-top: 8px; font-size: 13px; color: var(--label-2); line-height: 1.6; white-space: pre-line; }
 .alert .alert-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 18px; }
 .alert .btn { height: 34px; }
+/* A long message scrolls inside the sheet; the title and the buttons never leave the window. */
+.alert { max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
+.alert > * { flex: none; }
+.alert > p:not(.alert-sub):not(.alert-note) { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.alert .alert-sub { margin-top: 2px; font-size: 12px; color: var(--label-3); }
+/* Release notes: left aligned, grouped, scrolling between the title and the buttons. */
+.alert.with-notes { width: min(480px, 100%); padding: 22px 0 16px; }
+.alert.with-notes > h3, .alert.with-notes > p, .alert.with-notes > .alert-actions { margin-left: 22px; margin-right: 22px; }
+.alert.with-notes > .alert-actions { grid-auto-columns: minmax(96px, auto); justify-content: end; }
+.alert-notes {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; margin-top: 14px; padding: 2px 22px 12px;
+  border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); text-align: left; outline: none;
+}
+.alert-notes h4 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: var(--label-3); }
+.alert-notes ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.alert-notes li { position: relative; padding-left: 14px; font-size: 13px; line-height: 1.6; color: var(--label); overflow-wrap: anywhere; }
+.alert-notes li::before { content: ""; position: absolute; left: 2px; top: 0.75em; width: 4px; height: 4px; border-radius: 50%; background: var(--label-3); }
 .alert-scrim.closing { opacity: 0; transition: opacity var(--d-fast); }
 /* Read-only facts (UI.infoSheet): the file card. */
 .info-sheet { width: min(420px, 100%); }
