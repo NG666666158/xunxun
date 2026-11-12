@@ -1,0 +1,420 @@
+{
+ "fake_embed": null,
+ "fake_tpm": 0.0,
+ "fake_rerank": 0.0,
+ "overrides": {
+  "watch_enabled": false,
+  "doc_cards": false
+ },
+ "image_mode": "local",
+ "suggestions": false,
+ "wall_seconds": 531.8,
+ "first_indexed_seconds": 3.1,
+ "t_50pct_indexed": 31.2,
+ "t_90pct_indexed": 397.4,
+ "t_100pct_indexed": 531.8,
+ "files": {
+  "pending": 0,
+  "indexing": 0,
+  "indexed": 400,
+  "named": 0,
+  "failed": 0,
+  "unsupported": 0,
+  "missing": 0,
+  "offline": 0,
+  "recycled": 0
+ },
+ "chunks": 9025,
+ "failed": [],
+ "peak_rss_mb": 737,
+ "doc_cards": {
+  "built": 0,
+  "cached": 0,
+  "failed": 0,
+  "skipped": 0,
+  "tokens": 0,
+  "seconds": 0.0,
+  "rate_limited": 0,
+  "pending": 0
+ },
+ "drain": {},
+ "stages": {
+  "chunk": {
+   "seconds": 0.49,
+   "calls": 404
+  },
+  "commit (chunk+vectors+write)": {
+   "seconds": 1127.37,
+   "calls": 404,
+   "errors": 4.0,
+   "error_429": 4.0
+  },
+  "embed.http": {
+   "seconds": 256.48,
+   "calls": 1413,
+   "http.texts": 17542.0,
+   "http.chars": 8913294.0,
+   "http.errors": 453.0,
+   "http.error_429": 453.0
+  },
+  "embed.wait_for_slot": {
+   "seconds": 0.02,
+   "calls": 1413
+  },
+  "file_entry": {
+   "seconds": 481.62,
+   "calls": 400,
+   "errors": 2.0,
+   "error_429": 2.0
+  },
+  "index_document": {
+   "seconds": 1403.01,
+   "calls": 404,
+   "errors": 4.0,
+   "error_429": 4.0
+  },
+  "job (_index)": {
+   "seconds": 1889.29,
+   "calls": 404
+  },
+  "parents.save": {
+   "seconds": 2.07,
+   "calls": 400
+  },
+  "parse": {
+   "seconds": 275.61,
+   "calls": 404
+  },
+  "parse:docx": {
+   "seconds": 20.08,
+   "calls": 102
+  },
+  "parse:jpg": {
+   "seconds": 116.64,
+   "calls": 15
+  },
+  "parse:md": {
+   "seconds": 0.35,
+   "calls": 61
+  },
+  "parse:pdf": {
+   "seconds": 3.27,
+   "calls": 104
+  },
+  "parse:png": {
+   "seconds": 133.23,
+   "calls": 17
+  },
+  "parse:pptx": {
+   "seconds": 0.98,
+   "calls": 32
+  },
+  "parse:txt": {
+   "seconds": 0.04,
+   "calls": 32
+  },
+  "parse:xlsx": {
+   "seconds": 1.02,
+   "calls": 41
+  },
+  "parsed.json_dumps": {
+   "seconds": 0.08,
+   "calls": 400
+  },
+  "pause_for_questions": {
+   "seconds": 0.03,
+   "calls": 4461
+  },
+  "registry.update_file": {
+   "seconds": 2.31,
+   "calls": 808
+  },
+  "sha256": {
+   "seconds": 0.83,
+   "calls": 404
+  },
+  "sql.file_entries": {
+   "seconds": 7.91,
+   "calls": 398
+  },
+  "sql.replace_document (incl. tokenize)": {
+   "seconds": 37.72,
+   "calls": 400
+  },
+  "sql.tokenize": {
+   "seconds": 24.96,
+   "calls": 400
+  },
+  "sql.vectors_by_text": {
+   "seconds": 0.26,
+   "calls": 404
+  },
+  "vectors (reuse+embed)": {
+   "seconds": 1072.8,
+   "calls": 404,
+   "errors": 4.0,
+   "error_429": 4.0
+  }
+ },
+ "code": "main e5cbe1f",
+ "progress": [
+  [
+   0.5,
+   0,
+   63,
+   4
+  ],
+  [
+   5.2,
+   21,
+   375,
+   4
+  ],
+  [
+   7.8,
+   46,
+   350,
+   4
+  ],
+  [
+   10.4,
+   71,
+   325,
+   4
+  ],
+  [
+   13.0,
+   95,
+   301,
+   4
+  ],
+  [
+   15.6,
+   117,
+   279,
+   4
+  ],
+  [
+   18.2,
+   135,
+   261,
+   4
+  ],
+  [
+   20.8,
+   150,
+   246,
+   4
+  ],
+  [
+   23.5,
+   166,
+   230,
+   4
+  ],
+  [
+   26.1,
+   183,
+   213,
+   4
+  ],
+  [
+   29.6,
+   195,
+   201,
+   4
+  ],
+  [
+   32.7,
+   206,
+   190,
+   4
+  ],
+  [
+   35.2,
+   217,
+   179,
+   4
+  ],
+  [
+   38.8,
+   230,
+   166,
+   4
+  ],
+  [
+   46.5,
+   246,
+   150,
+   4
+  ],
+  [
+   52.6,
+   254,
+   142,
+   4
+  ],
+  [
+   58.3,
+   260,
+   136,
+   4
+  ],
+  [
+   65.0,
+   266,
+   130,
+   4
+  ],
+  [
+   70.6,
+   273,
+   123,
+   4
+  ],
+  [
+   79.9,
+   281,
+   115,
+   4
+  ],
+  [
+   91.2,
+   289,
+   107,
+   4
+  ],
+  [
+   97.5,
+   294,
+   102,
+   4
+  ],
+  [
+   115.9,
+   300,
+   96,
+   4
+  ],
+  [
+   131.6,
+   305,
+   91,
+   4
+  ],
+  [
+   147.4,
+   311,
+   85,
+   4
+  ],
+  [
+   164.0,
+   317,
+   79,
+   4
+  ],
+  [
+   175.9,
+   322,
+   74,
+   4
+  ],
+  [
+   210.7,
+   325,
+   71,
+   4
+  ],
+  [
+   235.5,
+   329,
+   65,
+   4
+  ],
+  [
+   274.2,
+   334,
+   60,
+   4
+  ],
+  [
+   303.5,
+   338,
+   56,
+   4
+  ],
+  [
+   342.5,
+   341,
+   52,
+   4
+  ],
+  [
+   368.6,
+   345,
+   48,
+   4
+  ],
+  [
+   388.6,
+   349,
+   43,
+   4
+  ],
+  [
+   393.3,
+   357,
+   35,
+   4
+  ],
+  [
+   407.3,
+   363,
+   30,
+   3
+  ],
+  [
+   427.3,
+   370,
+   24,
+   2
+  ],
+  [
+   451.8,
+   375,
+   19,
+   2
+  ],
+  [
+   469.6,
+   380,
+   14,
+   2
+  ],
+  [
+   491.0,
+   385,
+   9,
+   2
+  ],
+  [
+   510.3,
+   390,
+   4,
+   2
+  ],
+  [
+   528.7,
+   397,
+   0,
+   3
+  ],
+  [
+   531.8,
+   400,
+   0,
+   0
+  ]
+ ]
+}

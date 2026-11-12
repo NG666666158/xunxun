@@ -1,0 +1,49 @@
+{
+ "chars": 650,
+ "texts": 60000,
+ "latency": {
+  "1": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 0.123,
+   "tokens_per_text": 365.0,
+   "detail": null
+  },
+  "8": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 0.236,
+   "tokens_per_text": 363.8,
+   "detail": null
+  },
+  "32": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 0.438,
+   "tokens_per_text": 370.9,
+   "detail": null
+  },
+  "64": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 0.859,
+   "tokens_per_text": 392.4,
+   "detail": null
+  },
+  "128": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 1.115,
+   "tokens_per_text": 402.7,
+   "detail": null
+  },
+  "256": {
+   "ok": 3,
+   "failed": [],
+   "median_s": 1.932,
+   "tokens_per_text": 405.9,
+   "detail": null
+  }
+ },
+ "throughput": []
+}

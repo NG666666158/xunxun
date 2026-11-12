@@ -6,6 +6,7 @@ import json
 import logging
 import shutil
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -14,12 +15,23 @@ from config import Settings, get_settings
 from db.parent_store_manager import ParentStoreManager
 from retrieval.types import ChunkRecord, ChunkStore, text_key
 from services.model_clients import SiliconFlowEmbeddings
+from . import embed_pacing
 from .chunker import HeadingAwareChunker
 from .models import DocumentUnit, ParsedDocument
 from .parsers import MultiFormatParser
 
 
 logger = logging.getLogger(__name__)
+
+
+def _worth_waiting(exc: BaseException) -> bool:
+    """A busy or unreachable service (429, 5xx, timeouts, dropped connections), not a refused
+    key or a bad request."""
+    try:
+        from services.model_clients import transient_error
+    except ImportError:  # pragma: no cover - older model_clients
+        return False
+    return any(error is not None and transient_error(error) for error in (exc, exc.__cause__))
 
 
 @dataclass(frozen=True)
@@ -45,9 +57,16 @@ class IngestionPipeline:
         self.parser = MultiFormatParser(self.settings)
         self.chunker = HeadingAwareChunker(self.settings)
         self._lock = threading.Lock()
+        # The library's embedding requests keep to the account's token limit (embed_pacing.py).
+        embed_pacing.install_for(self.settings)
 
     # Children embedded per request; the queue may pause between batches (see ``pause``).
+    # Larger requests are no faster per child once the account's token limit is reached
+    # (evaluation/import_speed_v1); 32 is what earlier indexes were built with.
     embed_batch = 32
+    # Seconds to wait before trying a batch again when the service stayed busy through the
+    # client's own retries (see _embed_patiently).
+    embed_patience = (20.0, 40.0, 60.0)
     # A scanned PDF is read and committed this many pages at a time: it is searchable as it
     # goes, and each commit embeds only the new chunks (the rest keep their vectors).
     ocr_pages_per_commit = 16
@@ -165,11 +184,30 @@ class IngestionPipeline:
             if pause and start:
                 pause()
             batch = missing[start : start + self.embed_batch]
-            fresh.update(zip((text_key(text) for text in batch), self.embeddings.embed_documents(batch), strict=True))
+            fresh.update(zip((text_key(text) for text in batch), self._embed_patiently(batch, pause), strict=True))
             requests += 1
         if report is not None:
             report.update(embedded=len(missing), reused=len(texts) - len(missing), embedding_requests=requests)
         return [fresh.get(text_key(text)) or known[text_key(text)] for text in texts]
+
+    def _embed_patiently(self, batch: list[str], pause: Callable[[], None] | None) -> list[list[float]]:
+        """One batch, tried again here when the service stays busy (429, 5xx, a dropped
+        connection) after the client's own retries: the file keeps the batches it already has,
+        instead of failing and being read and embedded again from the start."""
+        for attempt in range(len(self.embed_patience) + 1):
+            try:
+                return self.embeddings.embed_documents(batch)
+            except Exception as exc:
+                if attempt >= len(self.embed_patience) or not _worth_waiting(exc):
+                    raise
+                delay = self.embed_patience[attempt]
+                logger.info("Embedding service busy (%s), batch tried again in %.0f s", type(exc).__name__, delay)
+                deadline = time.monotonic() + delay
+                while (left := deadline - time.monotonic()) > 0:
+                    if pause:
+                        pause()  # also stops here when the file was switched to name-only
+                    time.sleep(min(left, 1.0))
+        raise AssertionError("unreachable")
 
     def ingest(self, path: str | Path, replace: bool = False) -> IngestionResult:
         """Legacy content-hash ingestion, kept for the benchmark scripts.

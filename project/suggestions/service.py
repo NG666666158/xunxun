@@ -295,6 +295,10 @@ class SuggestionService:
         if record["status"] != "indexed":
             return 0
         prefs = self.prefs()
+        if not prefs.enabled:
+            # Switched off: no searches or model calls for questions nobody sees. The file keeps
+            # no new state, so the sync after switching back on queues it again.
+            return 0
         reason = privacy.exclusion_reason(record, prefs)
         if reason:
             self._exclude(file_id, record, reason)

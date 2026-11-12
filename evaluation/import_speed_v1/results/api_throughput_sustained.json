@@ -1,0 +1,87 @@
+{
+ "chars": 650,
+ "texts": 60000,
+ "throughput": [
+  {
+   "workers": 2,
+   "batch": 32,
+   "seconds": 151.2,
+   "calls": 236,
+   "ok": 110,
+   "429": 126,
+   "other_errors": [],
+   "texts_per_s": 23.3,
+   "tokens_per_min": 568970,
+   "requests_per_min": 43.7,
+   "median_s": 0.355,
+   "p90_s": 0.501,
+   "detail_429": "{\"message\":\"Request was rejected due to rate limiting. Details: TPM limit reached.\",\"data\":null}",
+   "timeline": [
+    [
+     379165,
+     4
+    ],
+    [
+     104213,
+     10
+    ],
+    [
+     39108,
+     8
+    ],
+    [
+     54366,
+     10
+    ],
+    [
+     79808,
+     9
+    ],
+    [
+     92223,
+     8
+    ],
+    [
+     66968,
+     8
+    ],
+    [
+     77436,
+     10
+    ],
+    [
+     67871,
+     8
+    ],
+    [
+     80452,
+     8
+    ],
+    [
+     79424,
+     9
+    ],
+    [
+     78852,
+     9
+    ],
+    [
+     87468,
+     8
+    ],
+    [
+     61307,
+     8
+    ],
+    [
+     84878,
+     9
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  }
+ ]
+}

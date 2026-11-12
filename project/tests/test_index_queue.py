@@ -177,9 +177,10 @@ def test_small_files_are_not_stuck_behind_a_long_scan(lib, tmp_path):
     # Every note and photo was done before the first scan finished: none waited for it.
     assert all(finished[f"note{n}.md"] < first_scan for n in range(6))
     assert all(finished[f"p{n}.png"] < first_scan for n in range(3))
-    # One long scan at a time, at most two recognition jobs, never more than four workers.
+    # One long scan at a time, at most two recognition jobs; four workers for any file plus the
+    # two recognition workers, which read images and scans beside the text from the start.
     assert lib.slow.peak["scan"] == 1 and lib.slow.peak["scan"] + lib.slow.peak["photo"] <= 2 + 1
-    assert lib.slow.peak["all"] <= 4
+    assert lib.slow.peak["all"] <= 4 + 2
     assert time.monotonic() - started < 5
 
 

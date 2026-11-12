@@ -50,7 +50,10 @@
     const totals = inspect?.totals || {};
     const estimate = inspect?.estimate || {};
     const mode = IMAGE_MODES.includes(inspect?.image_mode) ? inspect.image_mode : inspect?.default_image_mode || "local";
-    const seconds = (estimate.text_seconds || 0) + (totals.images ? estimate.images?.[mode]?.seconds || 0 : 0);
+    // Text and images are read side by side: the backend's total per image mode, when it has one.
+    const total = estimate.total_seconds?.[mode];
+    const seconds = total != null ? total
+      : (estimate.text_seconds || 0) + (totals.images ? estimate.images?.[mode]?.seconds || 0 : 0);
     return {
       add,
       already,

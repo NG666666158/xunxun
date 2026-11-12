@@ -127,7 +127,9 @@
              "image_bytes": 51234567, "bytes": 90000000, "estimated_characters": 820000,
              "estimated_figures": 0, "truncated": false, "by_type": {".pdf": 40, ".png": 30, ".jpg": 1}},
   "estimate": {
-    "documents": 82, "chunks": 1367, "embedding_requests": 187, "text_seconds": 99,
+    "documents": 82, "chunks": 1367, "embedding_requests": 187, "embedding_tokens": 610000,
+    "tokens_per_minute": 450000, "text_seconds": 99,
+    "total_seconds": {"local": 99, "cloud": 99, "name": 99},
     "images": {"local": {"seconds": 25, "cloud_calls": 0},
                "cloud": {"seconds": 47, "cloud_calls": 31},
                "name":  {"seconds": 3, "cloud_calls": 0}},
@@ -277,7 +279,8 @@
 
 - 一张图的时间取单张中位数；
 - 多张图取“张数 × 并行后每张的秒数”，两者取大；
-- 文本按约 3 万字/秒解析，加每 32 块一次、每次约 1.5 s 的嵌入请求。
+- 文本（2026-11 起，`library/estimate.py`，实测见 `evaluation/import_speed_v1/REPORT.md`）：各环节同时进行，取最慢的一个，不再相加。嵌入受账户每分钟 token 上限约束（免费账户 bge-m3 约 50 万/分钟，开头有一次约 100 万的突发额度）；小文件多时受请求数约束（每次约 0.4 s，4 个文件同时读）；解析、分词和写库按单核计；图片和扫描页与文本同时识别。
+- 原来按“每个文件 0.2 s + 每 32 块 1.5 s”逐项相加，9,347 个文件的文件夹估成 7.5 小时，比实际长得多。
 
 ### 4.4 端到端（真实后台 + 用户数据副本）
 

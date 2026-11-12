@@ -62,6 +62,22 @@ test("a batch plan: what to add, what to ask, when to confirm", () => {
   assert.equal(plan({ ...inspect, items: [inspect.items[2]] }).askImages, false);
 });
 
+test("text and images are read side by side: the backend's total per image mode wins", () => {
+  const inspect = {
+    items: [{ path: "D:\\资料", kind: "folder", ok: true, already: false }],
+    totals: { indexable: 9347, images: 800 },
+    estimate: {
+      text_seconds: 3 * 3600,
+      total_seconds: { local: 3.2 * 3600, cloud: 4 * 3600, name: 3 * 3600 },
+      images: { local: { seconds: 2000 }, cloud: { seconds: 10000 }, name: { seconds: 100 } },
+    },
+    image_mode: "local",
+  };
+  assert.equal(plan(inspect).seconds, 3.2 * 3600); // not 3 h + 2000 s
+  assert.equal(plan({ ...inspect, image_mode: "name" }).seconds, 3 * 3600);
+  assert.equal(duration(plan(inspect).seconds), "约 3.2 小时");
+});
+
 test("after adding: one line with what went in and the first reason something did not", () => {
   const result = {
     results: [
