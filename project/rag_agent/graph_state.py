@@ -27,6 +27,8 @@ class State(TypedDict, total=False):
     last_error: str
     # User-facing reason when the model service (not the evidence) failed.
     model_error: str
+    # What failed (services.model_clients.ERROR_KINDS): decides whether the UI offers a retry.
+    error_kind: str
     # The fact check could not run (rate limit, network); the answer is shown unverified.
     check_skipped: bool
     # How the answer was checked: "cited" (cited statements vs. the passages they cite),

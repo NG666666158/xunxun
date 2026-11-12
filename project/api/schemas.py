@@ -16,6 +16,8 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     thread_id: str | None = None
     scope: ChatScope | None = None
+    # "重新提问" after a failed answer: the failed turn leaves the history first.
+    retry: bool = False
 
 
 class ConversationIn(BaseModel):

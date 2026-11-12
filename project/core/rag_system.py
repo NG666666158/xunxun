@@ -14,7 +14,7 @@ import time
 import uuid
 from typing import Any, Iterator
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, RemoveMessage
 
 from config import Settings, get_settings
 from core import timings, user_settings
@@ -37,7 +37,14 @@ from retrieval.file_search import FileSearchService
 from retrieval.hybrid_retriever import HybridRetriever
 from retrieval.factory import create_store
 from retrieval.types import ChunkStore
-from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker, build_chat_model, open_connections
+from services.model_clients import (
+    MANUAL_RETRY_KINDS,
+    SiliconFlowEmbeddings,
+    SiliconFlowReranker,
+    build_chat_model,
+    open_connections,
+    within_budget,
+)
 from suggestions import SuggestionService, SuggestionStore
 from suggestions.followups import SCENE_NONE, FollowupService, Result as FollowupResult
 
@@ -495,28 +502,54 @@ class RAGSystem:
         return {"messages": [HumanMessage(content=question)], "question": question, "scope_doc_ids": list(scope or [])}
 
     def stream(
-        self, question: str, thread_id: str, scope: list[str] | None = None, received_at: float | None = None
+        self, question: str, thread_id: str, scope: list[str] | None = None, received_at: float | None = None,
+        retry: bool = False,
     ) -> Iterator[dict[str, Any]]:
         """``received_at`` (``time.perf_counter()``) is when the request arrived: the timings
-        then include any wait for start-up."""
+        then include any wait for start-up. ``retry``: the user asked the failed question again
+        ("重新提问"); the failed turn leaves the history first."""
         turn = timings.TurnTimings(started=received_at)
-        yield from timings.iterate(self._timed_stream(question, thread_id, scope, turn), turn)
+        budget = float(getattr(self.settings, "turn_retry_budget_seconds", 0.0) or 0.0)
+        yield from timings.iterate(within_budget(self._timed_stream(question, thread_id, scope, turn, retry), budget), turn)
 
     def _timed_stream(
-        self, question: str, thread_id: str, scope: list[str] | None, turn: timings.TurnTimings
+        self, question: str, thread_id: str, scope: list[str] | None, turn: timings.TurnTimings, retry: bool = False
     ) -> Iterator[dict[str, Any]]:
         with timings.stage("prepare"):
             self.initialize()
         with self._answering():
-            yield from self._stream(question, thread_id, scope, turn)
+            yield from self._stream(question, thread_id, scope, turn, retry)
+
+    def _drop_failed_turn(self, config: dict[str, Any], question: str) -> int:
+        """"重新提问": the last turn, if it asked this question and failed (the model or the
+        search gave up), leaves the history, so the question is not in it twice and a
+        follow-up does not refer to the failure. Returns how many messages went."""
+        values = self.agent_graph.get_state(config).values or {}
+        if not (values.get("error_kind") or values.get("model_error") or values.get("last_error")):
+            return 0  # the last saved turn did not fail (a crash saves nothing)
+        messages = list(values.get("messages") or [])
+        last = next((i for i in range(len(messages) - 1, -1, -1) if isinstance(messages[i], HumanMessage)), None)
+        if last is None or str(messages[last].content).strip() != question.strip():
+            return 0
+        ids = [m.id for m in messages[last:] if getattr(m, "id", None)]
+        if ids:
+            self.agent_graph.update_state(config, {"messages": [RemoveMessage(id=i) for i in ids],
+                                                   "error_kind": "", "model_error": "", "last_error": ""},
+                                          as_node="finish")
+        return len(ids)
 
     def _stream(
-        self, question: str, thread_id: str, scope: list[str] | None, turn: timings.TurnTimings | None = None
+        self, question: str, thread_id: str, scope: list[str] | None, turn: timings.TurnTimings | None = None,
+        retry: bool = False,
     ) -> Iterator[dict[str, Any]]:
         turn = turn or timings.TurnTimings()
         config = self._graph_config(thread_id)
         with timings.stage("prepare"):
             self._begin_turn(thread_id)
+            if retry:
+                dropped = self._drop_failed_turn(config, question)
+                if dropped:
+                    logger.info("Asked again: the failed turn left the history (%d messages)", dropped)
         yield {"event": "start", "thread_id": thread_id}
         # Draft tokens from the answer node are forwarded as they are generated;
         # the fact check still runs afterwards and `final` stays authoritative.
@@ -591,6 +624,10 @@ class RAGSystem:
             "files": list(snapshot.get("files") or []),
             "file_search": dict(snapshot.get("file_search") or {}),
             "coverage": dict(snapshot.get("coverage") or {}),
+            # A failure the user may simply ask again (the UI offers "重新提问"); auth and
+            # balance failures send them to the settings instead.
+            "error_kind": str(snapshot.get("error_kind") or ""),
+            "retryable": bool(snapshot.get("refused")) and str(snapshot.get("error_kind") or "") in MANUAL_RETRY_KINDS,
             "timings": self._save_timings(turn, snapshot),
         }
 

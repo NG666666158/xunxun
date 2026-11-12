@@ -390,6 +390,70 @@ function sourceCard(s) {
     </button>`;
 }
 
+/* ---------------- asking a failed question again (retry.js) ---------------- */
+
+// The one failed answer counting down to asking again by itself.
+const autoRetry = { botId: "", until: 0, timer: 0, tick: 0 };
+
+/** "重新提问" under the latest answer when it failed; "去设置" when the key or the balance is the cause. */
+function retryRow(m) {
+  if (!Retry.failed(m)) return "";
+  const conv = currentConversation();
+  if (!conv || conv.messages[conv.messages.length - 1] !== m) return ""; // only the latest answer
+  const offer = Retry.plan(m.errorKind, { retryable: m.retryable ?? null, autoUsed: !!m.retried });
+  if (offer.action === "settings") {
+    return `<div class="retry-row"><button type="button" class="btn small" data-act="retry-settings">去设置</button></div>`;
+  }
+  if (offer.action !== "retry") return "";
+  const counting = autoRetry.botId === m.id;
+  return `<div class="retry-row">
+      <button type="button" class="btn small primary" data-act="retry-ask" data-bot="${esc(m.id)}">${ICONS.rewrite}重新提问</button>
+      ${counting ? `<span class="retry-auto"><span class="retry-auto-text">${esc(Retry.countdown((autoRetry.until - Date.now()) / 1000))}</span>
+        <button type="button" class="retry-cancel" data-act="retry-cancel">取消</button></span>` : ""}
+    </div>`;
+}
+
+function cancelAutoRetry() {
+  clearTimeout(autoRetry.timer);
+  clearInterval(autoRetry.tick);
+  const id = autoRetry.botId;
+  autoRetry.botId = "";
+  const bot = id && currentConversation()?.messages.find((m) => m.id === id);
+  if (bot) paint(bot);
+}
+
+/** A failed answer the service may give next time: count down, then ask again once. */
+function scheduleAutoRetry(conv, bot) {
+  const offer = Retry.plan(bot.errorKind, { retryable: bot.retryable ?? null, autoUsed: !!bot.retried });
+  if (offer.action !== "retry" || !offer.auto || conv.id !== state.current || isRunning()) return;
+  cancelAutoRetry();
+  autoRetry.botId = bot.id;
+  autoRetry.until = Date.now() + offer.auto * 1000;
+  autoRetry.tick = setInterval(() => {
+    const line = els.thread.querySelector(`.msg-bot[data-bot="${bot.id}"] .retry-auto-text`);
+    if (line) line.textContent = Retry.countdown((autoRetry.until - Date.now()) / 1000);
+  }, 500);
+  autoRetry.timer = setTimeout(() => {
+    if (autoRetry.botId !== bot.id) return;
+    cancelAutoRetry();
+    retryAsk(bot.id);
+  }, offer.auto * 1000);
+  paint(bot);
+}
+
+/** Ask the latest, failed question again: the failed answer is replaced, the question is not repeated. */
+function retryAsk(botId) {
+  const conv = currentConversation();
+  if (!conv || isRunning()) return;
+  const index = conv.messages.findIndex((m) => m.id === botId);
+  const bot = conv.messages[index];
+  if (!bot || index !== conv.messages.length - 1 || !Retry.failed(bot)) return;
+  cancelAutoRetry();
+  conv.messages.splice(index, 1);
+  els.thread.querySelector(`.msg-bot[data-bot="${botId}"]`)?.remove();
+  ask(bot.question, { retry: true });
+}
+
 function fillBot(el, m, { running = false, typing = false } = {}) {
   const body = el.querySelector(".bot-body");
   body.querySelector(".deck")?._deck?.destroy();
@@ -460,6 +524,7 @@ function fillBot(el, m, { running = false, typing = false } = {}) {
       }
     }
   }
+  if (!running) html += retryRow(m);
   body.innerHTML = html;
   const deckEl = body.querySelector(".deck");
   if (deckEl) {
@@ -698,6 +763,12 @@ function renderHistory() {
 
 function renderConversation() {
   noteShown();
+  // Another conversation, or this one again: a countdown to asking again does not follow.
+  if (autoRetry.botId) {
+    clearTimeout(autoRetry.timer);
+    clearInterval(autoRetry.tick);
+    autoRetry.botId = "";
+  }
   els.thread.querySelectorAll(".msg").forEach((n) => n.remove());
   const conv = currentConversation();
   setHome(!(conv && conv.messages.length));
@@ -732,9 +803,10 @@ function newConversation(source) {
 
 /* ---------------- chat ---------------- */
 
-async function ask(question) {
+async function ask(question, { retry = false } = {}) {
   question = question.trim();
   if (!question || isRunning()) return;
+  cancelAutoRetry();
 
   let conv = currentConversation();
   if (!conv) {
@@ -748,8 +820,9 @@ async function ask(question) {
   }
   conv.updated = Date.now();
 
-  conv.messages.push({ role: "user", text: question });
-  const bot = { role: "bot", id: uid(), question, steps: [], answer: "", done: false };
+  // "重新提问" replaces the failed answer under the same question; the question is not repeated.
+  if (!retry) conv.messages.push({ role: "user", text: question });
+  const bot = { role: "bot", id: uid(), question, steps: [], answer: "", done: false, ...(retry ? { retried: true } : {}) };
   conv.messages.push(bot);
   // The question is on disk from the start: closing the app mid-answer doesn't lose it.
   saveStore(conv);
@@ -757,14 +830,16 @@ async function ask(question) {
   state.filled = null;
 
   setHome(false);
-  els.thread.appendChild(userMessage(question));
+  if (!retry) els.thread.appendChild(userMessage(question));
   const el = botShell(bot.id);
   els.thread.appendChild(el);
   fillBot(el, bot, { running: true });
   scrollToBottom(true);
 
-  els.input.value = "";
-  updatePlaceholder();
+  if (!retry) {
+    els.input.value = "";
+    updatePlaceholder();
+  }
   const started = performance.now();
   const controller = new AbortController();
   state.running.set(conv.id, { controller, bot });
@@ -781,6 +856,7 @@ async function ask(question) {
         question,
         thread_id: conv.id,
         ...(conv.scope ? { scope: { doc_ids: conv.scope.doc_ids || [], folder: conv.scope.folder || "" } } : {}),
+        ...(retry ? { retry: true } : {}),
       }),
       signal: controller.signal,
     });
@@ -815,6 +891,9 @@ async function ask(question) {
       // A stream cut off mid-read rejects with a bare TypeError ("network error").
       const reason = err instanceof TypeError ? "与后台服务的连接中断了。" + BACKEND_UNREACHABLE.split("：")[1] : err.message || err;
       bot.error = `请求失败：${reason}`;
+      // The backend could not be reached or answered with an error page: asking again may help.
+      bot.errorKind = bot.errorKind || (err instanceof TypeError ? "network" : "unknown");
+      bot.retryable = true;
     }
     bot.elapsed = (performance.now() - started) / 1000;
     paint(bot);
@@ -829,8 +908,12 @@ async function ask(question) {
     if (conv.id === state.current) scrollToBottom();
     else if (state.conversations.includes(conv)) toast(`「${conv.title}」的回答已完成`);
   }
+  if (!state.conversations.includes(conv)) return;
+  // Overloaded, rate limited, unreachable: count down and ask again once by itself. First, since
+  // a refusal for a failed model call is also `done` with no `error`.
+  if (Retry.failed(bot)) scheduleAutoRetry(conv, bot);
   // After `final`, not before: the answer is on screen while the follow-ups are written.
-  if (bot.done && !bot.error && state.conversations.includes(conv)) requestFollowups(conv, bot);
+  else if (bot.done && !bot.error) requestFollowups(conv, bot);
 }
 
 /** Draft tokens arrive hundreds of times a second; repaint at most once per frame. */
@@ -878,6 +961,8 @@ function handleEvent(ev, bot, started) {
       } else if (ev.kind === "waiting") {
         // The model service is rate limited: the answer or its check waits instead of being skipped.
         bot.waiting = `${PET}模型这会儿有点忙，排队等 ${ev.seconds || ""} 秒再接着${bot.phase === "checking" ? "核对" : "写"}…`;
+        // A draft cut off by the failure is written again from the start, not appended to.
+        bot.drafting = false;
         paint(bot, { running: true, typing: !!bot.answer });
       }
       return;
@@ -913,6 +998,9 @@ function handleEvent(ev, bot, started) {
         files: ev.files || [],
         fileSearch: ev.file_search || null,
         coverage: ev.coverage || null,
+        // The model or the search failed (not "no evidence"): the answer offers asking again.
+        errorKind: ev.error_kind || "",
+        retryable: !!ev.retryable,
         reading: "",
         elapsed: (performance.now() - started) / 1000,
         done: true,
@@ -921,6 +1009,8 @@ function handleEvent(ev, bot, started) {
       break;
     case "error":
       bot.error = ev.message || "问答服务暂时不可用。";
+      bot.errorKind = ev.kind || "unknown";
+      bot.retryable = ev.retryable !== false;
       bot.elapsed = (performance.now() - started) / 1000;
       paint(bot);
       break;
@@ -3333,6 +3423,14 @@ function answerText(bot) {
 }
 
 els.thread.addEventListener("click", async (e) => {
+  const retry = e.target.closest('[data-act="retry-ask"], [data-act="retry-cancel"], [data-act="retry-settings"]');
+  if (retry) {
+    if (retry.dataset.act === "retry-ask") retryAsk(retry.dataset.bot);
+    else if (retry.dataset.act === "retry-cancel") cancelAutoRetry();
+    else openSettings("key");
+    return;
+  }
+
   const head = e.target.closest(".trace-head");
   if (head) {
     const open = head.parentElement.classList.toggle("open");

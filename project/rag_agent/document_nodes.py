@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.config import get_stream_writer
 from pydantic import ValidationError
 
-from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error
+from services.model_clients import MODEL_SERVICE_ERRORS, describe_model_error, error_kind
 from services.table_query import (
     TableError,
     TableQuery,
@@ -257,7 +257,7 @@ class DocumentNodes:
         coverage = describe_coverage(parents, result, self.documents.metadata(doc_id))
         if not result.notes:
             if result.error:
-                return {"coverage": coverage, "model_error": result.error, "answer": ""}
+                return {"coverage": coverage, "model_error": result.error, "error_kind": result.error_kind, "answer": ""}
             return self._reply(f"《{Path(source).stem}》没有可读的文字内容。", refused=True, coverage=coverage)
         notes = result.notes
         original = {note.index: str(parents[note.index].get("text", "")) for note in notes}
@@ -371,10 +371,10 @@ class DocumentNodes:
             query = self._invoke_structured(TableQuery, [
                 SystemMessage(content=TABLE_PLAN_PROMPT),
                 HumanMessage(content=f"工作簿：{source}\n{schema_text(workbook)}\n\n问题：{question}"),
-            ])
+            ], patience=float(getattr(self.settings, "fact_check_patience_seconds", 0.0) or 0.0))
         except MODEL_SERVICE_ERRORS as exc:
             logger.warning("Table query planning failed: %r", exc)
-            return {"model_error": describe_model_error(exc), "answer": ""}
+            return {"model_error": describe_model_error(exc), "error_kind": error_kind(exc), "answer": ""}
         except (ValueError, ValidationError, json.JSONDecodeError) as exc:
             logger.warning("Table query not understood: %s", exc)
             return fallback

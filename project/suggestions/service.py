@@ -25,6 +25,7 @@ from typing import Any, Callable, Iterable
 
 from config import Settings
 from retrieval.file_index import build_entry_text
+from services.model_clients import chat_busy
 
 from . import privacy
 from .sampler import Sampler
@@ -82,6 +83,10 @@ class SuggestionService:
         self.pause: Callable[[], None] | None = None
 
     def _yield_to_questions(self) -> None:
+        # The chat model was just "too busy" for a question: wait before adding to its load.
+        model = str(getattr(getattr(self, "settings", None), "llm_model", "") or "")
+        if model:
+            chat_busy.wait(model)
         if self.pause is not None:
             try:
                 self.pause()

@@ -40,3 +40,13 @@ def memory_keyring():
     backend = MemoryKeyring()
     keyring.set_keyring(backend)
     return backend
+
+
+@pytest.fixture(autouse=True)
+def model_not_busy():
+    # A test that meets a "too busy" error must not make the next test's background work wait.
+    from services.model_clients import chat_busy
+
+    chat_busy.clear()
+    yield
+    chat_busy.clear()

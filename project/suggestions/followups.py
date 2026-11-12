@@ -28,6 +28,7 @@ import time
 from typing import Any, Callable, Iterable
 
 from config import MissingApiKeyError, Settings
+from services.model_clients import chat_busy
 from rag_agent.answering import CITATION, cited_claims, evidence_for
 from retrieval.file_filters import FILE_TYPES, parse_query
 
@@ -722,9 +723,14 @@ class FollowupService:
         return items, "partial" if partial else "", None if partial else reply.usage
 
     def _call(self, prompt: str, reply: _Reply) -> None:
+        model = self.chat_model()
+        name = str(getattr(model, "model_name", "") or getattr(model, "model", "") or "")
+        if name and chat_busy.left(name) > 0:
+            # The model is overloaded right now: template follow-ups instead of adding a call.
+            raise RuntimeError(f"{name} busy, follow-ups from templates")
         with self._stats_lock:
             self.stats["calls"] += 1
-        for chunk in self.chat_model().stream(prompt):
+        for chunk in model.stream(prompt):
             content = getattr(chunk, "content", "")
             if isinstance(content, str) and content:
                 reply.add(content)
