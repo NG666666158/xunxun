@@ -29,7 +29,7 @@ keyring>=25.0,<26.0
 pywin32>=306; sys_platform == "win32"
 
 # Multi-format document parsing
-pymupdf>=1.26,<2.0
+pymupdf>=2.1,<3.0
 # Local image understanding (OCR of figures and scanned pages, offline). The desktop app
 # downloads it on first use instead (project/ingestion/ocr_runtime.json).
 rapidocr_onnxruntime>=1.4,<2.0
