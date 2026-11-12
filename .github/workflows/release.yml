@@ -41,7 +41,7 @@ jobs:
       codesign: ${{ steps.secrets.outputs.codesign }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -110,7 +110,7 @@ jobs:
         shell: pwsh
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -118,13 +118,13 @@ jobs:
       # from the lock files alone.
       - name: Set up Python
         id: python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           # The local-OCR manifest (project/ingestion/ocr_runtime.json) pins cp310 wheels.
           python-version: "3.10.11"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           package-manager-cache: false
