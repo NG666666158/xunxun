@@ -68,12 +68,21 @@ def _pil():
         return None
 
 
+# Pillow picks a decoder from the file's content, not its name: a file called .png can
+# reach its EPS, WMF, FlashPix or GIF code. Only the formats this app reads are allowed.
+PIL_FORMATS = ("PNG", "JPEG", "WEBP", "BMP", "TIFF")
+
+
+def _open(image_module, path: Path):
+    return image_module.open(path, formats=PIL_FORMATS)
+
+
 def taken_at(path: Path) -> datetime:
     """When the photo was taken (EXIF) if Pillow can tell, else the file's modification time."""
     image_module = _pil()
     if image_module is not None:
         try:
-            with image_module.open(path) as image:
+            with _open(image_module, path) as image:
                 exif = image.getexif()
                 values = {**dict(exif.get_ifd(0x8769)), **dict(exif)}
                 for tag in _DATE_TAGS:
@@ -124,7 +133,7 @@ def _load_with_pil(path: Path, max_side: int) -> list[tuple[bytes, str]]:
         # No decoder (WebP before the OCR component is downloaded): the vision model takes it as is.
         return [(path.read_bytes(), "image/webp" if path.suffix.lower() == ".webp" else "application/octet-stream")]
     pages = []
-    with image_module.open(path) as image:
+    with _open(image_module, path) as image:
         for index in range(min(getattr(image, "n_frames", 1), MAX_PAGES)):
             image.seek(index)
             frame = image.convert("RGBA")

@@ -4,3 +4,40 @@
 #
 # Example:
 # PYSEC-2026-1845  pytest's shared /tmp directory on multi-user UNIX machines; pytest only runs in CI, it does not ship
+
+PYSEC-2026-4337  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+PYSEC-2026-4332  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+PYSEC-2026-4342  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+CVE-2026-112897  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+CVE-2026-112395  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+CVE-2026-112404  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+CVE-2026-112399  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+CVE-2026-96638  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); STILL REACHABLE with a crafted image file the user adds: Pillow decodes it when PyMuPDF cannot, and reads its EXIF date. Closes with the move to Python 3.11
+PYSEC-2026-4343  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+PYSEC-2026-4341  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+PYSEC-2026-4330  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+PYSEC-2026-4338  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+PYSEC-2026-4335  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112400  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112899  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112900  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112390  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112401  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112892  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+CVE-2026-112891  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+GHSA-78g4-xqwv-q3g8  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); this format is refused: ingestion/images.py opens only PNG, JPEG, WebP, BMP and TIFF
+PYSEC-2026-4340  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112893  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4336  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4329  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4333  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4331  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4334  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+PYSEC-2026-4363  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112895  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112391  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112894  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112406  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-96640  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-112393  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)
+CVE-2026-96778  Pillow 12.3.0, fixed in 13.0.0 which needs Python 3.11 (the app is on 3.10); the app never calls this (it draws no text, saves only PNG to memory, appends to no PDF, uses no transform, morphology, merge or Arrow export)

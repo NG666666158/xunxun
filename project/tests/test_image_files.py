@@ -155,3 +155,16 @@ def test_cloud_reader_sends_the_image_with_its_type_and_the_image_prompt():
     assert content[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
     assert content[1]["text"] == IMAGE_PROMPT.format(name="流程.jpg") and calls[0]["model"] == "vl"
     assert text.startswith("截图：报销流程")
+
+
+def test_pillow_refuses_formats_the_app_does_not_read(tmp_path):
+    # A GIF named .png: Pillow would pick its GIF decoder from the content.
+    path = tmp_path / "扫描件.png"
+    PIL.new("RGB", (8, 8), "white").save(path, format="GIF")
+    with pytest.raises(Exception):
+        images._open(PIL, path)
+    assert images.taken_at(path).year >= 2026  # falls back to the file's time
+    real = tmp_path / "照片.png"
+    PIL.new("RGB", (8, 8), "white").save(real, format="PNG")
+    with images._open(PIL, real) as image:
+        assert image.size == (8, 8)

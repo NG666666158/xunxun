@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -44,6 +44,13 @@ struct BackendLaunch {
 /// Set when the app quits or hands over to an update or a restart: from then on the
 /// backend's exit is expected and must not be answered with a new one.
 struct Stopping(AtomicBool);
+
+/// How the running backend was started, kept so a failed update can start it again.
+struct Launched(Mutex<Option<BackendLaunch>>);
+
+/// Which guard thread is the current one. A guard that finds a newer number stops, so a
+/// backend started again after a failed update is never watched by two of them.
+struct GuardEpoch(AtomicU64);
 
 /// The script that tells a webview where the backend runs (set once it is live).
 struct DesktopScript(Mutex<Option<String>>);
@@ -247,10 +254,11 @@ fn restart_backend(app: &AppHandle, launch: &BackendLaunch) -> Result<(), String
 /// windows hear "backend-restarted" so the page can say so and reload what it shows. A
 /// second exit within RESTART_WINDOW shows the error with the log's path instead.
 fn guard_backend(app: AppHandle, launch: BackendLaunch) {
+    let epoch = app.state::<GuardEpoch>().0.fetch_add(1, Ordering::SeqCst) + 1;
     let mut last_restart: Option<Instant> = None;
     loop {
         std::thread::sleep(GUARD_INTERVAL);
-        if stopping(&app) {
+        if stopping(&app) || app.state::<GuardEpoch>().0.load(Ordering::SeqCst) != epoch {
             return;
         }
         let Some(status) = backend_exit(&app) else { continue };
@@ -345,8 +353,30 @@ fn launch(app: &AppHandle) -> Result<(), String> {
     });
     let _ = window.set_focus();
     eprintln!("backend ready on port {port} after {} ms", started.elapsed().as_millis());
+    let launched = BackendLaunch { exe, port, token };
+    *app.state::<Launched>().0.lock().unwrap() = Some(launched.clone());
     let handle = app.clone();
-    std::thread::spawn(move || guard_backend(handle, BackendLaunch { exe, port, token }));
+    std::thread::spawn(move || guard_backend(handle, launched));
+    Ok(())
+}
+
+/// The backend was stopped for an update that then could not be installed: start it again
+/// on the same port with the same token, and watch it again. The windows hear
+/// "backend-restarted" and reload what they show.
+fn resume_backend(app: &AppHandle) -> Result<(), String> {
+    let Some(launched) = app.state::<Launched>().0.lock().unwrap().clone() else {
+        return Err("后台程序还没有启动过。".into());
+    };
+    // Only the update set this. A quit that arrives from here on sets it again and ends
+    // the new backend through `stop_backend`, as at any other time.
+    app.state::<Stopping>().0.store(false, Ordering::SeqCst);
+    restart_backend(app, &launched)?;
+    if stopping(app) {
+        return Ok(());
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || guard_backend(handle, launched));
+    let _ = app.emit("backend-restarted", ());
     Ok(())
 }
 
@@ -516,7 +546,21 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     };
     let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     stop_backend(&app);
-    update.install(bytes).map_err(|e| e.to_string())
+    // On Windows a started installer ends this process, so coming back here with an error
+    // means nothing was installed: the app stays open, and needs its backend again.
+    let Err(error) = update.install(bytes) else { return Ok(()) };
+    let handle = app.clone();
+    let resumed = tauri::async_runtime::spawn_blocking(move || resume_backend(&handle))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|result| result);
+    match resumed {
+        Ok(()) => Err(format!("更新没有装上（{error}），现在仍是原来的版本。")),
+        Err(message) => {
+            show_error(&app, &message);
+            Err(format!("更新没有装上（{error}），后台也没能重新启动。请退出后重新打开寻寻。"))
+        }
+    }
 }
 
 /// After a recovery was scheduled: the backend applies it on its next start.
@@ -546,6 +590,8 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Backend(Mutex::new(None)))
         .manage(Stopping(AtomicBool::new(false)))
+        .manage(Launched(Mutex::new(None)))
+        .manage(GuardEpoch(AtomicU64::new(0)))
         .manage(DesktopScript(Mutex::new(None)))
         .manage(QuickShortcut(Mutex::new(None)))
         .manage(CloseToTray(AtomicBool::new(saved_close_to_tray())))
