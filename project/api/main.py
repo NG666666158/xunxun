@@ -72,6 +72,8 @@ def _start_library() -> None:
 async def lifespan(_app: FastAPI):
     # Reconciliation scans the watched folders, so it runs off the startup path.
     threading.Thread(target=_start_library, name="library-start", daemon=True).start()
+    # Local recognition downloaded for an earlier version of the app: fetch this version's.
+    threading.Thread(target=ocr_runtime.carry_over, args=(settings.data_dir,), name="ocr-carry-over", daemon=True).start()
     yield
     if system.library:
         system.library.stop()

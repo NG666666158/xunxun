@@ -117,3 +117,25 @@ test("release notes become groups of plain items", () => {
   assert.deepEqual(notes(""), []);
   assert.deepEqual(notes(null), []);
 });
+
+test("download progress as a fraction, a percentage and megabytes", () => {
+  const { progress } = globalThis.UpdateCheck;
+  assert.deepEqual(progress(0, 52122430), { fraction: 0, percent: "0%", text: "0.0 / 49.7 MB" });
+  assert.deepEqual(progress(26061215, 52122430), { fraction: 0.5, percent: "50%", text: "24.9 / 49.7 MB" });
+  assert.deepEqual(progress(52122430, 52122430), { fraction: 1, percent: "100%", text: "49.7 / 49.7 MB" });
+  // More than announced never shows past the end; 99.9 % is not yet 100 %.
+  assert.equal(progress(60000000, 52122430).fraction, 1);
+  assert.equal(progress(52100000, 52122430).percent, "99%");
+  // The server did not say how big it is: the bar only runs.
+  assert.deepEqual(progress(3145728, null), { fraction: null, percent: "", text: "3.0 MB" });
+  assert.deepEqual(progress(undefined, undefined), { fraction: null, percent: "", text: "0.0 MB" });
+});
+
+test("the about row for each state of an update", () => {
+  const { row } = globalThis.UpdateCheck;
+  assert.deepEqual(row(), { state: null, button: "检查更新" });
+  assert.deepEqual(row({ available: "1.0.5" }), { state: "有新版本 1.0.5", button: "更新" });
+  assert.deepEqual(row({ available: "1.0.5", downloading: { version: "1.0.5", percent: "" } }), { state: "正在下载 1.0.5…", button: "查看进度" });
+  assert.deepEqual(row({ available: "1.0.5", downloading: { version: "1.0.5", percent: "42%" } }), { state: "正在下载 1.0.5 · 42%", button: "查看进度" });
+  assert.deepEqual(row({ available: "1.0.5", ready: "1.0.5" }), { state: "1.0.5 已下载，下次启动时安装", button: "重启并安装" });
+});

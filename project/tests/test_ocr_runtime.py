@@ -154,3 +154,30 @@ def test_local_formulas_are_kept_only_when_they_match_the_text_layer(monkeypatch
 def test_latex_agrees_compares_visible_characters():
     assert latex_agrees(r"\rho_{t}=\frac{\pi_{\theta}(a_{t}\mid s_{t})}{\mu(a_{t}\mid s_{t})}", "ρt= πθ(at∣st)μ(at∣st)")
     assert not latex_agrees(r"\mathcal{C}^{\ast}\big(s,\,\boldsymbol{a}\big)", "Q∗(s, a) = r+ γmaxa′ Q∗(s′, a′)")
+
+
+def test_component_from_an_earlier_app_version_is_downloaded_again_and_the_old_copy_removed(tmp_path, mirrors, monkeypatch):
+    base, good, _ = mirrors
+    monkeypatch.setattr(ocr_runtime, "MANIFEST", _manifest(base, good, version=992))
+    monkeypatch.setattr(ocr_runtime, "COMPONENTS", ("ocr",))
+    monkeypatch.setitem(ocr_runtime.MODULES, "ocr", "fakeocr_pkg_carried")
+    monkeypatch.setattr(ocr_runtime, "_installers", {})
+    assert ocr_runtime.carry_over(tmp_path) == []  # never downloaded: nothing starts by itself
+
+    old = tmp_path / "ocr-runtime" / "v2" / "ocr"
+    old.mkdir(parents=True)
+    (old / "installed.json").write_text("{}", encoding="utf-8")
+    half = tmp_path / "ocr-runtime" / "v1" / "ocr"  # an unfinished download is not a reason
+    half.mkdir(parents=True)
+
+    (old / "models").mkdir()
+    (old / "models" / "encoder.onnx").write_bytes(MODEL)  # the same model: copied, not fetched
+
+    assert ocr_runtime.carry_over(tmp_path) == ["ocr"]
+    ocr_runtime.installer(tmp_path, "ocr")._thread.join(30)
+    assert "/models/encoder.onnx" not in mirrors[2]
+    assert (ocr_runtime.runtime_dir(tmp_path, "ocr") / "models" / "encoder.onnx").read_bytes() == MODEL
+    assert ocr_runtime.installer(tmp_path, "ocr").status()["downloaded"] is True
+    assert not old.exists() and not old.parent.exists()
+    assert half.exists()
+    assert ocr_runtime.carry_over(tmp_path) == []

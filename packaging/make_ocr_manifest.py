@@ -31,7 +31,7 @@ COMPONENTS = {
             "rapidocr-onnxruntime": "1.4.4",
             "onnxruntime": "1.23.2",
             "opencv-python-headless": "4.12.0.88",
-            "pillow": "12.3.0",
+            "pillow": "13.0.0",
             "pyclipper": "1.4.0",
             "shapely": "2.1.2",
             "six": "1.17.0",
@@ -89,7 +89,9 @@ def main() -> None:
                 print(f"{key:8} {item['filename']:66} {item['size'] / 1e6:6.1f} MB")
             components[key] = {"label": spec["label"], "items": items, "total_bytes": sum(i["size"] for i in items)}
     manifest = {
-        "version": 2,
+        # Raise it whenever the files change: the app keeps one folder per version, and
+        # downloads again by itself what was installed for an earlier one (carry_over).
+        "version": 3,
         "python": PYTHON_TAG,
         "platform": PLATFORM,
         # Wheels are tried on these hosts in order; mirrors keep PyPI's /packages/... layout.

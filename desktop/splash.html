@@ -45,6 +45,8 @@
       msg.className = "error";
       msg.textContent = text;
     };
+    // Called by the shell while it installs an update that was put off until this start.
+    window.showStatus = (text) => { document.getElementById("msg").textContent = text; };
     // Opened again after startup because the backend stopped for good: the message comes along.
     if (window.__SHELL_ERROR__) window.showError(window.__SHELL_ERROR__);
   </script>

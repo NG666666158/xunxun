@@ -776,6 +776,57 @@
     });
   }
 
+  /** A running job in the alert style: a title, a bar and a line under it, and one button
+      that only hides the sheet (the job goes on). Returns { set, close, hidden }:
+      set({ fraction, text }) moves the bar (fraction null: size unknown, the bar just runs),
+      close() removes the sheet, hidden() says whether the user put it away. */
+  function progressSheet({ title, note = "", hide = "在后台继续", onHide = null } = {}) {
+    const before = doc.activeElement;
+    const scrim = doc.createElement("div");
+    scrim.className = "alert-scrim";
+    const id = uid("progress");
+    scrim.innerHTML = `<div class="alert progress-sheet" role="dialog" aria-modal="true" aria-labelledby="${id}-t">
+        <h3 id="${id}-t">${esc(title)}</h3>
+        <div class="alert-bar unknown" role="progressbar" aria-labelledby="${id}-t" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+        <p class="alert-count" aria-live="off"></p>
+        ${note ? `<p class="alert-note">${esc(note)}</p>` : ""}
+        <div class="alert-actions"><button type="button" class="btn" data-answer="hide">${esc(hide)}</button></div>
+      </div>`;
+    const bar = scrim.querySelector(".alert-bar");
+    const count = scrim.querySelector(".alert-count");
+    let gone = false;
+    const remove = () => {
+      if (gone) return;
+      gone = true;
+      doc.removeEventListener("keydown", onKey, true);
+      scrim.classList.add("closing");
+      setTimeout(() => scrim.remove(), reduced() ? 0 : 150);
+      before?.focus?.({ preventScroll: true });
+    };
+    const put = () => { remove(); onHide?.(); };
+    const onKey = (e) => {
+      if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); put(); }
+      else if (e.key === "Tab") e.preventDefault();
+    };
+    scrim.addEventListener("click", (e) => { if (e.target.closest("[data-answer]")) put(); });
+    doc.addEventListener("keydown", onKey, true);
+    doc.body.append(scrim);
+    scrim.querySelector("button").focus();
+    return {
+      set({ fraction = null, text = "" } = {}) {
+        bar.classList.toggle("unknown", fraction == null);
+        if (fraction == null) bar.removeAttribute("aria-valuenow");
+        else {
+          bar.setAttribute("aria-valuenow", String(Math.round(fraction * 100)));
+          bar.firstElementChild.style.width = `${(fraction * 100).toFixed(1)}%`;
+        }
+        count.textContent = text;
+      },
+      close: remove,
+      hidden: () => gone,
+    };
+  }
+
   /** Read-only facts in the alert style: a title, label / value rows (empty values left out),
       a grey note, and one button. Resolves when closed. */
   function infoSheet({ title, rows = [], note = "", close = "好" } = {}) {
@@ -885,6 +936,6 @@
     SnapRail, connect, disconnect,
     WheelMath, Wheel,
     circleTransition, revealFrom,
-    segmented, syncSegments, roll, largeTitle, confirmSheet, chooseSheet, infoSheet, copyText,
+    segmented, syncSegments, roll, largeTitle, confirmSheet, chooseSheet, infoSheet, progressSheet, copyText,
   };
 })(typeof window !== "undefined" ? window : globalThis);

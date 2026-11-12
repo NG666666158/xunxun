@@ -25,6 +25,8 @@ const TITLE: &str = "寻寻";
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 const LOG_HINT: &str = r"%APPDATA%\EnterpriseKnowledgeBase\logs\backend.log";
 const UPDATE_CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+// At startup, with an update waiting: how long to ask whether it is still the one on offer.
+const PENDING_CHECK_TIMEOUT: Duration = Duration::from_secs(8);
 // A backend that dies twice within this long is not started a third time.
 const RESTART_WINDOW: Duration = Duration::from_secs(10 * 60);
 const GUARD_INTERVAL: Duration = Duration::from_millis(500);
@@ -524,7 +526,7 @@ fn updater_builder(app: &AppHandle) -> Result<tauri_plugin_updater::UpdaterBuild
 }
 
 /// Also run by the page by itself (updatecheck.js), so a check that hangs gives up rather
-/// than holding back the next one; the download in install_update has no such limit.
+/// than holding back the next one; the download in download_update has no such limit.
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
     let updater = updater_builder(&app)?
@@ -535,20 +537,95 @@ async fn check_update(app: AppHandle) -> Result<Option<serde_json::Value>, Strin
     Ok(update.map(|update| serde_json::json!({ "version": update.version, "notes": update.body })))
 }
 
-/// Download, verify against the build's public key, then hand over to the installer. The
-/// backend stops first so the installer can replace its files; on Windows the installer ends
-/// this process. Data stays in %APPDATA%, the installer never touches it.
+/// The update that was downloaded and waits for a restart (this run only; after a restart
+/// the copy on disk is what counts, see `install_pending`).
+struct Ready(Mutex<Option<tauri_plugin_updater::Update>>);
+
+/// Where a downloaded update waits: the installer and a note of its version and of whether
+/// installing it was already tried once.
+fn pending_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_local_data_dir().map(|dir| dir.join("pending-update")).map_err(|e| e.to_string())
+}
+
+fn read_pending(dir: &Path) -> Option<(String, u64)> {
+    let meta: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("meta.json")).ok()?).ok()?;
+    Some((meta.get("version")?.as_str()?.to_string(), meta.get("attempts")?.as_u64()?))
+}
+
+fn write_pending(dir: &Path, version: &str, attempts: u64) -> std::io::Result<()> {
+    std::fs::write(dir.join("meta.json"), serde_json::json!({ "version": version, "attempts": attempts }).to_string())
+}
+
+fn clear_pending(dir: &Path) {
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Download with progress ("update-progress": bytes so far and the total when the server
+/// says it), checked against the build's public key, and kept on disk. Nothing is installed:
+/// the page then asks whether to restart now (`apply_update`); otherwise the next start
+/// installs it (`install_pending`). The app and its backend keep running meanwhile.
 #[tauri::command]
-async fn install_update(app: AppHandle) -> Result<(), String> {
+async fn download_update(app: AppHandle) -> Result<serde_json::Value, String> {
     let updater = updater_builder(&app)?.build().map_err(|e| e.to_string())?;
     let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
         return Err("已经是最新版本。".into());
     };
-    let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    let dir = pending_dir(&app)?;
+    let file = dir.join("setup.bin");
+    let known = matches!(read_pending(&dir), Some((version, 0)) if version == update.version) && file.is_file();
+    if !known {
+        let mut downloaded: u64 = 0;
+        let mut reported: u64 = 0;
+        let progress = app.clone();
+        let bytes = update
+            .download(
+                move |chunk, total| {
+                    downloaded += chunk as u64;
+                    // Not for every chunk: a few times a megabyte is plenty for a bar.
+                    if downloaded - reported >= 256 * 1024 || Some(downloaded) == total {
+                        reported = downloaded;
+                        let _ = progress.emit("update-progress", serde_json::json!({ "downloaded": downloaded, "total": total }));
+                    }
+                },
+                || {},
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        clear_pending(&dir);
+        std::fs::create_dir_all(&dir)
+            .and_then(|_| std::fs::write(&file, &bytes))
+            .and_then(|_| write_pending(&dir, &update.version, 0))
+            .map_err(|e| format!("更新下载好了，但没能保存：{e}"))?;
+    }
+    let version = update.version.clone();
+    *app.state::<Ready>().0.lock().unwrap() = Some(update);
+    Ok(serde_json::json!({ "version": version }))
+}
+
+/// The version that is downloaded and waits for a restart, if any.
+#[tauri::command]
+fn ready_update(app: AppHandle) -> Option<String> {
+    app.state::<Ready>().0.lock().unwrap().as_ref().map(|update| update.version.clone())
+}
+
+/// "Restart now": hand the downloaded update to the installer. The backend stops first so
+/// the installer can replace its files; on Windows the installer ends this process and
+/// starts the new version. Data stays in %APPDATA%, the installer never touches it.
+#[tauri::command]
+async fn apply_update(app: AppHandle) -> Result<(), String> {
+    let Some(update) = app.state::<Ready>().0.lock().unwrap().clone() else {
+        return Err("没有下载好的更新。".into());
+    };
+    let dir = pending_dir(&app)?;
+    let bytes = std::fs::read(dir.join("setup.bin")).map_err(|e| format!("读不到下载好的更新：{e}"))?;
+    // Counted as tried, so a failure here is not repeated at every start.
+    let _ = write_pending(&dir, &update.version, 1);
     stop_backend(&app);
     // On Windows a started installer ends this process, so coming back here with an error
     // means nothing was installed: the app stays open, and needs its backend again.
     let Err(error) = update.install(bytes) else { return Ok(()) };
+    clear_pending(&dir);
+    *app.state::<Ready>().0.lock().unwrap() = None;
     let handle = app.clone();
     let resumed = tauri::async_runtime::spawn_blocking(move || resume_backend(&handle))
         .await
@@ -559,6 +636,80 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
         Err(message) => {
             show_error(&app, &message);
             Err(format!("更新没有装上（{error}），后台也没能重新启动。请退出后重新打开寻寻。"))
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum PendingPlan {
+    /// Still the version on offer and not tried yet: install it before anything starts.
+    Install,
+    /// Could not ask (offline): start as usual and look again at the next start.
+    Keep,
+    /// Already installed, tried once without success, or no longer the version on offer.
+    Discard,
+}
+
+/// `offered`: what the update address answers now: Err when it cannot be reached,
+/// Ok(None) when this version is the latest.
+fn pending_plan(pending: &str, attempts: u64, current: &str, offered: Result<Option<&str>, ()>) -> PendingPlan {
+    if pending == current || attempts > 0 {
+        return PendingPlan::Discard;
+    }
+    match offered {
+        Err(()) => PendingPlan::Keep,
+        Ok(Some(version)) if version == pending => PendingPlan::Install,
+        Ok(_) => PendingPlan::Discard,
+    }
+}
+
+/// At startup, before the backend: install the update the user downloaded and put off.
+/// True when the installer was started (this process is about to end). The installer file
+/// is verified against the build's public key again by `install`; a failed or repeated
+/// attempt drops the download, and the app starts as usual and will offer the update again.
+fn install_pending(app: &AppHandle) -> bool {
+    let Ok(dir) = pending_dir(app) else { return false };
+    let Some((version, attempts)) = read_pending(&dir) else {
+        clear_pending(&dir); // nothing waits, or a half-written download
+        return false;
+    };
+    let current = app.package_info().version.to_string();
+    let checked = if version == current || attempts > 0 {
+        Ok(None) // decided without asking
+    } else {
+        updater_builder(app)
+            .and_then(|builder| builder.timeout(PENDING_CHECK_TIMEOUT).build().map_err(|e| e.to_string()))
+            .and_then(|updater| tauri::async_runtime::block_on(updater.check()).map_err(|e| e.to_string()))
+    };
+    let offered = match &checked {
+        Ok(update) => Ok(update.as_ref().map(|update| update.version.as_str())),
+        Err(_) => Err(()),
+    };
+    match pending_plan(&version, attempts, &current, offered) {
+        PendingPlan::Keep => false,
+        PendingPlan::Discard => {
+            clear_pending(&dir);
+            false
+        }
+        PendingPlan::Install => {
+            let Ok(Some(update)) = checked else { return false };
+            let Ok(bytes) = std::fs::read(dir.join("setup.bin")) else {
+                clear_pending(&dir);
+                return false;
+            };
+            if let Some(splash) = app.get_webview_window(SPLASH) {
+                let status = format!("正在安装 {version}，装好后会自动打开…");
+                let _ = splash.eval(&format!("window.showStatus({status:?})"));
+            }
+            let _ = write_pending(&dir, &version, 1);
+            match update.install(bytes) {
+                Ok(()) => true,
+                Err(error) => {
+                    eprintln!("the downloaded update {version} was not installed: {error}");
+                    clear_pending(&dir);
+                    false
+                }
+            }
         }
     }
 }
@@ -591,6 +742,7 @@ fn main() {
         .manage(Backend(Mutex::new(None)))
         .manage(Stopping(AtomicBool::new(false)))
         .manage(Launched(Mutex::new(None)))
+        .manage(Ready(Mutex::new(None)))
         .manage(GuardEpoch(AtomicU64::new(0)))
         .manage(DesktopScript(Mutex::new(None)))
         .manage(QuickShortcut(Mutex::new(None)))
@@ -604,7 +756,9 @@ fn main() {
             restart_app,
             update_configured,
             check_update,
-            install_update
+            download_update,
+            ready_update,
+            apply_update
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, SPLASH, WebviewUrl::App("splash.html".into()))
@@ -642,6 +796,9 @@ fn main() {
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {
+                if install_pending(&handle) {
+                    return; // the installer takes over and starts the new version
+                }
                 if let Err(message) = launch(&handle) {
                     stop_backend(&handle);
                     if let Some(splash) = handle.get_webview_window(SPLASH) {
@@ -691,5 +848,17 @@ mod tests {
         let now = Instant::now();
         assert_eq!(after_exit(true, None, now), AfterExit::Expected);
         assert_eq!(after_exit(true, Some(now), now), AfterExit::Expected);
+    }
+
+    #[test]
+    fn pending_update_is_installed_only_when_still_on_offer_and_untried() {
+        assert_eq!(pending_plan("1.0.5", 0, "1.0.4", Ok(Some("1.0.5"))), PendingPlan::Install);
+        assert_eq!(pending_plan("1.0.5", 0, "1.0.4", Err(())), PendingPlan::Keep);
+        assert_eq!(pending_plan("1.0.5", 0, "1.0.4", Ok(Some("1.0.6"))), PendingPlan::Discard);
+        assert_eq!(pending_plan("1.0.5", 0, "1.0.4", Ok(None)), PendingPlan::Discard);
+        // Tried once and this is still the old version: never loop on a broken installer.
+        assert_eq!(pending_plan("1.0.5", 1, "1.0.4", Ok(Some("1.0.5"))), PendingPlan::Discard);
+        // The new version's first start: the download has done its job.
+        assert_eq!(pending_plan("1.0.5", 1, "1.0.5", Ok(None)), PendingPlan::Discard);
     }
 }

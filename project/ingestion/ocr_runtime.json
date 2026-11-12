@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "python": "cp310",
+  "version": 3,
+  "python": "cp311",
   "platform": "win_amd64",
   "hosts": [
     "https://files.pythonhosted.org",
@@ -24,10 +24,10 @@
           "kind": "wheel",
           "name": "onnxruntime",
           "version": "1.23.2",
-          "filename": "onnxruntime-1.23.2-cp310-cp310-win_amd64.whl",
-          "path": "/packages/cd/6d/738e50c47c2fd285b1e6c8083f15dac1a5f6199213378a5f14092497296d/onnxruntime-1.23.2-cp310-cp310-win_amd64.whl",
-          "sha256": "0be6a37a45e6719db5120e9986fcd30ea205ac8103fd1fb74b6c33348327a0cc",
-          "size": 13467651
+          "filename": "onnxruntime-1.23.2-cp311-cp311-win_amd64.whl",
+          "path": "/packages/3a/db/1b4a62e23183a0c3fe441782462c0ede9a2a65c6bbffb9582fab7c7a0d38/onnxruntime-1.23.2-cp311-cp311-win_amd64.whl",
+          "sha256": "902c756d8b633ce0dedd889b7c08459433fbcf35e9c38d1c03ddc020f0648c6e",
+          "size": 13468349
         },
         {
           "kind": "wheel",
@@ -41,29 +41,29 @@
         {
           "kind": "wheel",
           "name": "pillow",
-          "version": "12.3.0",
-          "filename": "pillow-12.3.0-cp310-cp310-win_amd64.whl",
-          "path": "/packages/48/7c/8fa0039574c476d7c6fa57dd7c32a130436877c6ec1e5ce1cc8ec44878c1/pillow-12.3.0-cp310-cp310-win_amd64.whl",
-          "sha256": "300557495eb45ebb8aec96c2da9c4be642fbf7cd937278b4013ba894ea8eb0eb",
-          "size": 7226887
+          "version": "13.0.0",
+          "filename": "pillow-13.0.0-cp311-cp311-win_amd64.whl",
+          "path": "/packages/7d/f6/6e2d96413e4c9dbec12ea584d9e646d602877d4cce3ea669099f959deac6/pillow-13.0.0-cp311-cp311-win_amd64.whl",
+          "sha256": "d7710eb676e9bb68965cb045be0d333b4c0d7f9dfbaa7fbf121385b1588683d3",
+          "size": 7278471
         },
         {
           "kind": "wheel",
           "name": "pyclipper",
           "version": "1.4.0",
-          "filename": "pyclipper-1.4.0-cp310-cp310-win_amd64.whl",
-          "path": "/packages/53/ca/b30138427ed122ec9b47980b943164974a2ec606fa3f71597033b9a9f9a6/pyclipper-1.4.0-cp310-cp310-win_amd64.whl",
-          "sha256": "6a97b961f182b92d899ca88c1bb3632faea2e00ce18d07c5f789666ebb021ca4",
-          "size": 104227
+          "filename": "pyclipper-1.4.0-cp311-cp311-win_amd64.whl",
+          "path": "/packages/3a/76/4901de2919198bb2bd3d989f86d4a1dff363962425bb2d63e24e6c990042/pyclipper-1.4.0-cp311-cp311-win_amd64.whl",
+          "sha256": "e9b973467d9c5fa9bc30bb6ac95f9f4d7c3d9fc25f6cf2d1cc972088e5955c01",
+          "size": 104362
         },
         {
           "kind": "wheel",
           "name": "shapely",
           "version": "2.1.2",
-          "filename": "shapely-2.1.2-cp310-cp310-win_amd64.whl",
-          "path": "/packages/e1/89/6db795b8dd3919851856bd2ddd13ce434a748072f6fdee42ff30cbd3afa3/shapely-2.1.2-cp310-cp310-win_amd64.whl",
-          "sha256": "1d0bfb4b8f661b3b4ec3565fa36c340bfb1cda82087199711f86a88647d26b2f",
-          "size": 1722074
+          "filename": "shapely-2.1.2-cp311-cp311-win_amd64.whl",
+          "path": "/packages/38/1e/3f8ea46353c2a33c1669eb7327f9665103aa3a8dfe7f2e4ef714c210b2c2/shapely-2.1.2-cp311-cp311-win_amd64.whl",
+          "sha256": "c64d5c97b2f47e3cd9b712eaced3b061f2b71234b3fc263e0fcf7d889c6559dc",
+          "size": 1722856
         },
         {
           "kind": "wheel",
@@ -111,7 +111,7 @@
           "size": 26661
         }
       ],
-      "total_bytes": 76615356
+      "total_bytes": 76668555
     },
     "formula": {
       "label": "本地公式识别（RapidLaTeXOCR）",
@@ -138,10 +138,10 @@
           "kind": "wheel",
           "name": "chardet",
           "version": "7.7.0",
-          "filename": "chardet-7.7.0-cp310-cp310-win_amd64.whl",
-          "path": "/packages/b8/c9/f5637fd4987ca04408fcea017f53980276e4cacc4a6fd06742ac4dc4e81c/chardet-7.7.0-cp310-cp310-win_amd64.whl",
-          "sha256": "9bd2e0e48900acc62fe82de2b3386f65a4be21d1015dca34a8958410d37e39a9",
-          "size": 1306524
+          "filename": "chardet-7.7.0-cp311-cp311-win_amd64.whl",
+          "path": "/packages/0c/f0/ce33a549471c4b408d40b2ed061be5d4f12265934fc4ef100e3cbaa1bf68/chardet-7.7.0-cp311-cp311-win_amd64.whl",
+          "sha256": "6f70dbc2dd14145d9b4011bce5a207f7ecc26e6bea49b5e87f6cac3b84261089",
+          "size": 1303330
         },
         {
           "kind": "file",
@@ -184,7 +184,7 @@
           "size": 24174
         }
       ],
-      "total_bytes": 183143055
+      "total_bytes": 183139861
     }
   }
 }

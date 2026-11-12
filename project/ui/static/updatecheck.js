@@ -78,5 +78,25 @@
     return groups.filter((g) => g.title || g.items.length);
   }
 
-  root.UpdateCheck = { due, schedule, notes, FIRST_MS, DAY_MS, RETRY_MS, TICK_MS };
+  const megabytes = (bytes) => (bytes / 1048576).toFixed(1);
+
+  /** What the download bar shows: `fraction` 0..1 (null while the size is unknown, so the
+      bar only moves), a percentage and "12.3 / 49.7 MB". */
+  function progress(downloaded, total) {
+    const done = Math.max(0, Number(downloaded) || 0);
+    const all = Number(total) || 0;
+    if (all <= 0) return { fraction: null, percent: "", text: `${megabytes(done)} MB` };
+    const fraction = Math.min(1, done / all);
+    return { fraction, percent: `${Math.floor(fraction * 100)}%`, text: `${megabytes(Math.min(done, all))} / ${megabytes(all)} MB` };
+  }
+
+  /** The 关于 row and its button for each state of an update. */
+  function row({ available = null, downloading = null, ready = null } = {}) {
+    if (ready) return { state: `${ready} 已下载，下次启动时安装`, button: "重启并安装" };
+    if (downloading) return { state: `正在下载 ${downloading.version}${downloading.percent ? ` · ${downloading.percent}` : "…"}`, button: "查看进度" };
+    if (available) return { state: `有新版本 ${available}`, button: "更新" };
+    return { state: null, button: "检查更新" };
+  }
+
+  root.UpdateCheck = { due, schedule, notes, progress, row, FIRST_MS, DAY_MS, RETRY_MS, TICK_MS };
 })(typeof window !== "undefined" ? window : globalThis);

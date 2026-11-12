@@ -1270,6 +1270,15 @@ body.home .thread { min-height: 100%; max-width: none; padding: 0 24px; display:
 .alert > * { flex: none; }
 .alert > p:not(.alert-sub):not(.alert-note) { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .alert .alert-sub { margin-top: 2px; font-size: 12px; color: var(--label-3); }
+/* A download in the alert style: the bar, then "12.3 / 49.7 MB · 24%". */
+.alert.progress-sheet { width: min(400px, 100%); }
+.alert-bar { margin-top: 18px; height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.alert-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width var(--d-base) linear; }
+.alert-bar.unknown i { width: 35%; animation: alert-bar-run 1.4s var(--ease-out) infinite; }
+.alert .alert-count { margin-top: 10px; min-height: 1.6em; font-size: 12px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.alert.progress-sheet .alert-note { text-align: center; }
+@keyframes alert-bar-run { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .alert-bar.unknown i { animation: none; width: 100%; opacity: .35; } }
 /* Release notes: left aligned, grouped, scrolling between the title and the buttons. */
 .alert.with-notes { width: min(480px, 100%); padding: 22px 0 16px; }
 .alert.with-notes > h3, .alert.with-notes > p, .alert.with-notes > .alert-actions { margin-left: 22px; margin-right: 22px; }

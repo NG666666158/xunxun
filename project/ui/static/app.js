@@ -2745,42 +2745,109 @@ $("#openDataDir").addEventListener("click", async () => {
 
 /** The new version the last check found (null: none), from the button or the daily check. */
 let pendingUpdate = null;
+/** The download in progress: { version, percent, sheet } (null: none). */
+let updateDownload = null;
+/** The version that is downloaded and installs at the next start (null: none). */
+let readyUpdate = null;
+
+/* The 关于 row, its button and the two dots, for whatever state the update is in. */
+function renderUpdate(stateText) {
+  const row = UpdateCheck.row({ available: pendingUpdate?.version, downloading: updateDownload, ready: readyUpdate });
+  const version = readyUpdate || updateDownload?.version || pendingUpdate?.version;
+  const gear = $("#openSettings");
+  gear.classList.toggle("has-dot", !!version);
+  gear.title = version ? `设置 · ${row.state}` : "设置";
+  $("#aboutTab").classList.toggle("has-dot", !!version);
+  $("#updateCheck").textContent = row.button;
+  if (stateText != null || row.state != null) $("#updateState").textContent = stateText ?? row.state;
+}
 
 /* A quiet notice only: a dot on the settings button and the 关于 tab, and the about row
-   offers it. Nothing installs until the user confirms the update sheet. */
+   offers it. Nothing downloads until the user confirms the update sheet. */
 function showUpdateNotice(update) {
   pendingUpdate = update || null;
-  const gear = $("#openSettings");
-  gear.classList.toggle("has-dot", !!pendingUpdate);
-  gear.title = pendingUpdate ? `设置 · 有新版本 ${pendingUpdate.version}` : "设置";
-  $("#aboutTab").classList.toggle("has-dot", !!pendingUpdate);
-  $("#updateCheck").textContent = pendingUpdate ? "更新" : "检查更新";
-  if (pendingUpdate) $("#updateState").textContent = `有新版本 ${pendingUpdate.version}`;
+  renderUpdate();
+}
+
+function showDownloadSheet() {
+  updateDownload.sheet = UI.progressSheet({
+    title: `正在下载 ${updateDownload.version}`,
+    note: "可以继续使用寻寻，下载好了会问你要不要重启。",
+    hide: "在后台下载",
+  });
+  updateDownload.sheet.set(updateDownload.last || {});
+}
+
+/* Download with a bar; the app keeps working. Then ask about the restart. */
+async function downloadUpdate(version) {
+  updateDownload = { version, percent: "", last: null, sheet: null };
+  showDownloadSheet();
+  renderUpdate();
+  const unlisten = await TAURI.event?.listen("update-progress", ({ payload }) => {
+    if (!updateDownload) return;
+    const progress = UpdateCheck.progress(payload.downloaded, payload.total);
+    updateDownload.percent = progress.percent;
+    updateDownload.last = { fraction: progress.fraction, text: [progress.text, progress.percent].filter(Boolean).join(" · ") };
+    updateDownload.sheet?.set(updateDownload.last);
+    renderUpdate();
+  });
+  try {
+    const done = await TAURI.core.invoke("download_update");
+    readyUpdate = done.version;
+  } finally {
+    unlisten?.();
+    updateDownload.sheet?.close();
+    updateDownload = null;
+    renderUpdate("");
+  }
+  renderUpdate();
+  await askRestart();
+}
+
+/* Downloaded: restart now, or go on and let the next start install it. */
+async function askRestart() {
+  const now = await UI.confirmSheet({
+    title: `${readyUpdate} 已下载好`,
+    message: "重启寻寻就能装上，大约半分钟。\n不想现在重启，下次打开时会自动安装。",
+    cancel: "下次启动时安装",
+    confirm: "立即重启",
+  });
+  if (!now) { toast(`下次打开寻寻时安装 ${readyUpdate}`); return; }
+  $("#updateState").textContent = "正在重启…";
+  try {
+    await TAURI.core.invoke("apply_update");
+  } catch (err) {
+    // Nothing was installed and the download is gone: back to "a new version is available".
+    readyUpdate = null;
+    renderUpdate();
+    throw err;
+  }
 }
 
 async function checkForUpdate() {
   const button = $("#updateCheck");
-  const state = $("#updateState");
-  button.disabled = true;
-  state.textContent = "正在检查…";
   try {
+    if (updateDownload) { if (!updateDownload.sheet || updateDownload.sheet.hidden()) showDownloadSheet(); return; }
+    if (readyUpdate) { await askRestart(); return; }
+    button.disabled = true;
+    renderUpdate("正在检查…");
     const update = await TAURI.core.invoke("check_update");
+    button.disabled = false;
     showUpdateNotice(update);
-    if (!update) { state.textContent = "已经是最新版本"; return; }
-    state.textContent = `有新版本 ${update.version}`;
+    if (!update) { renderUpdate("已经是最新版本"); return; }
     const ok = await UI.confirmSheet({
       title: `更新到 ${update.version}`,
       subtitle: "这一版的变化",
       groups: UpdateCheck.notes(update.notes),
-      note: "寻寻会关闭并重新打开。资料和设置不受影响。",
+      note: "先在后台下载，下载好了再问你要不要重启。资料和设置不受影响。",
       cancel: "以后再说",
-      confirm: "更新",
+      confirm: "下载更新",
     });
     if (!ok) return;
-    state.textContent = "正在下载…";
-    await TAURI.core.invoke("install_update");
+    await downloadUpdate(update.version);
   } catch (err) {
-    state.textContent = "";
+    renderUpdate("");
+    renderUpdate();
     toast(`更新失败：${err.message || err}`);
   } finally {
     button.disabled = false;
@@ -4044,6 +4111,8 @@ if (TAURI?.core) {
     if (!configured) return;
     $("#updateGroup").hidden = false;
     $("#updateCheck").addEventListener("click", checkForUpdate);
+    // Downloaded earlier in this run (the page was reloaded): still waiting for its restart.
+    TAURI.core.invoke("ready_update").then((version) => { readyUpdate = version || null; renderUpdate(); }).catch(() => {});
     // By itself too: once after each start, then daily while 寻寻 stays in the tray.
     const updates = UpdateCheck.schedule({ check: () => TAURI.core.invoke("check_update"), found: showUpdateNotice });
     document.addEventListener("visibilitychange", () => { if (!document.hidden) updates.tick(); });

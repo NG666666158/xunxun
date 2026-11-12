@@ -54,6 +54,43 @@ def _installed(data_dir: str | Path, component: str) -> bool:
     return (runtime_dir(data_dir, component) / "installed.json").is_file()
 
 
+def _older_copies(data_dir: str | Path, component: str) -> list[Path]:
+    """Complete downloads of this component made for another manifest version."""
+    root = Path(data_dir) / "ocr-runtime"
+    current = runtime_dir(data_dir, component)
+    if not root.is_dir():
+        return []
+    return [folder / component for folder in sorted(root.glob("v*"))
+            if folder / component != current and (folder / component / "installed.json").is_file()]
+
+
+def _drop_older_copies(data_dir: str | Path, component: str) -> None:
+    for folder in _older_copies(data_dir, component):
+        shutil.rmtree(_long_path(folder), ignore_errors=True)
+        try:
+            folder.parent.rmdir()  # only when no other component is left in that version
+        except OSError:
+            pass
+
+
+def carry_over(data_dir: str | Path) -> list[str]:
+    """After an app update that changed the manifest (another Python, newer packages): a
+    component the user had downloaded is downloaded again by itself, so local recognition
+    comes back without a visit to Settings, and the copy the new app cannot load is removed
+    once the new one is in place. Returns the components whose download was started."""
+    started = []
+    for component in COMPONENTS:
+        if not _older_copies(data_dir, component):
+            continue
+        if _installed(data_dir, component):
+            _drop_older_copies(data_dir, component)
+        else:
+            logger.info("Downloading %s again for this version of the app", component)
+            installer(data_dir, component).start()
+            started.append(component)
+    return started
+
+
 def model_files(data_dir: str | Path, component: str) -> dict[str, Path]:
     """Downloaded model files of a component by name (empty when it is not installed)."""
     folder = runtime_dir(data_dir, component)
@@ -136,7 +173,8 @@ class Installer:
                 for item in self.spec["items"]:
                     folder = staging / item.get("target", "")
                     folder.mkdir(parents=True, exist_ok=True)
-                    path = self._download(client, item, folder, lambda n: self._progress(done_bytes=done + n))
+                    path = self._reuse(item, folder) or self._download(
+                        client, item, folder, lambda n: self._progress(done_bytes=done + n))
                     if item["kind"] == "wheel":
                         with zipfile.ZipFile(path) as archive:
                             members = [m for m in archive.namelist() if not m.startswith(SKIPPED)]
@@ -148,9 +186,30 @@ class Installer:
             if target.exists():
                 shutil.rmtree(_long_path(target))
             staging.rename(target)
+            _drop_older_copies(self.data_dir, self.component)
         finally:
             if staging.exists():
                 shutil.rmtree(_long_path(staging), ignore_errors=True)
+
+    def _reuse(self, item: dict, folder: Path) -> Path | None:
+        """A model file an earlier version's copy already holds, byte for byte (models are
+        most of the download and rarely change): copied instead of downloaded again."""
+        if item["kind"] != "file":
+            return None
+        for older in _older_copies(self.data_dir, self.component):
+            source = older / item.get("target", "") / item["filename"]
+            try:
+                if not source.is_file() or source.stat().st_size != item["size"]:
+                    continue
+                digest = hashlib.sha256()
+                with source.open("rb") as handle:
+                    for block in iter(lambda: handle.read(1 << 20), b""):
+                        digest.update(block)
+                if digest.hexdigest() == item["sha256"]:
+                    return Path(shutil.copy2(source, folder / item["filename"]))
+            except OSError:
+                continue
+        return None
 
     @staticmethod
     def _download(client, item: dict, folder: Path, progress) -> Path:

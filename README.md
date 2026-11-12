@@ -154,7 +154,7 @@ design/          设计说明
 
 ## 从源码运行
 
-需要 Python 3.10、Node.js；打包还需要 Rust。
+需要 Python 3.11、Node.js；打包还需要 Rust。
 
 ```bash
 python -m venv .venv
