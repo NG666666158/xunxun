@@ -152,8 +152,9 @@ class RAGSystem:
                 chat_model=self._card_model,
                 files=self._card_files,
                 eligible=self._card_eligible,
-                pause=self.library.pause_for_background,
+                library=self.library,
             )
+            self.file_search.cards = self.doc_cards
             self.library.on_indexed = self._file_indexed
             # Home-page questions are built in the background; they wait while a question is
             # answered, as indexing does, and while a big batch is read (same account and rate limits).

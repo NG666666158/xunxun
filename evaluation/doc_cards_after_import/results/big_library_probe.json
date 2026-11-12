@@ -1,0 +1,289 @@
+{
+ "files": 1610,
+ "without_card": 1541,
+ "by_question": [
+  {
+   "id": "DC-001",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 4528,
+   "untyped": 1541,
+   "moved_up": 64,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 13,
+   "of_type": 20
+  },
+  {
+   "id": "DC-002",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 753,
+   "untyped": 1541,
+   "moved_up": 64,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 13,
+   "of_type": 20
+  },
+  {
+   "id": "DC-003",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 715,
+   "untyped": 1541,
+   "moved_up": 64,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 13,
+   "of_type": 20
+  },
+  {
+   "id": "DC-004",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 937,
+   "untyped": 1541,
+   "moved_up": 64,
+   "of_type_listed_in_top8": 8,
+   "of_type_moved_up": 16,
+   "of_type": 20
+  },
+  {
+   "id": "DC-005",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 716,
+   "untyped": 1541,
+   "moved_up": 64,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 13,
+   "of_type": 20
+  },
+  {
+   "id": "DC-006",
+   "doc_type": "简历",
+   "elapsed_ms_with_probe": 1245,
+   "untyped": 1541,
+   "moved_up": 66,
+   "of_type_listed_in_top8": 3,
+   "of_type_moved_up": 12,
+   "of_type": 20
+  },
+  {
+   "id": "DC-007",
+   "doc_type": "合同",
+   "elapsed_ms_with_probe": 2052,
+   "untyped": 1541,
+   "moved_up": 58,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 12,
+   "of_type": 12
+  },
+  {
+   "id": "DC-008",
+   "doc_type": "合同",
+   "elapsed_ms_with_probe": 739,
+   "untyped": 1541,
+   "moved_up": 58,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 12,
+   "of_type": 12
+  },
+  {
+   "id": "DC-009",
+   "doc_type": "合同",
+   "elapsed_ms_with_probe": 958,
+   "untyped": 1541,
+   "moved_up": 58,
+   "of_type_listed_in_top8": 2,
+   "of_type_moved_up": 12,
+   "of_type": 12
+  },
+  {
+   "id": "DC-010",
+   "doc_type": "合同",
+   "elapsed_ms_with_probe": 720,
+   "untyped": 1541,
+   "moved_up": 58,
+   "of_type_listed_in_top8": 5,
+   "of_type_moved_up": 12,
+   "of_type": 12
+  },
+  {
+   "id": "DC-011",
+   "doc_type": "论文",
+   "elapsed_ms_with_probe": 1261,
+   "untyped": 1541,
+   "moved_up": 61,
+   "of_type_listed_in_top8": 0,
+   "of_type_moved_up": 6,
+   "of_type": 16
+  },
+  {
+   "id": "DC-012",
+   "doc_type": "论文",
+   "elapsed_ms_with_probe": 736,
+   "untyped": 1541,
+   "moved_up": 61,
+   "of_type_listed_in_top8": 0,
+   "of_type_moved_up": 6,
+   "of_type": 16
+  },
+  {
+   "id": "DC-013",
+   "doc_type": "论文",
+   "elapsed_ms_with_probe": 767,
+   "untyped": 1541,
+   "moved_up": 61,
+   "of_type_listed_in_top8": 0,
+   "of_type_moved_up": 6,
+   "of_type": 16
+  },
+  {
+   "id": "DC-014",
+   "doc_type": "论文",
+   "elapsed_ms_with_probe": 784,
+   "untyped": 1541,
+   "moved_up": 61,
+   "of_type_listed_in_top8": 0,
+   "of_type_moved_up": 6,
+   "of_type": 16
+  }
+ ],
+ "variants": {
+  "简历": {
+   "type_probe": {
+    "entries": {
+     "8": 0,
+     "16": 0,
+     "32": 2,
+     "64": 6
+    },
+    "chunks": {
+     "8": 0,
+     "16": 0,
+     "32": 4,
+     "64": 4
+    },
+    "of_type": 20
+   },
+   "type_word": {
+    "entries": {
+     "8": 2,
+     "16": 6,
+     "32": 12,
+     "64": 19
+    },
+    "chunks": {
+     "8": 0,
+     "16": 4,
+     "32": 6,
+     "64": 6
+    },
+    "of_type": 20
+   },
+   "words": {
+    "entries": {
+     "8": 0,
+     "16": 0,
+     "32": 2,
+     "64": 5
+    },
+    "chunks": {
+     "8": 0,
+     "16": 1,
+     "32": 4,
+     "64": 4
+    },
+    "of_type": 20
+   }
+  },
+  "合同": {
+   "type_probe": {
+    "entries": {
+     "8": 2,
+     "16": 4,
+     "32": 6,
+     "64": 10
+    },
+    "chunks": {
+     "8": 3,
+     "16": 5,
+     "32": 9,
+     "64": 10
+    },
+    "of_type": 12
+   },
+   "type_word": {
+    "entries": {
+     "8": 4,
+     "16": 8,
+     "32": 11,
+     "64": 11
+    },
+    "chunks": {
+     "8": 2,
+     "16": 5,
+     "32": 7,
+     "64": 9
+    },
+    "of_type": 12
+   },
+   "words": {
+    "entries": {
+     "8": 2,
+     "16": 4,
+     "32": 6,
+     "64": 10
+    },
+    "chunks": {
+     "8": 3,
+     "16": 5,
+     "32": 9,
+     "64": 10
+    },
+    "of_type": 12
+   }
+  },
+  "论文": {
+   "type_probe": {
+    "entries": {
+     "8": 2,
+     "16": 3,
+     "32": 6,
+     "64": 7
+    },
+    "chunks": {
+     "8": 0,
+     "16": 0,
+     "32": 0,
+     "64": 5
+    },
+    "of_type": 16
+   },
+   "type_word": {
+    "entries": {
+     "8": 0,
+     "16": 0,
+     "32": 0,
+     "64": 4
+    },
+    "chunks": {
+     "8": 0,
+     "16": 0,
+     "32": 0,
+     "64": 0
+    },
+    "of_type": 16
+   },
+   "words": {
+    "entries": {
+     "8": 0,
+     "16": 0,
+     "32": 0,
+     "64": 1
+    },
+    "chunks": {
+     "8": 0,
+     "16": 0,
+     "32": 0,
+     "64": 0
+    },
+    "of_type": 16
+   }
+  }
+ }
+}

@@ -1,0 +1,87 @@
+{
+ "files": 9347,
+ "call_seconds": 1.8,
+ "tokens": 810,
+ "rows": [
+  {
+   "builder": "old",
+   "question_every_seconds": 0.0,
+   "named_share": 0.046,
+   "queued": 9347,
+   "calls": 9347,
+   "hours": 12.46,
+   "files_per_minute": 12.5,
+   "tokens_per_minute": 10125
+  },
+  {
+   "builder": "new",
+   "question_every_seconds": 0.0,
+   "named_share": 0.046,
+   "queued": 8917,
+   "calls": 8917,
+   "hours": 8.02,
+   "files_per_minute": 18.5,
+   "tokens_per_minute": 15001
+  },
+  {
+   "builder": "old",
+   "question_every_seconds": 0.0,
+   "named_share": 0.22,
+   "queued": 9347,
+   "calls": 9347,
+   "hours": 12.46,
+   "files_per_minute": 12.5,
+   "tokens_per_minute": 10125
+  },
+  {
+   "builder": "new",
+   "question_every_seconds": 0.0,
+   "named_share": 0.22,
+   "queued": 7291,
+   "calls": 7291,
+   "hours": 6.56,
+   "files_per_minute": 18.5,
+   "tokens_per_minute": 15001
+  },
+  {
+   "builder": "old",
+   "question_every_seconds": 300.0,
+   "named_share": 0.046,
+   "queued": 9347,
+   "calls": 9347,
+   "hours": 12.56,
+   "files_per_minute": 12.4,
+   "tokens_per_minute": 10044
+  },
+  {
+   "builder": "new",
+   "question_every_seconds": 300.0,
+   "named_share": 0.046,
+   "queued": 8917,
+   "calls": 8917,
+   "hours": 16.8,
+   "files_per_minute": 8.8,
+   "tokens_per_minute": 7164
+  },
+  {
+   "builder": "old",
+   "question_every_seconds": 300.0,
+   "named_share": 0.22,
+   "queued": 9347,
+   "calls": 9347,
+   "hours": 12.56,
+   "files_per_minute": 12.4,
+   "tokens_per_minute": 10044
+  },
+  {
+   "builder": "new",
+   "question_every_seconds": 300.0,
+   "named_share": 0.22,
+   "queued": 7291,
+   "calls": 7291,
+   "hours": 13.72,
+   "files_per_minute": 8.9,
+   "tokens_per_minute": 7173
+  }
+ ]
+}

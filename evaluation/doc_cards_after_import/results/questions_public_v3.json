@@ -1,0 +1,628 @@
+{
+ "summary": {
+  "all": {
+   "n": 32,
+   "hit1": 0.844,
+   "hit3": 1.0,
+   "type5": 0.55,
+   "mention5": 0.219,
+   "mention_first": 0.125,
+   "type_recall": 0.478,
+   "p50_ms": 644,
+   "max_ms": 31573
+  },
+  "by_category": {
+   "pure": {
+    "n": 14,
+    "hit1": 0.714,
+    "hit3": 1.0,
+    "type5": 0.929,
+    "mention5": 0.357,
+    "mention_first": 0.286,
+    "type_recall": 0.982,
+    "p50_ms": 516,
+    "max_ms": 31573
+   },
+   "named": {
+    "n": 12,
+    "hit1": 0.917,
+    "hit3": 1.0,
+    "type5": 0.267,
+    "mention5": 0,
+    "mention_first": 0.0,
+    "type_recall": 0.092,
+    "p50_ms": 644,
+    "max_ms": 819
+   },
+   "topic": {
+    "n": 6,
+    "hit1": 1.0,
+    "hit3": 1.0,
+    "type5": 0.233,
+    "mention5": 0.333,
+    "mention_first": 0.0,
+    "type_recall": 0.073,
+    "p50_ms": 784,
+    "max_ms": 1245
+   }
+  }
+ },
+ "questions": [
+  {
+   "id": "DC-001",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 664,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-002",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 504,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-003",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 504,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-004",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 621,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-005",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 516,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-006",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 720,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-007",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 662,
+   "top5_types": [
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-008",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 514,
+   "top5_types": [
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-009",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 1,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 31573,
+   "top5_types": [
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "新闻·提到·按类型"
+   ]
+  },
+  {
+   "id": "DC-010",
+   "category": "pure",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 1.0,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 1.0,
+   "untyped": 0,
+   "elapsed_ms": 508,
+   "top5_types": [
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-011",
+   "category": "pure",
+   "rank": 2,
+   "hit1": 0.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 1,
+   "mention_first": 1.0,
+   "type_recall": 0.9375,
+   "untyped": 0,
+   "elapsed_ms": 599,
+   "top5_types": [
+    "新闻·提到·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-012",
+   "category": "pure",
+   "rank": 2,
+   "hit1": 0.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 1,
+   "mention_first": 1.0,
+   "type_recall": 0.9375,
+   "untyped": 0,
+   "elapsed_ms": 463,
+   "top5_types": [
+    "新闻·提到·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-013",
+   "category": "pure",
+   "rank": 2,
+   "hit1": 0.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 1,
+   "mention_first": 1.0,
+   "type_recall": 0.9375,
+   "untyped": 0,
+   "elapsed_ms": 473,
+   "top5_types": [
+    "新闻·提到·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-014",
+   "category": "pure",
+   "rank": 2,
+   "hit1": 0.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 1,
+   "mention_first": 1.0,
+   "type_recall": 0.9375,
+   "untyped": 0,
+   "elapsed_ms": 458,
+   "top5_types": [
+    "新闻·提到·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型",
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-015",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.05,
+   "untyped": 0,
+   "elapsed_ms": 727,
+   "top5_types": [
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-016",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.05,
+   "untyped": 0,
+   "elapsed_ms": 622,
+   "top5_types": [
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-017",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.4,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.1,
+   "untyped": 0,
+   "elapsed_ms": 644,
+   "top5_types": [
+    "简历·按类型",
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-018",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.05,
+   "untyped": 0,
+   "elapsed_ms": 634,
+   "top5_types": [
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-019",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.05,
+   "untyped": 0,
+   "elapsed_ms": 638,
+   "top5_types": [
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-020",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.05,
+   "untyped": 0,
+   "elapsed_ms": 819,
+   "top5_types": [
+    "简历·按类型"
+   ]
+  },
+  {
+   "id": "DC-021",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.0625,
+   "untyped": 0,
+   "elapsed_ms": 784,
+   "top5_types": [
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-022",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.0625,
+   "untyped": 0,
+   "elapsed_ms": 725,
+   "top5_types": [
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-023",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.0625,
+   "untyped": 0,
+   "elapsed_ms": 1245,
+   "top5_types": [
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-024",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.0625,
+   "untyped": 0,
+   "elapsed_ms": 723,
+   "top5_types": [
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-025",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.4,
+   "mention5": 2,
+   "mention_first": 0.0,
+   "type_recall": 0.125,
+   "untyped": 0,
+   "elapsed_ms": 751,
+   "top5_types": [
+    "论文·按类型",
+    "论文·按类型",
+    "新闻·提到",
+    "简历",
+    "新闻·提到"
+   ]
+  },
+  {
+   "id": "DC-026",
+   "category": "topic",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.0625,
+   "untyped": 0,
+   "elapsed_ms": 884,
+   "top5_types": [
+    "论文·按类型"
+   ]
+  },
+  {
+   "id": "DC-027",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.08333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 634,
+   "top5_types": [
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-028",
+   "category": "named",
+   "rank": 3,
+   "hit1": 0.0,
+   "hit3": 1.0,
+   "type5": 0.8,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.3333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 656,
+   "top5_types": [
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型",
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-029",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.08333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 594,
+   "top5_types": [
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-030",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.08333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 647,
+   "top5_types": [
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-031",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.08333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 594,
+   "top5_types": [
+    "合同·按类型"
+   ]
+  },
+  {
+   "id": "DC-032",
+   "category": "named",
+   "rank": 1,
+   "hit1": 1.0,
+   "hit3": 1.0,
+   "type5": 0.2,
+   "mention5": 0,
+   "mention_first": 0.0,
+   "type_recall": 0.08333333333333333,
+   "untyped": 0,
+   "elapsed_ms": 677,
+   "top5_types": [
+    "合同·按类型"
+   ]
+  }
+ ]
+}

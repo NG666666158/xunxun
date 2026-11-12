@@ -1,0 +1,102 @@
+{
+  "batch": 8,
+  "files": 110,
+  "queued": 110,
+  "outcomes": {
+    "built": 110
+  },
+  "named_by_file_name": 0,
+  "cards": 110,
+  "unknown_type": 1,
+  "calls": 14,
+  "live_calls": 0,
+  "cache_hits": 14,
+  "files_per_call": 7.86,
+  "seconds_per_call": 13.67,
+  "tokens_total": 54436,
+  "tokens_per_file": 494.9,
+  "input_tokens_per_file": 444.3,
+  "output_tokens_per_file": 50.6,
+  "wall_seconds": 313.9,
+  "files_per_minute": 21.03,
+  "tokens_per_minute": 10406,
+  "budget_tokens_per_minute": 9000.0,
+  "rate_limited": 0,
+  "failed": 0,
+  "asked_alone_after_batch": 0,
+  "types": [
+    [
+      "新闻",
+      32
+    ],
+    [
+      "简历",
+      21
+    ],
+    [
+      "报告",
+      15
+    ],
+    [
+      "论文",
+      15
+    ],
+    [
+      "通知公告",
+      13
+    ],
+    [
+      "合同",
+      12
+    ],
+    [
+      "课件讲义",
+      1
+    ],
+    [
+      "（其他）",
+      1
+    ]
+  ],
+  "type_accuracy": 0.7,
+  "type_accuracy_by_gold": {
+    "简历": "20/20",
+    "新闻": "32/62",
+    "合同": "12/12",
+    "论文": "13/16"
+  },
+  "confusions": [
+    [
+      "新闻→通知公告",
+      13
+    ],
+    [
+      "新闻→报告",
+      13
+    ],
+    [
+      "论文→报告",
+      2
+    ],
+    [
+      "新闻→论文",
+      2
+    ],
+    [
+      "论文→课件讲义",
+      1
+    ],
+    [
+      "新闻→简历",
+      1
+    ],
+    [
+      "新闻→（其他）",
+      1
+    ]
+  ],
+  "mention_only_typed_as_mentioned": "3/32",
+  "resume_subject_named": "18/20",
+  "same_type_as_one_per_call": "85/110",
+  "same_period_as_one_per_call": "53/110"
+}

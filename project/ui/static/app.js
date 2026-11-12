@@ -1299,12 +1299,21 @@ async function loadTypes() {
   }
   const types = data.types || [];
   const named = types.filter((t) => t.type !== "其他");
-  wrap.hidden = !named.length && !lib.docType;
+  // Right after a big import no file has a type yet: the filter still shows how many wait.
+  wrap.hidden = !named.length && !lib.docType && !data.pending;
   if (lib.docType && !types.some((t) => t.type === lib.docType)) types.unshift({ type: lib.docType, count: 0 });
-  select.innerHTML = `<option value="">全部类型</option>${types.map((t) =>
+  const all = data.pending ? `全部类型（${fmtNum(data.pending)} 个待判断）` : "全部类型";
+  select.innerHTML = `<option value="">${all}</option>${types.map((t) =>
     `<option value="${esc(t.type)}">${esc(t.type)}（${fmtNum(t.count)}）</option>`).join("")}`;
   select.value = lib.docType;
-  wrap.title = data.pending ? `还有 ${fmtNum(data.pending)} 个文件在判断类型` : "";
+  wrap.title = data.pending ? `还有 ${fmtNum(data.pending)} 个文件在判断类型${cardsLeft(data.seconds_left)}` : "";
+}
+
+/** "，约 3 小时" for the time the remaining document cards take (none when unknown). */
+function cardsLeft(seconds) {
+  if (!seconds) return "";
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes < 90 ? `，约 ${minutes} 分钟` : `，约 ${Math.round(minutes / 60)} 小时`;
 }
 
 /** A file's type as a small button that opens its card. */

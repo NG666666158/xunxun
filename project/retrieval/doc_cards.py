@@ -11,14 +11,17 @@ The model's type is normalised onto a small controlled vocabulary (``DOC_TYPES``
 个人简历 / 履历 / CV all become 简历, and a question's type word is matched against it as a
 field (``FileSearchService``), not through the reranker.
 
-Cards are built in the background (``DocCardBuilder``): paced, waiting while a question is
-answered, never for files kept by name only. A card is rebuilt only when its input (name,
-opening, prompt version) changes, so the store is its own cache.
+Cards are built in the background (``DocCardBuilder``): paced by tokens, waiting while a
+question is answered, never for files kept by name only nor for those whose own name gives the
+type. After a big import the files the user looks at come first (listed by a search, opened,
+likely matches of a type question), then the newest (evaluation/doc_cards_after_import). A card
+is rebuilt only when its input (name, opening, prompt version) changes, so the store is its own
+cache.
 """
 
 from __future__ import annotations
 
-from collections import deque
+import heapq
 from dataclasses import dataclass
 from functools import lru_cache
 from datetime import datetime, timezone
@@ -208,6 +211,16 @@ def detect_doc_type(segments: Iterable[str]) -> tuple[str, str]:
     return "", ""
 
 
+def type_probe(query_type: str) -> str:
+    """What a file of this type looks like, to search the files still without a card for
+    likely ones ("简历 履历 个人简历 …：某一个人的履历：姓名、…")."""
+    item = TYPES_BY_NAME.get(query_type)
+    if item is None:
+        return query_type
+    words = " ".join(word for word in item.words[:6] if word != item.name)
+    return f"{item.name} {words}" + (f"：{item.hint}" if item.hint else "")
+
+
 def type_words(query_type: str) -> list[str]:
     """Words a file "only mentions" when it is not of the type asked for."""
     words: list[str] = []
@@ -228,18 +241,36 @@ def _choices() -> str:
     return "、".join(lines)
 
 
-CARD_PROMPT = (
-    "你是文件归档助手。根据文件名和文件开头的内容判断这是一份什么文件，只输出一行 JSON，不要解释：\n"
-    '{{"类型": "", "对象": "", "时间": "", "摘要": ""}}\n'
+_CARD_RULES = (
     "- 类型：从下列中选最贴切的一个，只写名称：" + _choices() + "。都不贴切时写“其他：<2到6个字的类型>”。\n"
     "- 按文件本身是什么来判断，不按它提到了什么：申报书里有人员简介仍是申报书；征集申报的公告是通知公告；"
     "多人合影不是证书证件；记者写的报道（讲某篇论文、某份合同、某个通知或某个人的事迹）是新闻；"
     "只有标题、摘要和关键词的学术文章是论文。\n"
     "- 对象：文件主要关于哪个人或单位（简历写本人姓名，合同写签约双方，没有就留空）。\n"
     "- 时间：文件自身的日期或年份（没有就留空）。\n"
-    "- 摘要：一句话说明内容，不超过40字。\n\n"
-    "文件名：{name}\n开头内容：{text}"
+    "- 摘要：一句话说明内容，不超过40字。\n"
 )
+
+CARD_PROMPT = (
+    "你是文件归档助手。根据文件名和文件开头的内容判断这是一份什么文件，只输出一行 JSON，不要解释：\n"
+    '{{"类型": "", "对象": "", "时间": "", "摘要": ""}}\n'
+    + _CARD_RULES.replace("{", "{{").replace("}", "}}") +
+    "\n文件名：{name}\n开头内容：{text}"
+)
+
+# Several files in one call (settings.doc_card_batch > 1): the instructions above are about 530
+# of a card's 810 tokens, so files sharing them cost about a third less; but Qwen3-8B then got
+# the type right less often (0.70 to 0.75 against 0.89, evaluation/doc_cards_after_import), so
+# the default stays one file per call. Same rules and fields, same input hash as a card asked alone.
+CARD_BATCH_PROMPT = (
+    "你是文件归档助手。下面有 {count} 份文件，每份给出文件名和开头的内容。逐份判断它是一份什么文件，"
+    "按编号顺序每份输出一行 JSON，共 {count} 行，不要解释：\n"
+    '{{"编号": 1, "类型": "", "对象": "", "时间": "", "摘要": ""}}\n'
+    + _CARD_RULES.replace("{", "{{").replace("}", "}}") +
+    "- 每份文件单独判断，不要把别的文件的内容算进来。\n\n"
+    "{files}"
+)
+CARD_BATCH_FILE = "【文件 {number}】\n文件名：{name}\n开头内容：{text}\n\n"
 
 
 def opening_text(parsed: dict[str, Any], limit: int = CARD_CHARS) -> str:
@@ -261,8 +292,11 @@ def parse_card(raw: str) -> dict[str, str]:
     try:
         data = json.loads(raw[start : end + 1])
     except ValueError:
-        # An unescaped quote inside the summary (γ"相) breaks the JSON: read field by field.
+        # An unescaped quote inside the summary (γ"相) or a value left unquoted ("类型": 报告)
+        # breaks the JSON: read field by field.
         data = {key: value for key, value in re.findall(r'"(类型|对象|时间|摘要)"\s*:\s*"([^"\n]*)"', raw)}
+        for key, value in re.findall(r'"(类型|对象|时间|摘要)"\s*:\s*([^"\s,，{}][^",，{}\n]*)', raw):
+            data.setdefault(key, value.strip())
         if "类型" not in data:
             raise
     if not isinstance(data, dict):
@@ -284,6 +318,27 @@ def parse_card(raw: str) -> dict[str, str]:
         "period": field("时间", "time", limit=30),
         "summary": field("摘要", "summary", limit=80),
     }
+
+
+_OBJECT = re.compile(r"\{[^{}]*\}")
+
+
+def parse_cards(raw: str, count: int) -> list[dict[str, str] | None]:
+    """A batch reply: the card of each numbered file, None where the reply has none (that file
+    is asked again on its own)."""
+    raw = re.sub(r"<think>.*?</think>", "", str(raw or ""), flags=re.S)
+    cards: list[dict[str, str] | None] = [None] * count
+    for position, match in enumerate(_OBJECT.finditer(raw)):
+        text = match.group(0)
+        number = re.search(r'"编号"\s*:\s*"?(\d+)', text)
+        index = int(number.group(1)) - 1 if number else position
+        if not 0 <= index < count or cards[index] is not None:
+            continue
+        try:
+            cards[index] = parse_card(text)
+        except (ValueError, TypeError):
+            continue
+    return cards
 
 
 OTHER_TYPE = "其他"
@@ -328,14 +383,46 @@ def _rate_limited(exc: BaseException) -> bool:
     return status == 429
 
 
+# Who waits for a card, most urgent first.
+ASKED = 0  # the user is looking at it: listed by a search, opened, a likely match of a type question
+NEW = 1  # added or changed on its own, not as part of a big import
+BACKFILL = 2  # the rest (after a big import, or missing at start): newest modified first
+
+# No question for this long: the idle token budget applies, and the gap between calls shrinks
+# to this share of ``interval`` so the budget, not the gap, sets the pace.
+IDLE_AFTER = 600.0
+IDLE_GAP_SHARE = 1 / 3
+# Tokens a card costs when the reply does not say: the instructions are about 530, the
+# opening about 0.45 a character (evaluation/doc_cards_after_import).
+_FIXED_TOKENS = 530
+_TOKENS_PER_CHAR = 0.45
+# Reply room per file in a batch (a card is 45 to 60 tokens).
+_BATCH_REPLY_TOKENS = 100
+
+
+def estimated_tokens(openings: list[str]) -> int:
+    """What one call for these openings costs, for pacing when the service gives no count."""
+    if not openings:
+        return 0
+    return int(_FIXED_TOKENS + sum(60 + _TOKENS_PER_CHAR * len(text) for text in openings))
+
+
 class DocCardBuilder:
     """Writes cards for indexed files in one background thread.
 
-    * paced: at least ``interval`` seconds between model calls, and one call at a time;
-    * waits while a question is answered (``pause``, the library's), like indexing;
-    * retries rate limits (限流) and busy servers with growing waits, then leaves the file
-      for the next sync;
-    * never reads a file kept by name only (``eligible`` decides, from the registry).
+    * which files: never one kept by name only (``eligible`` decides, from the registry), nor
+      one whose own name gives the type ("01 申报书.pdf": the name wins over a card anyway,
+      see FileSearchService._typed_files);
+    * in what order: files the user is looking at (``prioritize``) first, then a file added on
+      its own, then the rest, newest modified first;
+    * up to ``batch`` files share one model call when several are waiting;
+    * paced by tokens: at most ``tokens_per_minute`` (``idle_tokens_per_minute`` after ten
+      minutes without a question), at least ``interval`` seconds between calls (a third of it
+      when idle, so the budget sets the pace); nothing while a
+      question is answered (``pause``) and, except for files the user is looking at, for
+      ``cool_down`` seconds after one and while a big import runs (``library.importing``);
+    * a rate limit (限流) waits 25 to 90 seconds and halves the pace, which recovers slowly; a
+      file still failing is left for the next sync.
     """
 
     def __init__(
@@ -349,6 +436,9 @@ class DocCardBuilder:
         pause: Callable[[], None] | None = None,
         interval: float | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        library=None,
+        batch: int | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ):
         self.store = store
         self.settings = settings
@@ -357,20 +447,34 @@ class DocCardBuilder:
         self.files = files or (lambda: {})
         # doc_id -> its current name, or None when it may not have a card (any more).
         self.eligible = eligible or (lambda doc_id: self.files().get(doc_id))
-        self.pause = pause
+        # The file library (LibraryService): questions being answered, big imports, file times.
+        self.library = library
+        self.pause = pause or (library.pause_for_questions if library is not None else None)
         self.base_interval = float(getattr(settings, "doc_card_interval_seconds", 3.0) if interval is None else interval)
-        # Grows on each rate limit (up to MAX_INTERVAL), shrinks back after successes.
+        # Grows on each rate limit (up to MAX_INTERVAL), shrinks back after successes; the
+        # token budget is scaled by base_interval / interval with it.
         self.interval = self.base_interval
+        self.batch = max(1, int(getattr(settings, "doc_card_batch", 1) if batch is None else batch))
+        self.tokens_per_minute = float(getattr(settings, "doc_card_tokens_per_minute", 9000.0) or 0.0)
+        self.idle_tokens_per_minute = float(
+            getattr(settings, "doc_card_idle_tokens_per_minute", 0.0) or self.tokens_per_minute)
+        self.cool_down = float(getattr(settings, "doc_card_cool_down_seconds", 60.0) or 0.0)
         self.sleep = sleep
-        self._queue: deque[str] = deque()
-        self._queued: set[str] = set()
+        self.clock = clock
+        # (priority, -modified, order, doc_id); an entry whose priority is no longer the file's
+        # (it was asked for since) is skipped when it comes up.
+        self._heap: list[tuple[int, float, int, str]] = []
+        self._queued: dict[str, int] = {}
+        self._order = 0
+        # Files a batch reply left out: asked on their own next time.
+        self._alone: set[str] = set()
         self._wake = threading.Condition()
         self._worker: threading.Thread | None = None
         self._stopped = False
-        self._last_call = 0.0
+        self._next_call = 0.0
         self._model = None
-        self.stats = {"built": 0, "cached": 0, "failed": 0, "skipped": 0, "tokens": 0, "seconds": 0.0,
-                      "rate_limited": 0}
+        self.stats = {"built": 0, "cached": 0, "failed": 0, "skipped": 0, "named": 0, "retry": 0, "tokens": 0,
+                      "seconds": 0.0, "rate_limited": 0, "calls": 0, "asked": 0}
 
     RETRY_DELAYS = (25.0, 30.0, 60.0, 90.0)
     MAX_INTERVAL = 60.0
@@ -382,6 +486,38 @@ class DocCardBuilder:
     @property
     def model_name(self) -> str:
         return str(getattr(self.settings, "llm_model", ""))
+
+    # ---------------- the library ----------------
+
+    def _busy(self) -> bool:
+        """A big import is running: the backfill waits for it (a file indexed in it too)."""
+        try:
+            return bool(self.library is not None and self.library.importing())
+        except Exception:
+            return False
+
+    def _idle(self) -> float:
+        """Seconds since the last question was answered (inf when none was)."""
+        try:
+            return float(self.library.idle_seconds()) if self.library is not None else float("inf")
+        except Exception:
+            return float("inf")
+
+    def _modified(self, doc_ids: Iterable[str] | None = None) -> dict[str, float]:
+        """The files' modification times (the newest are built first in the backfill)."""
+        registry = getattr(self.library, "registry", None)
+        if registry is None:
+            return {}
+        try:
+            if doc_ids is not None:
+                rows = [registry.get_file(doc_id) for doc_id in doc_ids]
+            else:
+                from library.registry import SEARCHABLE_STATUSES
+
+                rows = registry.list_files(statuses=SEARCHABLE_STATUSES)
+            return {row["file_id"]: float(row.get("mtime") or 0.0) for row in rows if row}
+        except Exception:
+            return {}
 
     # ---------------- inputs ----------------
 
@@ -395,73 +531,169 @@ class DocCardBuilder:
         opening = opening_text(parsed, int(getattr(self.settings, "doc_card_chars", CARD_CHARS)))
         return opening, card_input_hash(name, opening, self.model_name)
 
-    # ---------------- one file ----------------
+    # ---------------- pace ----------------
 
-    def build(self, doc_id: str, name: str | None = None) -> str:
-        """Write or refresh one file's card. Returns built | cached | skipped | failed."""
-        if not self.supported:
-            return "skipped"
-        current = self.eligible(doc_id)
-        if current is None:
-            # Kept by name only, removed, not indexed: no card (and none left behind).
-            self.store.delete_doc_card(doc_id)
-            self.stats["skipped"] += 1
-            return "skipped"
-        name = current or name or doc_id
-        prepared = self.card_input(doc_id, name)
-        if prepared is None:
-            self.stats["skipped"] += 1
-            return "skipped"
-        opening, digest = prepared
-        if self.store.doc_card_hashes().get(doc_id) == digest:
-            self.stats["cached"] += 1
-            return "cached"
+    def rate(self) -> float:
+        """Tokens a minute the cards may use now (0: no budget, only ``interval``)."""
+        budget = self.idle_tokens_per_minute if self._idle() >= IDLE_AFTER else self.tokens_per_minute
+        if budget <= 0:
+            return 0.0
+        slower = self.base_interval / self.interval if self.interval > 0 and self.base_interval > 0 else 1.0
+        return budget * slower
+
+    def _wait_turn(self, urgent: Callable[[], bool] | bool = False) -> None:
+        """Wait until a call may be made: no question being answered; unless the files are
+        ones the user is looking at, no big import and the cool-down after a question over;
+        then the pace."""
+        check = urgent if callable(urgent) else (lambda: bool(urgent))
+        self._pause()
+        while not self._stopped and not check():
+            if self._busy():
+                with self._wake:
+                    self._wake.wait(timeout=5)
+                continue
+            left = self.cool_down - self._idle()
+            if left <= 0:
+                break
+            self.sleep(min(left, 5.0))
+            self._pause()
+        wait = self._next_call - self.clock()
+        if wait > 0:
+            self.sleep(wait)
+
+    def _pause(self) -> None:
         if self.pause is not None:
             try:
                 self.pause()
             except Exception as exc:  # the courtesy wait never stops the builder
                 logger.debug("Doc card pause failed: %s", exc)
-        wait = self.interval - (time.monotonic() - self._last_call)
-        if wait > 0:
-            self.sleep(wait)
-        # Checked again after the wait: the file may have been switched to name-only.
-        if self.eligible(doc_id) is None:
-            self.store.delete_doc_card(doc_id)
-            self.stats["skipped"] += 1
-            return "skipped"
-        started = time.perf_counter()
+
+    def _after_call(self, started: float, tokens: int) -> None:
+        ended = self.clock()
+        rate = self.rate()
+        spacing = tokens / rate * 60.0 if rate > 0 else 0.0
+        gap = self.interval * (IDLE_GAP_SHARE if rate > 0 and self._idle() >= IDLE_AFTER else 1.0)
+        self._next_call = max(ended + gap, started + spacing)
+
+    # ---------------- building ----------------
+
+    def build(self, doc_id: str, name: str | None = None) -> str:
+        """Write or refresh one file's card. Returns built | cached | named | skipped | failed."""
+        return self.build_many([doc_id]).get(doc_id, "skipped")
+
+    def build_many(self, doc_ids: list[str], wait: bool = True, urgent: bool = False) -> dict[str, str]:
+        """Write or refresh these files' cards, several files in one model call. ``wait``: wait
+        for the turn first (``_wait_turn``; the background loop has already waited)."""
+        if not self.supported:
+            return {doc_id: "skipped" for doc_id in doc_ids}
+        outcomes: dict[str, str] = {}
+        hashes = self.store.doc_card_hashes()
+        todo: list[tuple[str, str, str, str]] = []
+        for doc_id in doc_ids:
+            current = self.eligible(doc_id)
+            if current is None:
+                # Kept by name only, removed, not indexed: no card (and none left behind).
+                self.store.delete_doc_card(doc_id)
+                outcomes[doc_id] = "skipped"
+                continue
+            name = current or doc_id
+            if name_doc_type(name):
+                outcomes[doc_id] = "named"  # its name gives the type: no call
+                continue
+            prepared = self.card_input(doc_id, name)
+            if prepared is None:
+                outcomes[doc_id] = "skipped"
+                continue
+            opening, digest = prepared
+            if hashes.get(doc_id) == digest:
+                outcomes[doc_id] = "cached"
+                continue
+            todo.append((doc_id, name, opening, digest))
+        if todo and wait:
+            self._wait_turn(urgent)
+        # Checked again after the wait: a file may have been switched to name-only.
+        for item in list(todo):
+            if self.eligible(item[0]) is None:
+                self.store.delete_doc_card(item[0])
+                outcomes[item[0]] = "skipped"
+                todo.remove(item)
+        if todo:
+            outcomes.update(self._write(todo))
+        for outcome in outcomes.values():
+            self.stats[outcome] = self.stats.get(outcome, 0) + 1
+        return outcomes
+
+    def _write(self, todo: list[tuple[str, str, str, str]]) -> dict[str, str]:
+        started = self.clock()
+        tokens = 0
         try:
-            card, tokens = self._ask(name, opening)
+            cards, tokens = self._ask_files([(name, opening) for _, name, opening, _ in todo])
         except Exception as exc:
-            self.stats["failed"] += 1
-            logger.warning("Doc card for %s not written: %s", doc_id, exc)
-            return "failed"
+            logger.warning("Doc cards for %d file(s) not written: %s", len(todo), exc)
+            return {doc_id: "failed" for doc_id, _, _, _ in todo}
         finally:
-            self._last_call = time.monotonic()
-        self.stats["seconds"] += time.perf_counter() - started
+            self.stats["calls"] += 1
+            self.stats["seconds"] += self.clock() - started
+            self._after_call(started, tokens or estimated_tokens([opening for _, _, opening, _ in todo]))
         self.stats["tokens"] += tokens
-        if self.eligible(doc_id) is None:
-            self.store.delete_doc_card(doc_id)
-            return "skipped"
-        self.store.upsert_doc_card(doc_id, {**card, "input_hash": digest, "version": CARD_VERSION,
-                                            "tokens": tokens, "model": self.model_name,
-                                            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        self.stats["built"] += 1
-        return "built"
+        share = round(tokens / len(todo))
+        created = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        outcomes: dict[str, str] = {}
+        for (doc_id, _, _, digest), card in zip(todo, cards):
+            if card is None:
+                # Left out of a batch reply: asked on its own next time.
+                self._alone.add(doc_id)
+                self.enqueue(doc_id, NEW)
+                outcomes[doc_id] = "retry"
+                continue
+            self._alone.discard(doc_id)
+            if self.eligible(doc_id) is None:
+                self.store.delete_doc_card(doc_id)
+                outcomes[doc_id] = "skipped"
+                continue
+            self.store.upsert_doc_card(doc_id, {**card, "input_hash": digest, "version": CARD_VERSION,
+                                                "tokens": share, "model": self.model_name, "created_at": created})
+            outcomes[doc_id] = "built"
+        return outcomes
+
+    def _ask_files(self, items: list[tuple[str, str]]) -> tuple[list[dict[str, str] | None], int]:
+        if len(items) == 1:
+            card, tokens = self._ask(*items[0])
+            return [card], tokens
+        files = "".join(CARD_BATCH_FILE.format(number=number, name=name, text=opening or "（无文字内容）")
+                        for number, (name, opening) in enumerate(items, start=1))
+        message = self._invoke(CARD_BATCH_PROMPT.format(count=len(items), files=files),
+                               max_tokens=_BATCH_REPLY_TOKENS * len(items))
+        usage = getattr(message, "usage_metadata", None) or {}
+        return parse_cards(str(message.content), len(items)), int(usage.get("total_tokens") or 0)
 
     def _ask(self, name: str, opening: str) -> tuple[dict[str, str], int]:
+        message = self._invoke(CARD_PROMPT.format(name=name, text=opening or "（无文字内容）"))
+        usage = getattr(message, "usage_metadata", None) or {}
+        tokens = int(usage.get("total_tokens") or 0)
+        try:
+            return parse_card(str(message.content)), tokens
+        except (ValueError, TypeError) as exc:
+            # A reply that is not JSON is kept as "unknown type", not asked again until the
+            # file changes: the same input would most likely get the same reply.
+            logger.info("Doc card reply unreadable for %s: %s", name, exc)
+            return {"label": "", "doc_type": "", "subject": "", "period": "", "summary": ""}, tokens
+
+    def _invoke(self, prompt: str, max_tokens: int | None = None):
         from langchain_core.messages import HumanMessage
         from services.model_clients import background_calls, chat_busy, transient_error
 
         if self._model is None:
             self._model = self.chat_model()
-        prompt = CARD_PROMPT.format(name=name, text=opening or "（无文字内容）")
+        model = self._model
+        if max_tokens and hasattr(model, "bind"):
+            model = model.bind(max_tokens=max_tokens)
         for attempt in range(len(self.RETRY_DELAYS) + 1):
             # The model answered a question "too busy" a moment ago: leave it to the question.
             chat_busy.wait(self.model_name, limit=self.MAX_INTERVAL * 4)
             try:
                 with background_calls.slot():
-                    message = self._model.invoke([HumanMessage(content=prompt)])
+                    message = model.invoke([HumanMessage(content=prompt)])
                 break
             except Exception as exc:
                 if attempt >= len(self.RETRY_DELAYS) or not transient_error(exc):
@@ -473,17 +705,9 @@ class DocCardBuilder:
                 logger.info("Doc card call failed (%s), retrying in %.0f s", type(exc).__name__, self.RETRY_DELAYS[attempt])
                 self.sleep(self.RETRY_DELAYS[attempt])
         self.interval = max(self.base_interval, self.interval * 0.8)
-        usage = getattr(message, "usage_metadata", None) or {}
-        tokens = int(usage.get("total_tokens") or 0)
-        try:
-            return parse_card(str(message.content)), tokens
-        except (ValueError, TypeError) as exc:
-            # A reply that is not JSON is kept as "unknown type", not asked again until the
-            # file changes: the same input would most likely get the same reply.
-            logger.info("Doc card reply unreadable for %s: %s", name, exc)
-            return {"label": "", "doc_type": "", "subject": "", "period": "", "summary": ""}, tokens
+        return message
 
-    # ---------------- background ----------------
+    # ---------------- the queue ----------------
 
     def start(self) -> None:
         if self._worker is None and self.supported:
@@ -495,23 +719,68 @@ class DocCardBuilder:
             self._stopped = True
             self._wake.notify_all()
 
-    def enqueue(self, doc_id: str) -> None:
+    def enqueue(self, doc_id: str, priority: int = BACKFILL, modified: float | None = None) -> bool:
+        """Queue a file, or move it up. Returns whether it was."""
+        if modified is None:
+            modified = self._modified([doc_id]).get(doc_id, 0.0) if priority == BACKFILL else 0.0
         with self._wake:
-            if doc_id not in self._queued:
-                self._queued.add(doc_id)
-                self._queue.append(doc_id)
-                self._wake.notify_all()
+            if self._queued.get(doc_id, BACKFILL + 1) <= priority:
+                return False
+            self._queued[doc_id] = priority
+            self._order += 1
+            heapq.heappush(self._heap, (priority, -float(modified or 0.0), self._order, doc_id))
+            self._wake.notify_all()
+            return True
 
     def file_indexed(self, doc_id: str) -> None:
-        self.enqueue(doc_id)
+        """A file was (re)indexed: on its own it comes next; in a big import, with the backfill."""
+        self.enqueue(doc_id, BACKFILL if self._busy() else NEW)
+
+    def prioritize(self, doc_ids: Iterable[str]) -> int:
+        """Files the user is looking at (listed by a search, opened, likely matches of a type
+        question): their cards come first, even during a big import. Files with a card, or
+        whose name gives the type, are left alone. Returns how many were moved up."""
+        if not self.supported:
+            return 0
+        ids = [doc_id for doc_id in dict.fromkeys(doc_ids) if doc_id]
+        if not ids:
+            return 0
+        try:
+            have = self.store.doc_card_hashes()
+        except Exception:
+            return 0
+        moved = 0
+        for doc_id in ids:
+            if doc_id in have:
+                continue
+            name = self.eligible(doc_id)
+            if name is None or name_doc_type(name):
+                continue
+            moved += self.enqueue(doc_id, ASKED)
+        self.stats["asked"] += moved
+        return moved
 
     def pending(self) -> int:
         with self._wake:
-            return len(self._queue)
+            return len(self._queued)
+
+    def progress(self) -> dict[str, Any]:
+        """Files waiting, how many of them the user is looking at, and the time left at the
+        current pace (seconds; None without a token budget)."""
+        with self._wake:
+            waiting = len(self._queued)
+            asked = sum(1 for priority in self._queued.values() if priority == ASKED)
+        built = self.stats["built"]
+        per_file = (self.stats["tokens"] / built if built and self.stats["tokens"]
+                    else _FIXED_TOKENS / self.batch + 60 + _TOKENS_PER_CHAR * 650)
+        rate = self.rate()
+        return {"waiting": waiting, "asked": asked, "tokens_per_minute": round(rate),
+                "tokens_per_file": round(per_file),
+                "seconds_left": round(waiting * per_file / rate * 60) if rate > 0 else None}
 
     def sync(self) -> int:
-        """Queue every eligible file whose card is missing or out of date; drop cards of files
-        that may no longer have one. Returns how many were queued."""
+        """Queue every eligible file whose card is missing or out of date (newest first); drop
+        cards of files that may no longer have one. Returns how many were queued."""
         if not self.supported:
             return 0
         self.store.renormalize_doc_cards(normalize_type)
@@ -520,38 +789,71 @@ class DocCardBuilder:
         for doc_id in set(hashes) - set(files):
             if self.eligible(doc_id) is None:
                 self.store.delete_doc_card(doc_id)
+        modified = self._modified()
         queued = 0
         for doc_id, name in files.items():
-            prepared = self.card_input(doc_id, name)
-            if prepared is not None and hashes.get(doc_id) != prepared[1]:
-                self.enqueue(doc_id)
-                queued += 1
+            if name_doc_type(name):
+                continue  # its name gives the type
+            if doc_id in hashes:
+                # A card from another input (the file or the prompt changed) is written again.
+                prepared = self.card_input(doc_id, name)
+                if prepared is None or hashes[doc_id] == prepared[1]:
+                    continue
+            queued += self.enqueue(doc_id, BACKFILL, modified.get(doc_id, 0.0))
         if queued:
             logger.info("Doc cards: %d files queued", queued)
         return queued
 
+    def _take(self, urgent_only: bool = False) -> tuple[list[str], bool]:
+        """The next files to ask about together, most urgent first, and whether one of them is
+        a file the user is looking at. A file a batch reply left out goes alone."""
+        with self._wake:
+            batch: list[str] = []
+            urgent = False
+            while self._heap and len(batch) < self.batch:
+                priority, _, _, doc_id = self._heap[0]
+                if self._queued.get(doc_id) != priority:
+                    heapq.heappop(self._heap)  # moved up since
+                    continue
+                if urgent_only and priority > ASKED:
+                    break
+                if batch and doc_id in self._alone:
+                    break
+                heapq.heappop(self._heap)
+                del self._queued[doc_id]
+                urgent = urgent or priority == ASKED
+                batch.append(doc_id)
+                if doc_id in self._alone:
+                    break
+            return batch, urgent
+
+    def _top_urgent(self) -> bool:
+        with self._wake:
+            while self._heap and self._queued.get(self._heap[0][3]) != self._heap[0][0]:
+                heapq.heappop(self._heap)
+            return bool(self._heap) and self._heap[0][0] == ASKED
+
     def run_pending(self) -> dict[str, int]:
         """Build every queued card now, in this thread (tests, evaluation)."""
         counts: dict[str, int] = {}
-        while True:
-            with self._wake:
-                if not self._queue:
-                    return counts
-                doc_id = self._queue.popleft()
-                self._queued.discard(doc_id)
-            outcome = self.build(doc_id)
-            counts[outcome] = counts.get(outcome, 0) + 1
+        while not self._stopped and self.pending():
+            self._wait_turn(self._top_urgent)
+            batch, urgent = self._take()
+            for outcome in self.build_many(batch, wait=False, urgent=urgent).values():
+                counts[outcome] = counts.get(outcome, 0) + 1
+        return counts
 
     def _loop(self) -> None:
         while True:
             with self._wake:
-                while not self._queue and not self._stopped:
+                while not self._queued and not self._stopped:
                     self._wake.wait(timeout=30)
                 if self._stopped:
                     return
-                doc_id = self._queue.popleft()
-                self._queued.discard(doc_id)
             try:
-                self.build(doc_id)
+                self._wait_turn(self._top_urgent)
+                batch, urgent = self._take(urgent_only=self._busy())
+                if batch:
+                    self.build_many(batch, wait=False, urgent=urgent)
             except Exception as exc:
-                logger.warning("Doc card for %s failed: %s", doc_id, exc)
+                logger.warning("Doc cards failed: %s", exc)
