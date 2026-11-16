@@ -144,6 +144,10 @@ class Settings(BaseSettings):
     # Prefix every retrieval child with "document · section" so searches that name the
     # document or chapter ("面试题里有哪些…") can match; parents stay plain text.
     chunk_context_prefix: bool = True
+    # Headings written as ordinary paragraphs in .docx and .txt files ("三、支持强度与方式", a bold
+    # line) start a section of their own and are kept as its heading (ingestion/sections.py;
+    # evaluation/recall_wording_v1/REPORT.md, step 4). Switching it re-indexes those files.
+    section_headings: bool = False
     # Figures and image-only PDF pages: "off", "local" (RapidOCR, nothing is uploaded) or
     # "cloud" (SiliconFlow vision models; page images are sent to the API). See figures.py.
     image_understanding: Literal["off", "local", "cloud"] = "off"

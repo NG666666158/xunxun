@@ -211,3 +211,86 @@ def test_a_library_of_one_file_keeps_its_pool():
     kept = HybridRetriever(store, Embeddings(), Reranker(), settings).retrieve(QUESTION, max_keep=6)
     assert store.limits == [4, 16] and [h.id for h in kept] == ["1", "2", "3", "4"]
     assert not multipart.last_trace().crowded
+
+
+# ---------------------------------------------------------------- headings written as paragraphs
+from ingestion.sections import Paragraph, heading_level, sectioned  # noqa: E402
+
+
+def test_numbered_and_bold_headings_are_recognised():
+    assert heading_level("三、支持强度与方式") == (1, "三、支持强度与方式")
+    assert heading_level("第二章 申报条件") == (1, "第二章 申报条件")
+    assert heading_level("（一）优质档") == (2, "（一）优质档")
+    assert heading_level("联系方式", bold=True) == (3, "联系方式")
+    # A heading that opens its own paragraph.
+    assert heading_level("三、支持强度与方式。项目分三档给予支持，优质档不超过6万元。") == (1, "三、支持强度与方式")
+    # Sentences, list items and provisions are not headings.
+    for text in ("（一）申请人信用状况良好，未被列入严重失信主体名单。", "一、申请人应当在规定时间内提交材料，逾期不予受理。",
+                 "第三条 本办法所称专项资金，是指市财政安排的资金。", "项目分三档给予支持。", "联系方式", "3.14"):
+        assert heading_level(text) is None, text
+
+
+GUIDE = [
+    Paragraph("2026年青年创新项目申请指南", bold=True),
+    Paragraph("现将指南印发给你们，请遵照执行。"),
+    Paragraph("一、设定依据", bold=True),
+    Paragraph("为贯彻落实高质量发展的工作部署，规范项目的组织实施，提高财政资金使用效益，依据有关规定，结合工作实际，制定本文件。"),
+    Paragraph("二、申请内容", bold=True),
+    Paragraph("（一）新一代信息技术领域的技术研发和应用示范。"),
+    Paragraph("（二）面向社会治理和公共服务的创新性解决方案。"),
+    Paragraph("三、支持强度与方式", bold=True),
+    Paragraph("项目分三档给予支持。优质档：单个项目资助资金不超过6万元；潜力档：不超过3万元；起步档：不超过0.8万元。"),
+]
+
+
+def test_a_guide_is_cut_at_its_numbered_headings():
+    units = sectioned(GUIDE)
+    assert [unit.heading for unit in units] == ["", "一、设定依据", "二、申请内容", "三、支持强度与方式"]
+    money = units[-1]
+    # The heading line stays in the text; the amounts are the section's own unit.
+    assert money.text.startswith("三、支持强度与方式\n项目分三档") and "申请内容" not in money.text
+    assert "".join(unit.text.replace("\n", "") for unit in units) == "".join(p.text for p in GUIDE)
+
+
+def test_files_without_such_headings_keep_their_usual_units():
+    assert sectioned([Paragraph("第一段。" * 30), Paragraph("第二段。" * 30)]) is None
+    # A numbered list is not a document's sections.
+    assert sectioned([Paragraph("一、张三"), Paragraph("二、李四"), Paragraph("三、王五")]) is None
+    # A single heading is not enough either.
+    assert sectioned([Paragraph("一、总则"), Paragraph("正文。" * 50)]) is None
+
+
+def test_a_long_section_is_cut_at_its_sub_headings_and_a_short_one_is_not():
+    short = [Paragraph("一、总则"), Paragraph("总则内容。" * 20), Paragraph("二、支持标准"), Paragraph("（一）优质档"), Paragraph("不超过6万元。"),
+             Paragraph("（二）潜力档"), Paragraph("不超过3万元。")]
+    assert [unit.heading for unit in sectioned(short)] == ["一、总则", "二、支持标准"]
+    long = short[:3] + [Paragraph("（一）优质档"), Paragraph("优质档的说明。" * 100), Paragraph("（二）潜力档"), Paragraph("潜力档的说明。" * 100)]
+    assert [unit.heading for unit in sectioned(long)] == ["一、总则", "二、支持标准", "二、支持标准 > （一）优质档", "二、支持标准 > （二）潜力档"]
+
+
+def test_word_heading_styles_still_lead():
+    units = sectioned([Paragraph("第一部分", styled=1), Paragraph("一、目的"), Paragraph("目的内容。" * 20), Paragraph("二、范围"),
+                       Paragraph("范围内容。" * 20), Paragraph("第二部分", styled=1), Paragraph("没有小标题的正文。" * 10)])
+    assert [unit.heading for unit in units] == ["第一部分 > 一、目的", "第一部分 > 二、范围", "第二部分"]
+
+
+def test_docx_and_txt_parsers_follow_the_switch(tmp_path):
+    from docx import Document
+
+    from ingestion.parsers import MultiFormatParser, parser_version
+
+    path = tmp_path / "指南.docx"
+    document = Document()
+    for paragraph in GUIDE:
+        document.add_paragraph().add_run(paragraph.text).bold = paragraph.bold
+    document.save(path)
+    text = tmp_path / "指南.txt"
+    text.write_text("\n".join(paragraph.text for paragraph in GUIDE), encoding="utf-8")
+    off = SimpleNamespace(max_local_file_mb=100, max_local_text_mb=50, section_headings=False, image_understanding="off")
+    on = SimpleNamespace(max_local_file_mb=100, max_local_text_mb=50, section_headings=True, image_understanding="off")
+    assert len(MultiFormatParser(off).parse(path).units) == 1 and len(MultiFormatParser(off).parse(text).units) == 1
+    assert [unit.heading for unit in MultiFormatParser(on).parse(path).units][-1] == "三、支持强度与方式"
+    assert [unit.heading for unit in MultiFormatParser(on).parse(text).units] == ["指南", "一、设定依据", "二、申请内容", "三、支持强度与方式"]
+    # Switching it changes the index version of these types only, so they are read again.
+    assert parser_version(path, on) == parser_version(path, off) + 1 and parser_version(text, on) == parser_version(text, off) + 1
+    assert parser_version("a.md", on) == parser_version("a.md", off)

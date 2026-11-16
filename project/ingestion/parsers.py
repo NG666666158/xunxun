@@ -19,11 +19,15 @@ from .images import IMAGE_EXTENSIONS, MODE_VERSION as IMAGE_MODE_VERSION, DEFAUL
 from .models import DocumentUnit, ParsedDocument
 from .office import PPT_NEEDS_POWERPOINT, powerpoint_installed, ppt_to_pptx
 from .pdf_layout import PDF_PARSER_VERSION, parse_pdf
+from .sections import Paragraph, sectioned
 from .slides import parse_pptx
 
 
 # Version of the text each parser produces; unlisted types are version 1.
 PARSER_VERSIONS: dict[str, int] = {".pdf": PDF_PARSER_VERSION}
+# File types whose units follow section_headings (ingestion/sections.py): switching it
+# changes their index version, so they are read again.
+SECTIONED = (".docx", ".txt")
 # A PDF counts as scanned (and the UI offers to read it) when this share of its pages has no text.
 SCANNED_PAGE_SHARE = 0.5
 # Nearly all text: everything in them gets embedded, so their limit is lower (REPORT.md).
@@ -63,6 +67,8 @@ def parser_version(path: str | Path, settings: Settings | None = None, image_mod
     version = PARSER_VERSIONS.get(suffix, 1) * 1000 + CHUNKER_VERSION * 10
     if suffix in IMAGE_EXTENSIONS:
         return version + IMAGE_MODE_VERSION.get(image_mode or DEFAULT_IMAGE_MODE, 1)
+    if suffix in SECTIONED:
+        return version + (1 if getattr(settings or get_settings(), "section_headings", False) else 0)
     if suffix == ".pdf":
         settings = settings or get_settings()
         mode = pdf_image_mode(settings, image_mode)
@@ -93,10 +99,10 @@ class MultiFormatParser:
         self.settings = settings or get_settings()
         self._parsers: dict[str, Callable[[Path], list[DocumentUnit]]] = {
             ".pdf": self._parse_pdf,
-            ".docx": self._parse_docx,
+            ".docx": lambda path: self._parse_docx(path, self._sections()),
             ".xlsx": self._parse_xlsx,
             ".md": self._parse_markdown,
-            ".txt": self._parse_text,
+            ".txt": lambda path: self._parse_text(path, self._sections()),
             ".pptx": self._parse_pptx,
             ".ppt": self._parse_ppt,
         }
@@ -170,12 +176,18 @@ class MultiFormatParser:
     def _parse_pdf(path: Path) -> list[DocumentUnit]:
         return parse_pdf(path)[0]
 
+    def _sections(self) -> bool:
+        return bool(getattr(self.settings, "section_headings", False))
+
     @staticmethod
-    def _parse_docx(path: Path) -> list[DocumentUnit]:
+    def _parse_docx(path: Path, sections: bool = False) -> list[DocumentUnit]:
         document = WordDocument(path)
         units: list[DocumentUnit] = []
         heading_stack: list[str] = []
         buffer: list[str] = []
+        found = MultiFormatParser._docx_sections(document) if sections else None
+        if found is not None:
+            return found + MultiFormatParser._docx_tables(document)
 
         def flush() -> None:
             text = _clean_text("\n".join(buffer))
@@ -197,7 +209,28 @@ class MultiFormatParser:
             else:
                 buffer.append(text)
         flush()
+        return units + MultiFormatParser._docx_tables(document)
 
+    @staticmethod
+    def _docx_sections(document) -> list[DocumentUnit] | None:
+        """The body cut at headings written as ordinary paragraphs (bold, or numbered "三、…"),
+        or None when it has none (see ingestion/sections.py)."""
+        paragraphs: list[Paragraph] = []
+        for paragraph in document.paragraphs:
+            text = _clean_text(paragraph.text)
+            if not text:
+                continue
+            style = paragraph.style
+            match = re.search(r"heading\s*(\d+)|标题\s*(\d+)", (style.name or "").lower())
+            runs = [run for run in paragraph.runs if run.text.strip()]
+            inherited = bool(getattr(getattr(style, "font", None), "bold", False))
+            bold = bool(runs) and all(run.bold is True or (run.bold is None and inherited) for run in runs)
+            paragraphs.append(Paragraph(text, bold, int(match.group(1) or match.group(2) or 1) if match else 0))
+        return sectioned(paragraphs)
+
+    @staticmethod
+    def _docx_tables(document) -> list[DocumentUnit]:
+        units: list[DocumentUnit] = []
         for table_index, table in enumerate(document.tables, start=1):
             rows = []
             for row in table.rows:
@@ -299,6 +332,11 @@ class MultiFormatParser:
         return units
 
     @staticmethod
-    def _parse_text(path: Path) -> list[DocumentUnit]:
+    def _parse_text(path: Path, sections: bool = False) -> list[DocumentUnit]:
         text = _clean_text(path.read_text(encoding="utf-8-sig"))
+        if text and sections:
+            # Lines are the paragraphs here; a file without numbered headings stays one unit.
+            found = sectioned([Paragraph(line) for line in text.splitlines() if line.strip()])
+            if found is not None:
+                return [DocumentUnit(text=unit.text, heading=unit.heading or path.stem) for unit in found]
         return [DocumentUnit(text=text, heading=path.stem)] if text else []
