@@ -6,12 +6,12 @@ import logging
 import re
 import threading
 import time
-from typing import Callable, Iterable, Literal
+from typing import Callable, Iterable, Literal, Sequence
 
 from config import Settings, get_settings
 from core import timings
 from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
-from . import multipart
+from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
 from .selection import (
@@ -202,15 +202,23 @@ class HybridRetriever:
         trace.parts = parts
         part_mode = getattr(settings, "part_retrieval", "off") if parts else "off"
         trace.mode = part_mode
+        # Everyday wording ("能给多少补贴") searched beside the documents' own words (wording.py).
+        expansion = self._wording(query, mode, top_k)
+        trace.wording = expansion.to_dict() if expansion else {}
+        wording_vector: list[float] | None = None
         vector = query_vector
         part_vectors: list[list[float] | None] = [None] * len(parts)
         embedding_error: Exception | None = None
-        if vector is None or part_mode == "always":
-            # The parts go in the same request as the question: no extra round trip.
+        if vector is None or part_mode == "always" or expansion is not None:
+            # The parts and the expanded question go in the same request as the question: no
+            # extra round trip.
             texts = ([query] if vector is None else []) + (parts if part_mode == "always" else [])
+            texts += [expansion.text] if expansion is not None else []
             try:
                 vectors = self._embed_many(texts)
                 trace.embed_texts = len(texts)
+                if expansion is not None:
+                    wording_vector, vectors = vectors[-1], vectors[:-1]
                 if vector is None:
                     vector, vectors = vectors[0], vectors[1:]
                 if part_mode == "always":
@@ -230,6 +238,7 @@ class HybridRetriever:
         candidates: list[SearchHit] = []
         hybrid_error: Exception | None = None
         part_lists: list[list[SearchHit]] = [[] for _ in parts]
+        wording_hits: list[SearchHit] = []
         if vector is not None:
             jobs = [lambda: self._search_hybrid(query, vector, candidate_limit, scope)]
             if part_mode == "always":
@@ -237,14 +246,24 @@ class HybridRetriever:
                     (lambda part=part, pv=pv: self._search_hybrid(part, pv, settings.part_search_top, scope) if pv else [])
                     for part, pv in zip(parts, part_vectors)
                 ]
+            if wording_vector is not None:
+                jobs.append(
+                    lambda: self._search_hybrid(
+                        expansion.text, wording_vector, getattr(settings, "wording_search_top", 40), scope
+                    )
+                )
             results = multipart.in_parallel(jobs)
             if isinstance(results[0], Exception):
                 hybrid_error = results[0]
                 logger.warning("Store hybrid search failed; trying single routes: %s", hybrid_error)
             else:
                 candidates = results[0]
-            if len(results) > 1:
-                part_lists = [r if isinstance(r, list) else [] for r in results[1:]]
+            others = results[1:]
+            if wording_vector is not None:
+                found = others.pop()
+                wording_hits = found if isinstance(found, list) else []
+            if others:
+                part_lists = [r if isinstance(r, list) else [] for r in others]
                 trace.part_pools = [[hit.id for hit in hits] for hits in part_lists]
 
         if vector is None or hybrid_error is not None:
@@ -281,8 +300,8 @@ class HybridRetriever:
                 logger.warning("Search inside the previous files failed: %s", exc)
 
         # Candidates added to the whole question's pool (scored with it, in the same request).
-        if parts:
-            candidates = candidates + self._expansions(query, candidates, part_lists, scope, trace)
+        if parts or wording_hits:
+            candidates = candidates + self._expansions(query, candidates, part_lists, scope, trace, wording_hits)
         part_jobs: list[tuple[int, list[SearchHit]]] = []
         if part_mode == "always" and getattr(settings, "part_rerank", "part") == "part":
             part_jobs = [(i, self._visible(hits)[: settings.part_rerank_top]) for i, hits in enumerate(part_lists)]
@@ -392,6 +411,12 @@ class HybridRetriever:
         # A name shared by many files ("报告") says little about which one is meant.
         return named if len(named) <= 6 else []
 
+    def _wording(self, query: str, mode: str, top_k: int | None) -> wording.Expansion | None:
+        """The question with the documents' words for its subject (wording_expansion), or None."""
+        if mode != "hybrid_rerank" or top_k or not getattr(self.settings, "wording_expansion", False):
+            return None
+        return wording.expand(query)
+
     # ---------------------------------------------------------------- several parts
     def _question_parts(self, query: str, mode: str, top_k: int | None) -> list[str]:
         """The parts of a multi-part question when any multi-part step is on (else [])."""
@@ -482,10 +507,12 @@ class HybridRetriever:
         return out
 
     def _expansions(
-        self, query: str, candidates: list[SearchHit], part_lists: list[list[SearchHit]], scope: set[str] | None, trace
+        self, query: str, candidates: list[SearchHit], part_lists: list[list[SearchHit]], scope: set[str] | None, trace,
+        wording_hits: Sequence[SearchHit] = (),
     ) -> list[SearchHit]:
-        """Candidates scored with the whole question: each part's new candidates (part_rerank
-        "whole"), bridge-term BM25 hits, and the parents next to the best documents' hits."""
+        """Candidates scored with the whole question: the expanded question's new candidates
+        (wording_expansion), each part's new candidates (part_rerank "whole"), bridge-term BM25
+        hits, and the parents next to the best documents' hits."""
         settings = self.settings
         seen = {hit.id for hit in candidates}
         extra: list[SearchHit] = []
@@ -502,6 +529,12 @@ class HybridRetriever:
                 trace.extra_kinds[hit.id] = kind
                 added += 1
 
+        if wording_hits:
+            add(list(wording_hits), "wording", getattr(settings, "wording_top", 20))
+        if not trace.parts:
+            trace.extra = [hit.id for hit in extra]
+            trace.extra_hits = extra
+            return extra
         if getattr(settings, "part_retrieval", "off") == "always" and getattr(settings, "part_rerank", "part") == "whole":
             for hits in part_lists:
                 add(hits, "part", settings.part_rerank_top)

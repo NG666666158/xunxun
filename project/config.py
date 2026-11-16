@@ -212,6 +212,16 @@ class Settings(BaseSettings):
     # and adds history_prior_boost to their passages' rerank scores.
     history_prior: bool = True
     history_prior_boost: float = 0.05
+    # ---- Questions in everyday words, documents in their own (evaluation/recall_wording_v1/REPORT.md);
+    # each on or off on its own.
+    # * wording_expansion: a question about money or applying ("能给多少补贴", "几号截止申报") is also
+    #   searched with the words papers use for it (资助 / 奖励 / 扶持 / 经费 / 支持强度 …, a small table
+    #   in retrieval/wording.py; no model call). The first wording_top new candidates of that
+    #   search (its best wording_search_top) join the pool; the reranker scores them against the
+    #   question as asked.
+    wording_expansion: bool = False
+    wording_search_top: int = 40
+    wording_top: int = 20
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
