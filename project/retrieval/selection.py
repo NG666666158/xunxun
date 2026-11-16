@@ -2,6 +2,8 @@
 
 * ``candidate_pool_size``: how many fused candidates go to the reranker, raised gently
   for large libraries (up to a cap).
+* ``crowded`` / ``spread_documents``: a candidate pool that a few documents fill is cut with
+  a cap per document, before reranking (evaluation/recall_wording_v1/REPORT.md).
 * ``select_hits``: keep the hits whose rerank score clears an absolute floor and a
   fraction of the best score, between a minimum and a maximum count, with at most
   ``per_document`` hits from one document while other documents qualify. When even the
@@ -31,6 +33,37 @@ def candidate_pool_size(base: int, chunk_count: int | None, cap: int, reference:
     if not chunk_count or chunk_count <= reference:
         return base
     return min(max(base, cap), math.ceil(base * (1 + 0.25 * math.log2(chunk_count / reference))))
+
+
+def crowded(hits: list[SearchHit], per_document: int) -> bool:
+    """Does any one document hold more than ``per_document`` of ``hits``?"""
+    counts: dict[str, int] = {}
+    for hit in hits:
+        counts[hit.doc_id] = counts.get(hit.doc_id, 0) + 1
+        if counts[hit.doc_id] > per_document:
+            return True
+    return False
+
+
+def spread_documents(ranked: list[SearchHit], per_document: int, limit: int) -> list[SearchHit]:
+    """The first ``limit`` of ``ranked`` (best first) with at most ``per_document`` from one
+    document while other documents have candidates; the places left over go back to the
+    documents that were cut, so the pool is never smaller than it would be. Order is kept."""
+    if per_document <= 0:
+        return ranked[:limit]
+    counts: dict[str, int] = {}
+    kept: list[int] = []
+    deferred: list[int] = []
+    for index, hit in enumerate(ranked):
+        if counts.get(hit.doc_id, 0) < per_document:
+            counts[hit.doc_id] = counts.get(hit.doc_id, 0) + 1
+            kept.append(index)
+            if len(kept) >= limit:
+                break
+        else:
+            deferred.append(index)
+    kept += deferred[: max(0, limit - len(kept))]
+    return [ranked[index] for index in sorted(kept)]
 
 
 @dataclass(frozen=True)

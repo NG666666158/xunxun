@@ -222,6 +222,10 @@ class Settings(BaseSettings):
     wording_expansion: bool = False
     wording_search_top: int = 40
     wording_top: int = 20
+    # * candidate_per_document: before reranking, at most this many candidates from one file
+    #   while other files have any (0: no cap). Only a pool that some file crowds is touched: the
+    #   search then goes four times deeper and the freed places go to other files' passages.
+    candidate_per_document: int = 0
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

@@ -18,10 +18,12 @@ from .selection import (
     PartsPolicy,
     SelectionPolicy,
     candidate_pool_size,
+    crowded,
     drop_superseded,
     no_evidence,
     select_hits,
     select_parts,
+    spread_documents,
 )
 from .types import ChunkStore, SearchHit
 
@@ -240,7 +242,8 @@ class HybridRetriever:
         part_lists: list[list[SearchHit]] = [[] for _ in parts]
         wording_hits: list[SearchHit] = []
         if vector is not None:
-            jobs = [lambda: self._search_hybrid(query, vector, candidate_limit, scope)]
+            spread = mode == "hybrid_rerank" and not top_k
+            jobs = [lambda: self._pool(query, vector, candidate_limit, scope, spread, trace)]
             if part_mode == "always":
                 jobs += [
                     (lambda part=part, pv=pv: self._search_hybrid(part, pv, settings.part_search_top, scope) if pv else [])
@@ -587,6 +590,32 @@ class HybridRetriever:
         except Exception as exc:
             logger.warning("Version check failed; keeping every version: %s", exc)
             return ranked
+
+    # How much deeper the search goes when a few files crowd the pool (candidate_per_document).
+    crowd_depth = 4
+
+    def _pool(
+        self, query: str, vector: list[float], limit: int, scope: set[str] | None, spread: bool, trace
+    ) -> list[SearchHit]:
+        """The fused candidates for the reranker. With candidate_per_document, a pool that a
+        few files fill ("three policy collections say 补贴 in every line") is searched again
+        ``crowd_depth`` times deeper and cut to ``limit`` with at most that many candidates
+        per file, so other files' passages get scored at all. A pool no file crowds is
+        returned as it is."""
+        hits = self._search_hybrid(query, vector, limit, scope)
+        cap = int(getattr(self.settings, "candidate_per_document", 0) or 0)
+        if not spread or cap <= 0 or (scope is not None and len(scope) < 2) or not crowded(hits, cap):
+            return hits
+        try:
+            deeper = self._search_hybrid(query, vector, limit * self.crowd_depth, scope)
+        except Exception as exc:
+            logger.warning("Deeper search for a crowded pool failed: %s", exc)
+            return hits
+        spread_hits = spread_documents(self._visible(deeper), cap, limit)
+        if {hit.id for hit in spread_hits} == {hit.id for hit in hits}:
+            return hits  # nothing else to bring in (a library of a few files)
+        trace.crowded = {"files": len({hit.doc_id for hit in hits}), "files_after": len({hit.doc_id for hit in spread_hits})}
+        return spread_hits
 
     def _search_hybrid(self, query: str, vector: list[float], limit: int, scope: set[str] | None) -> list[SearchHit]:
         with timings.stage("search"):

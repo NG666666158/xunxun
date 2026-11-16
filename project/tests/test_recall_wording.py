@@ -150,3 +150,64 @@ def test_a_failed_expanded_search_leaves_the_question_s_own_results():
 
     kept = HybridRetriever(Failing(), Embeddings(), Reranker(), Settings()).retrieve(QUESTION, max_keep=6)
     assert {h.doc_id for h in kept} == {"collection"}
+
+
+# ---------------------------------------------------------------- a pool that a few files fill
+from retrieval.selection import crowded, spread_documents  # noqa: E402
+
+
+def test_spread_documents_caps_each_file_and_keeps_the_order():
+    ranked = [hit(i, "big", f"t{i}") for i in range(6)] + [hit(10, "a", "ta"), hit(11, "b", "tb"), hit(12, "big", "t12")]
+    assert crowded(ranked, 2) and not crowded(ranked, 7)
+    kept = spread_documents(ranked, per_document=2, limit=5)
+    # Two of the big file, the two other files, and the place left over goes back to the big file.
+    assert [h.id for h in kept] == ["0", "1", "2", "10", "11"]
+    assert spread_documents(ranked, 0, 3) == ranked[:3]
+
+
+class CrowdedStore:
+    """The first 4 candidates all come from one collection; a deeper search reaches the guide."""
+
+    def __init__(self):
+        self.limits = []
+
+    def search_hybrid(self, query, vector, limit, doc_ids=None):
+        self.limits.append(limit)
+        ranked = [hit(i, "collection", f"第{i}项补贴申报") for i in range(1, 9)] + [hit(20, "guide", "单个项目资助资金不超过6万元")]
+        ranked += [hit(30, "form", "申请资助金额")]
+        return ranked[:limit]
+
+
+def test_a_crowded_pool_is_searched_deeper_and_cut_per_file():
+    store = CrowdedStore()
+    settings = Settings(wording_expansion=False, candidate_per_document=2)
+    kept = HybridRetriever(store, Embeddings(), Reranker(), settings).retrieve(QUESTION, max_keep=6)
+    assert store.limits == [4, 16]
+    assert kept[0].doc_id == "guide"
+    assert multipart.last_trace().crowded == {"files": 1, "files_after": 3}
+
+
+def test_a_pool_no_file_crowds_is_left_alone():
+    store = CrowdedStore()
+    settings = Settings(wording_expansion=False, candidate_per_document=4)
+    kept = HybridRetriever(store, Embeddings(), Reranker(), settings).retrieve(QUESTION, max_keep=6)
+    assert store.limits == [4] and {h.doc_id for h in kept} == {"collection"}
+    # Off by default; never for an explicit top_k or inside one file.
+    for options, arguments in ((dict(candidate_per_document=0), {}), (dict(candidate_per_document=2), {"top_k": 3}),
+                               (dict(candidate_per_document=2), {"doc_ids": {"collection"}})):
+        store = CrowdedStore()
+        HybridRetriever(store, Embeddings(), Reranker(), Settings(wording_expansion=False, **options)).retrieve(QUESTION, **arguments)
+        assert len(store.limits) == 1, (options, arguments)
+
+
+def test_a_library_of_one_file_keeps_its_pool():
+    class OneFile(CrowdedStore):
+        def search_hybrid(self, query, vector, limit, doc_ids=None):
+            self.limits.append(limit)
+            return [hit(i, "book", f"第{i}段补贴") for i in range(1, 9)][:limit]
+
+    store = OneFile()
+    settings = Settings(wording_expansion=False, candidate_per_document=2)
+    kept = HybridRetriever(store, Embeddings(), Reranker(), settings).retrieve(QUESTION, max_keep=6)
+    assert store.limits == [4, 16] and [h.id for h in kept] == ["1", "2", "3", "4"]
+    assert not multipart.last_trace().crowded

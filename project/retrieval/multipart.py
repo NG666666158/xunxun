@@ -151,6 +151,7 @@ class PartsTrace:
     preferred: list[str] = field(default_factory=list)  # a follow-up's previous files
     preferred_used: bool = False  # ... answered it alone (an elliptical follow-up)
     wording: dict[str, Any] = field(default_factory=dict)  # {"groups", "terms"} of the expanded question
+    crowded: dict[str, Any] = field(default_factory=dict)  # files in the pool before / after the per-file cap
     extra_hits: list[SearchHit] = field(default_factory=list, repr=False)  # not serialized
 
     def to_dict(self) -> dict[str, Any]:
