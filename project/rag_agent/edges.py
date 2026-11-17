@@ -35,6 +35,11 @@ def route_after_table(state: State) -> str:
 def route_after_retrieval(state: State, settings: Settings | None = None) -> str:
     settings = settings or get_settings()
     documents = state.get("documents", [])
+    if documents and state.get("answer_profile") == "survey" and getattr(settings, "survey_keep_route", False):
+        # The survey route decided itself whether the library has evidence (a file about the
+        # topic); its passages come file by file, not best first, and score low against a
+        # question no single file answers.
+        return "build_context"
     if documents:
         top_score = documents[0].get("rerank_score")
         if top_score is None or float(top_score) >= settings.relevance_threshold:

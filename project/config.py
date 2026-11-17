@@ -273,6 +273,10 @@ class Settings(BaseSettings):
     survey_excerpt_scoring: bool = False
     survey_answering_files: bool = False
     survey_about_asked: bool = False
+    # * survey_keep_route: a survey answer is not sent back to a search rewrite because its first
+    #   passage scores below relevance_threshold (the route has its own no-evidence check), and a
+    #   second attempt searches the question as asked (a rewrite loses "一般" / "各…").
+    survey_keep_route: bool = False
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

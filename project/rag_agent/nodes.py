@@ -321,13 +321,16 @@ class AgentNodes(DocumentNodes):
             limits["prefer_doc_ids"] = list(recent)
             if self._elliptical(state.get("question", "")):
                 limits["prefer_only"] = True
+        query = state["rewritten_query"]
+        if state.get("answer_profile") == "survey" and getattr(self.settings, "survey_keep_route", False):
+            # A search rewrite drops the wording that makes it a survey ("一般", "各…"): the
+            # question as asked keeps the route on a second attempt.
+            query = state.get("question") or query
         try:
             if scope:
-                hits = self.retriever.retrieve(
-                    state["rewritten_query"], mode="hybrid_rerank", doc_ids=set(scope), **limits
-                )
+                hits = self.retriever.retrieve(query, mode="hybrid_rerank", doc_ids=set(scope), **limits)
             else:
-                hits = self.retriever.retrieve(state["rewritten_query"], mode="hybrid_rerank", **limits)
+                hits = self.retriever.retrieve(query, mode="hybrid_rerank", **limits)
             documents = [hit.to_dict() for hit in hits]
             if temporal:
                 allowed_ids = set(temporal["doc_ids"])

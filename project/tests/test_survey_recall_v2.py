@@ -204,3 +204,41 @@ def test_a_file_can_be_about_the_topic_by_its_score_against_the_question():
     with_asked = select_by_files(POOL, topic, ASKED, Survey("amount", "一般"), POLICY, files=8, types=TYPES, about_asked=True)
     assert "collection" in {h.doc_id for h in with_asked}
 
+
+# ---------------------------------------------------------------- the graph keeps the survey route
+def test_a_survey_answer_is_not_sent_to_a_search_rewrite_for_a_low_first_score():
+    from rag_agent.edges import route_after_retrieval
+
+    state = {"answer_profile": "survey", "documents": [{"rerank_score": 0.05}], "retrieval_attempts": 1}
+    assert route_after_retrieval(state, Settings(survey_keep_route=True)) == "build_context"
+    assert route_after_retrieval(state, Settings(survey_keep_route=False)) == "rewrite_search"
+    # Nothing kept is still nothing; other question types keep the threshold.
+    assert route_after_retrieval(dict(state, documents=[]), Settings(survey_keep_route=True)) == "rewrite_search"
+    fact = dict(state, answer_profile="fact")
+    assert route_after_retrieval(fact, Settings(survey_keep_route=True)) == "rewrite_search"
+
+
+def test_a_second_survey_search_uses_the_question_as_asked():
+    from types import SimpleNamespace
+
+    from rag_agent.nodes import AgentNodes
+
+    class Recorder:
+        def __init__(self):
+            self.queries = []
+
+        def retrieve(self, query, **kwargs):
+            self.queries.append(query)
+            return []
+
+    recorder = Recorder()
+    nodes = AgentNodes(llm=None, retriever=recorder, settings=Settings(survey_keep_route=True))
+    state = {"question": "一般的创新项目申报能给多少补贴？", "rewritten_query": "创新项目补贴金额", "answer_profile": "survey",
+             "retrieval_attempts": 1}
+    nodes.retrieve(state)
+    nodes.retrieve(dict(state, answer_profile="fact"))
+    assert recorder.queries == ["一般的创新项目申报能给多少补贴？", "创新项目补贴金额"]
+    off = Recorder()
+    AgentNodes(llm=None, retriever=off, settings=Settings()).retrieve(state)
+    assert off.queries == ["创新项目补贴金额"]
+
