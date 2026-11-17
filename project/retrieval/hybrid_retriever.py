@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import logging
 import re
 import threading
@@ -14,7 +15,7 @@ from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
 from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
-from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, topic_files
+from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, topic_files, excerpt, answers_in
 from .selection import (
     PartsPolicy,
     SelectionPolicy,
@@ -384,7 +385,7 @@ class HybridRetriever:
                 floor=float(getattr(settings, "survey_floor", 0.01)), types=self._document_types(reranked),
             )
             trace.survey = {"ask": survey.ask, "cue": survey.cue, "files": len({hit.doc_id for hit in kept})}
-            return kept
+            return self._excerpts(kept, survey)
         if preferred and prefer_only and not named:
             own = [hit for hit in reranked if hit.doc_id in preferred]
             if own and multipart.score_of(own[0]) >= settings.rerank_min_score:
@@ -514,11 +515,18 @@ class HybridRetriever:
         pool = self._current_versions(self._visible(pool))
         if not pool:
             return []
-        jobs = [lambda: self._rerank(query, pool, trace, "whole")]
+        # Which passage of a file answers is judged on its answering sentences when
+        # survey_excerpt_scoring is on (the topic on the whole passage).
+        asked_pool = pool
+        if getattr(settings, "survey_excerpt_scoring", False):
+            asked_pool = [replace(hit, text=excerpt(hit.text, survey.ask) or hit.text) for hit in pool]
+            # What was scored, for the evaluation's mapping of scored texts back to passages.
+            trace.extra_hits.extend(short for short, hit in zip(asked_pool, pool) if short.text != hit.text)
+        jobs = [lambda: self._rerank(query, asked_pool, trace, "whole")]
         jobs += [(lambda topic=topic: self._rerank(topic, pool, trace, "topic")) for topic in topics]
         second = asked_text != query
         if second:
-            jobs.append(lambda: self._rerank(asked_text, pool, trace, "wording"))
+            jobs.append(lambda: self._rerank(asked_text, asked_pool, trace, "wording"))
         results = multipart.in_parallel(jobs)
         failed = [result for result in results[: 1 + len(topics)] if isinstance(result, Exception)]
         if failed:
@@ -542,12 +550,26 @@ class HybridRetriever:
             file_floor=float(getattr(settings, "survey_file_floor", 0.01)),
             topic_relative=float(getattr(settings, "survey_topic_relative", 0.05)),
             types=self._document_types(pool),
+            answers=answers_in if getattr(settings, "survey_answering_files", False) else None,
+            about_asked=bool(getattr(settings, "survey_about_asked", False)),
         )
         for hit in kept:
             hit.retrieval_method = "survey_files"
+        kept = self._excerpts(kept, survey)
         trace.survey = {"ask": survey.ask, "cue": survey.cue, "route": "files", "topics": topics,
                         "candidate_files": len(doc_ids), "pool": len(pool), "files": len({hit.doc_id for hit in kept})}
         return kept
+
+    def _excerpts(self, kept: list[SearchHit], survey: Survey) -> list[SearchHit]:
+        """Each kept passage cut to the sentences that answer the ask (survey_excerpts,
+        survey.excerpt): the answer copies one line per file instead of hunting in a long passage."""
+        if not getattr(self.settings, "survey_excerpts", False):
+            return kept
+        out = []
+        for hit in kept:
+            short = excerpt(hit.text, survey.ask)
+            out.append(replace(hit, text=short) if short else hit)
+        return out
 
     def _document_types(self, hits: list[SearchHit]) -> dict[str, str]:
         """doc id -> document type: what the file's own name says (a type word, or the way

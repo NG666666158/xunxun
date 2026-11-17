@@ -133,3 +133,74 @@ def test_a_failed_topic_scoring_falls_back_to_the_usual_survey_path():
         "一般的创新项目申报能给多少补贴？", **retrieval_limits("survey"))
     assert kept and multipart.last_trace().survey.get("route") is None
 
+
+# ---------------------------------------------------------------- excerpts (survey_excerpts)
+from retrieval.survey import excerpt  # noqa: E402
+
+GUIDE = "\n".join([
+    "【2026年澜州青年创新项目申请指南】",
+    "一、总体要求",
+    "为进一步优化营商环境，按照“公开透明、突出重点”的原则，制定本指南。",
+    "二、申请主体",
+    "年龄在18至35周岁之间的青年个人或青年团队均可提出申请。",
+    "三、支持强度与方式",
+    "单个项目资助资金不超过6万元；起步档不超过0.8万元。资助资金分两期拨付。",
+    "四、受理时间",
+    "本年度项目4月17日18时系统关闭，逾期不再受理。",
+    "五、绩效管理",
+    "对弄虚作假的，五年内不再受理其申请。",
+    "六、联系方式",
+    "咨询电话：0561-5550568，受理地点：市民服务中心3楼26号窗口。",
+])
+
+
+def test_an_excerpt_is_the_sentences_that_answer_the_ask_under_their_headings():
+    money = excerpt(GUIDE, "amount")
+    assert money.splitlines()[0] == "【2026年澜州青年创新项目申请指南】"
+    assert "三、支持强度与方式 单个项目资助资金不超过6万元；" in money and "0.8万元" in money
+    assert "申请主体" not in money and "联系方式" not in money
+    time = excerpt(GUIDE, "time")
+    assert "4月17日18时系统关闭" in time
+    assert "五年内" not in time and "26号窗口" not in time  # a period of a penalty, a room number
+    who = excerpt(GUIDE, "who")
+    assert "二、申请主体 年龄在18至35周岁" in who.splitlines()[1]
+    assert "总体要求" not in who.splitlines()[1]
+
+
+def test_no_answering_sentence_no_excerpt():
+    assert excerpt("【周报】\n本周完成了接口联调。", "amount") is None
+    assert excerpt("", "who") is None
+
+
+def test_the_retriever_cuts_survey_passages_only_with_the_switch():
+    question = "一般的创新项目申报能给多少补贴？"
+    on = Settings(wording_expansion=False, survey_file_first=True, survey_excerpts=True, survey_files=3)
+    kept = HybridRetriever(FilesStore(), Embeddings(), FilesReranker(), on).retrieve(question, **retrieval_limits("survey"))
+    assert kept[0].text == "四、支持强度 单个项目资助资金不超过6万元"  # a heading and its text on one line
+    off = Settings(wording_expansion=False, survey_file_first=True, survey_files=3)
+    assert HybridRetriever(FilesStore(), Embeddings(), FilesReranker(), off).retrieve(
+        question, **retrieval_limits("survey"))[0].text == POOL[1].text
+
+
+def test_files_with_an_answering_sentence_come_first():
+    from retrieval.survey import answers_in
+
+    pool = POOL + [hit(7, "mail", "答辩通知：请于下周到会议室参加创新项目答辩，携带PPT，共计10分钟。")]
+    topic = dict(TOPIC, **{"7": 0.45})
+    asked = dict(ASKED, **{"7": 0.2})
+    plain = select_by_files(pool, topic, asked, Survey("amount", "一般"), POLICY, files=3, types=TYPES)
+    assert "mail" not in {h.doc_id for h in plain}  # past three files already: rule files first
+    untyped = select_by_files(pool, topic, asked, Survey("amount", "一般"), POLICY, files=2)
+    assert [h.doc_id for h in untyped] == ["faq_a", "mail"]  # by topic score alone
+    answering = select_by_files(pool, topic, asked, Survey("amount", "一般"), POLICY, files=2, answers=answers_in)
+    # The mail states no amount next to a word for money; the FAQ neither: both go last.
+    assert [h.doc_id for h in answering] == ["guide_a", "guide_b"]
+
+
+def test_a_file_can_be_about_the_topic_by_its_score_against_the_question():
+    topic = dict(TOPIC, **{"5": 0.001})  # the collection never names the topic
+    without = select_by_files(POOL, topic, ASKED, Survey("amount", "一般"), POLICY, files=8, types=TYPES)
+    assert "collection" not in {h.doc_id for h in without}
+    with_asked = select_by_files(POOL, topic, ASKED, Survey("amount", "一般"), POLICY, files=8, types=TYPES, about_asked=True)
+    assert "collection" in {h.doc_id for h in with_asked}
+

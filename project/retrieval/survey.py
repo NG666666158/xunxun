@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import re
-from typing import Mapping
+from typing import Callable, Mapping
 
 from .question_parts import ASK_ZH, _has_name
 from .selection import SelectionPolicy, _score, no_evidence
@@ -210,30 +210,47 @@ def select_by_files(
     file_floor: float = 0.01,
     topic_relative: float = 0.05,
     types: Mapping[str, str] | None = None,
+    answers: Callable[[str, str], bool] | None = None,
+    about_asked: bool = False,
 ) -> list[SearchHit]:
     """The files about the topic first, then each file's passage that answers the question.
 
     ``topic`` and ``asked`` are each passage's reranker score (by chunk id) against the topic
     alone and against the question. Nothing is kept when no file's best topic score reaches
-    ``topic_floor`` (the library has no paper on the topic); otherwise a file is about the topic
-    when its best topic score reaches ``file_floor`` and ``topic_relative`` x the best file's.
-    Files of a rule-stating type (``types``) come first, then the others, each by topic score;
-    the first ``files`` are kept. Of each, the answer-shaped passage that scores best against
-    the question, then the next ones while there is room (``policy.max_keep``,
-    ``policy.per_document``). A kept passage's score is the better of its two.
+    ``topic_floor`` (the library has no paper on the topic). Otherwise a file is about the
+    topic when its relevance (its best topic score; with ``about_asked`` the better of that and
+    its best score against the question) reaches ``file_floor`` and ``topic_relative`` x the
+    best file's. Files of a rule-stating type (``types``) come first, then the others, each by
+    relevance; with ``answers`` (text, ask -> does a sentence of it answer?) the files with an
+    answering passage come before those without. The first ``files`` are kept. Of each, the
+    answer-shaped passage that scores best against the question, then the next ones while
+    there is room (``policy.max_keep``, ``policy.per_document``). A kept passage's score is the
+    better of its two.
     """
     if not pool:
         return []
     by_file: dict[str, list[SearchHit]] = {}
     for hit in pool:
         by_file.setdefault(hit.doc_id, []).append(hit)
-    relevance = {doc_id: max(topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
-    if max(relevance.values()) < topic_floor:
+    on_topic = {doc_id: max(topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
+    if max(on_topic.values()) < topic_floor:
         return []
+    relevance = dict(on_topic)
+    if about_asked:
+        for doc_id, hits in by_file.items():
+            relevance[doc_id] = max(relevance[doc_id], max(asked.get(hit.id, 0.0) for hit in hits))
     cut = max(file_floor, topic_relative * max(relevance.values()))
     about = sorted((doc_id for doc_id, score in relevance.items() if score >= cut), key=lambda d: -relevance[d])
-    typed = [doc_id for doc_id in about if (types or {}).get(doc_id, "") in RULE_TYPES]
-    chosen = (typed + [doc_id for doc_id in about if doc_id not in typed])[: max(1, files)]
+
+    def shaped(hit: SearchHit) -> bool:
+        return answers(hit.text, survey.ask) if answers is not None else has_shape(hit.text, survey.ask)
+
+    def rank(doc_id: str) -> tuple[int, int]:
+        typed = (types or {}).get(doc_id, "") in RULE_TYPES
+        answering = answers is None or any(shaped(hit) for hit in by_file[doc_id])
+        return (0 if answering else 1, 0 if typed else 1)
+
+    chosen = sorted(about, key=rank)[: max(1, files)]  # stable: by relevance within each group
 
     def score(hit: SearchHit) -> float:
         return asked.get(hit.id, 0.0)
@@ -241,17 +258,103 @@ def select_by_files(
     ranked: dict[str, list[SearchHit]] = {}
     for doc_id in chosen:
         hits = sorted(by_file[doc_id], key=score, reverse=True)
-        shaped = [hit for hit in hits if has_shape(hit.text, survey.ask)]
-        ranked[doc_id] = shaped + [hit for hit in hits if hit not in shaped] if shaped else hits
+        good = [hit for hit in hits if shaped(hit)]
+        ranked[doc_id] = good + [hit for hit in hits if hit not in good] if good else hits
     kept = [ranked[doc_id][0] for doc_id in chosen][: policy.max_keep]
     room = policy.max_keep - len(kept)
     per_doc = policy.per_document if policy.per_document > 0 else policy.max_keep
     texts = {hit.text for hit in kept}
     extras = sorted(
-        (hit for doc_id in chosen for hit in ranked[doc_id][1:per_doc] if has_shape(hit.text, survey.ask) and hit.text not in texts),
+        (hit for doc_id in chosen for hit in ranked[doc_id][1:per_doc] if shaped(hit) and hit.text not in texts),
         key=score, reverse=True,
     )
     kept += extras[: max(0, room)]
     order = {doc_id: i for i, doc_id in enumerate(chosen)}
     kept.sort(key=lambda hit: (order[hit.doc_id], -score(hit)))
     return [replace(hit, rerank_score=max(score(hit), topic.get(hit.id, 0.0))) for hit in kept]
+
+
+def answers_in(text: str, ask: str) -> bool:
+    """Does a sentence of ``text`` answer the ask (see ``excerpt``)?"""
+    return excerpt(text, ask) is not None
+
+
+# ---------------------------------------------------------------- what each file says (survey_excerpts)
+# A sentence that answers the ask: an amount next to a word for money, a date next to a word
+# for applying, a condition.
+_MONEY_WORDS = re.compile(r"资助|补|奖|扶持|支持|经费|资金|配套|贴息|给予|拨付|安排|津贴|贷款|额度|激励|运营费")
+# Headings of the section that says who may apply.
+_WHO_HEADING = re.compile(r"对象|主体|条件|范围|(?<!总体)要求|资格|人群|申请人|借款人|应征|认定")
+_APPLY_WORDS = re.compile(r"申报|申请|申领|受理|截止|截至|提交|报|关闭|期限|集中|开放|组织|提出|有效|止")
+_CONDITION = re.compile(
+    r"应当|应为|应具|须|需|具有|具备|年龄|周岁|注册|登记|满[一二三四五六七八九十\d]|以上|以下|不超过|不少于|不低于|符合|"
+    r"对象|主体|条件|资格|申请人|申报人|可提出|均可|限于|方可"
+)
+# A date or period an application is tied to ("4月17日", "5个工作日内", "每年"), not "五年内"
+# or a room number ("3号窗口").
+_DATE = re.compile(r"\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|\d+\s*个?(?:工作日|自然日)|\d+\s*(?:个月|日|天)内|每(?:年|季度?|月|半年)|常年|长期|即日起|截止|截至")
+_HEADING = re.compile(r"^(?:[一二三四五六七八九十]+、|（[一二三四五六七八九十]+）|第[一二三四五六七八九十]+[章条]|#+\s)")
+_SENTENCE = re.compile(r"[^。；;！!？?\n]+[。；;！!？?]?")
+EXCERPT_CHARS = 260
+
+
+def answers_ask(sentence: str, ask: str) -> bool:
+    if ask == "amount":
+        return has_shape(sentence, "amount") and bool(_MONEY_WORDS.search(sentence))
+    if ask == "time":
+        return bool(_DATE.search(sentence)) and bool(_APPLY_WORDS.search(sentence))
+    if ask == "who":
+        return bool(_CONDITION.search(sentence)) and not answers_ask(sentence, "amount")
+    return False
+
+
+def excerpt(text: str, ask: str, limit: int = EXCERPT_CHARS) -> str | None:
+    """The sentences of a passage that answer the ask, each under its section heading, after
+    the passage's first line when that names its file ("【…】"): what the answer copies,
+    instead of a 700-character passage that also holds the purpose, the materials and the
+    contacts. For "who", the paragraphs under a heading about who may apply ("申报对象",
+    "借款人条件") come first. None when no sentence answers (the passage is used as it is)."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if not lines:
+        return None
+    head = lines[0] if lines[0].startswith("【") else ""
+    # (heading, sentence) in reading order; a heading in the first line ("【… > 二、认定条件】") counts.
+    pairs: list[tuple[str, str]] = []
+    heading = head if ask == "who" and _WHO_HEADING.search(head) else ""
+    for line in lines[1:] if head else lines:
+        if _HEADING.match(line):
+            label, colon, rest = (re.split(r"([：:])", line, maxsplit=1) + ["", ""])[:3]
+            if colon and len(label) <= 24:
+                # "四、支持强度：单个项目资助资金不超过6万元": a heading and its text on one line.
+                heading, line = label, rest
+            elif len(line) <= 24 and not re.search(r"[，。；,;]", line):
+                heading = line
+                continue
+        pairs +=[(heading, sentence.strip()) for sentence in _SENTENCE.findall(line) if len(sentence.strip()) >= 6]
+    if ask == "who":
+        under = [pair for pair in pairs if pair[0] and _WHO_HEADING.search(pair[0])]
+        wanted = under + [pair for pair in pairs if pair not in under and answers_ask(pair[1], ask)]
+    else:
+        wanted = [pair for pair in pairs if answers_ask(pair[1], ask)]
+        if ask == "amount":
+            # "…资助资金不超过6万元；起步档不超过0.8万元": the next amounts of the same section
+            # answer too, without repeating the word for money.
+            sections = {heading for heading, _ in wanted}
+            wanted = [pair for pair in pairs if pair in wanted or (pair[0] in sections and has_shape(pair[1], "amount"))]
+    picked: list[str] = []
+    seen: set[str] = set()
+    shown = ""
+    size = len(head)
+    for heading, sentence in wanted:
+        if sentence in seen:
+            continue
+        piece = sentence if heading == shown or not heading or heading == head else f"{heading} {sentence}"
+        if size + len(piece) > limit and picked:
+            break
+        picked.append(piece)
+        seen.add(sentence)
+        shown = heading
+        size += len(piece)
+    if not picked:
+        return None
+    return "\n".join(([head] if head else []) + picked)

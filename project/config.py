@@ -261,6 +261,18 @@ class Settings(BaseSettings):
     survey_topic_floor: float = 0.05
     survey_file_floor: float = 0.01
     survey_topic_relative: float = 0.05
+    # * Reading sentences, not passages (survey.excerpt: an amount next to a word for money, an
+    #   application date, the who-may-apply section, under their headings):
+    #   survey_excerpts: each kept passage is cut to those sentences (a passage with none stays
+    #   as it is); survey_excerpt_scoring: on the survey_file_first path the passages are scored
+    #   against the question on those sentences (the topics still on the whole passage);
+    #   survey_answering_files: files with such a sentence come before files without (an e-mail
+    #   or slides about the topic that state no amount); survey_about_asked: a file is about the
+    #   topic also by its score against the whole question.
+    survey_excerpts: bool = False
+    survey_excerpt_scoring: bool = False
+    survey_answering_files: bool = False
+    survey_about_asked: bool = False
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
