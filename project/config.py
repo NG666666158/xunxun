@@ -223,12 +223,12 @@ class Settings(BaseSettings):
     #   in retrieval/wording.py; no model call). The first wording_top new candidates of that
     #   search (its best wording_search_top) join the pool; the reranker scores them against the
     #   question as asked.
-    wording_expansion: bool = False
+    wording_expansion: bool = True
     wording_search_top: int = 40
     wording_top: int = 20
     #   wording_rescore: the pool of such a question is also scored against the expanded question
     #   (one more rerank request, in parallel) and a passage keeps the better of its two scores.
-    wording_rescore: bool = False
+    wording_rescore: bool = True
     # * candidate_per_document: before reranking, at most this many candidates from one file
     #   while other files have any (0: no cap). Only a pool that some file crowds is touched: the
     #   search then goes four times deeper and the freed places go to other files' passages.
@@ -239,7 +239,7 @@ class Settings(BaseSettings):
     #   each of the first survey_files files scoring at least survey_floor (rule-stating file types
     #   first), instead of the global top passages; the answer goes file by file
     #   (answering.PROFILES["survey"]).
-    survey_route: bool = False
+    survey_route: bool = True
     survey_pool: int = 60
     survey_candidates_per_document: int = 3
     survey_files: int = 8
