@@ -177,7 +177,7 @@
    "above_cut": 0.0,
    "any_above_cut": 0.0,
    "context": 0.0,
-   "top_score_p50": 0.001632,
+   "top_score_p50": 0.001643,
    "top_score_p90": 0.002439,
    "auc_top_score": 1.0,
    "empty_at_0.1": 1.0,
@@ -303,8 +303,8 @@
    "laptop",
    "t900",
    "password",
-   "t800",
    "visitor",
+   "t800",
    "shipping"
   ],
   "ci:remote": [
@@ -317,7 +317,7 @@
    "onboard",
    "gym",
    "shipping",
-   "canteen"
+   "laptop"
   ],
   "ci:password": [
    "password",
@@ -377,7 +377,7 @@
    "shuttle",
    "health",
    "router2000",
-   "leave"
+   "expense"
   ],
   "ci:parkingfee": [
    "visitor",
@@ -422,8 +422,8 @@
    "printer",
    "visitor",
    "t900",
-   "laptop",
    "canteen",
+   "laptop",
    "password",
    "gym"
   ],

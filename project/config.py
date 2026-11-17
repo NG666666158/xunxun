@@ -144,6 +144,10 @@ class Settings(BaseSettings):
     # Prefix every retrieval child with "document · section" so searches that name the
     # document or chapter ("面试题里有哪些…") can match; parents stay plain text.
     chunk_context_prefix: bool = True
+    # Headings written as ordinary paragraphs in .docx and .txt files ("三、支持强度与方式", a bold
+    # line) start a section of their own and are kept as its heading (ingestion/sections.py;
+    # evaluation/recall_wording_v1/REPORT.md, step 4). Switching it re-indexes those files.
+    section_headings: bool = False
     # Figures and image-only PDF pages: "off", "local" (RapidOCR, nothing is uploaded) or
     # "cloud" (SiliconFlow vision models; page images are sent to the API). See figures.py.
     image_understanding: Literal["off", "local", "cloud"] = "off"
@@ -212,6 +216,34 @@ class Settings(BaseSettings):
     # and adds history_prior_boost to their passages' rerank scores.
     history_prior: bool = True
     history_prior_boost: float = 0.05
+    # ---- Questions in everyday words, documents in their own (evaluation/recall_wording_v1/REPORT.md);
+    # each on or off on its own.
+    # * wording_expansion: a question about money or applying ("能给多少补贴", "几号截止申报") is also
+    #   searched with the words papers use for it (资助 / 奖励 / 扶持 / 经费 / 支持强度 …, a small table
+    #   in retrieval/wording.py; no model call). The first wording_top new candidates of that
+    #   search (its best wording_search_top) join the pool; the reranker scores them against the
+    #   question as asked.
+    wording_expansion: bool = True
+    wording_search_top: int = 40
+    wording_top: int = 20
+    #   wording_rescore: the pool of such a question is also scored against the expanded question
+    #   (one more rerank request, in parallel) and a passage keeps the better of its two scores.
+    wording_rescore: bool = True
+    # * candidate_per_document: before reranking, at most this many candidates from one file
+    #   while other files have any (0: no cap). Only a pool that some file crowds is touched: the
+    #   search then goes four times deeper and the freed places go to other files' passages.
+    candidate_per_document: int = 0
+    # * survey_route: a question about what several files say ("一般…能给多少补贴", "各…分别是多少",
+    #   retrieval/survey.py) takes survey_pool candidates with at most
+    #   survey_candidates_per_document from one file, and keeps the best answer-shaped passage of
+    #   each of the first survey_files files scoring at least survey_floor (rule-stating file types
+    #   first), instead of the global top passages; the answer goes file by file
+    #   (answering.PROFILES["survey"]).
+    survey_route: bool = True
+    survey_pool: int = 60
+    survey_candidates_per_document: int = 3
+    survey_files: int = 8
+    survey_floor: float = 0.01
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

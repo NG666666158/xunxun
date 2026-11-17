@@ -6,22 +6,25 @@ import logging
 import re
 import threading
 import time
-from typing import Callable, Iterable, Literal
+from typing import Callable, Iterable, Literal, Sequence
 
 from config import Settings, get_settings
 from core import timings
 from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
-from . import multipart
+from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
+from .survey import Survey, rule_name, select_survey, survey_question
 from .selection import (
     PartsPolicy,
     SelectionPolicy,
     candidate_pool_size,
+    crowded,
     drop_superseded,
     no_evidence,
     select_hits,
     select_parts,
+    spread_documents,
 )
 from .types import ChunkStore, SearchHit
 
@@ -193,24 +196,34 @@ class HybridRetriever:
         scope = set(doc_ids) if doc_ids is not None else None
         if scope is not None and not scope:
             return []
-        topic = comparison_topic(query) if mode == "hybrid_rerank" else None
+        # "一般…能给多少补贴", "各…分别是多少": several files answer it, one line each (survey.py).
+        survey = self._survey(query, mode, top_k)
+        topic = comparison_topic(query) if mode == "hybrid_rerank" and survey is None else None
         if topic is not None:
             return self._retrieve_comparison(query, topic, top_k, max_keep, query_vector, scope, per_document)
         settings = self.settings
         trace = multipart.start_trace()
-        parts = self._question_parts(query, mode, top_k)
+        parts = self._question_parts(query, mode, top_k) if survey is None else []
         trace.parts = parts
         part_mode = getattr(settings, "part_retrieval", "off") if parts else "off"
         trace.mode = part_mode
+        # Everyday wording ("能给多少补贴") searched beside the documents' own words (wording.py).
+        expansion = self._wording(query, mode, top_k)
+        trace.wording = expansion.to_dict() if expansion else {}
+        wording_vector: list[float] | None = None
         vector = query_vector
         part_vectors: list[list[float] | None] = [None] * len(parts)
         embedding_error: Exception | None = None
-        if vector is None or part_mode == "always":
-            # The parts go in the same request as the question: no extra round trip.
+        if vector is None or part_mode == "always" or expansion is not None:
+            # The parts and the expanded question go in the same request as the question: no
+            # extra round trip.
             texts = ([query] if vector is None else []) + (parts if part_mode == "always" else [])
+            texts += [expansion.text] if expansion is not None else []
             try:
                 vectors = self._embed_many(texts)
                 trace.embed_texts = len(texts)
+                if expansion is not None:
+                    wording_vector, vectors = vectors[-1], vectors[:-1]
                 if vector is None:
                     vector, vectors = vectors[0], vectors[1:]
                 if part_mode == "always":
@@ -226,25 +239,47 @@ class HybridRetriever:
             return hits if scope is None else [hit for hit in hits if hit.doc_id in scope]
 
         candidate_limit = max(top_k or 0, self.candidate_pool())
+        survey_cap = 0
+        if survey is not None:
+            # A wider pool with few candidates per file: every likely file gets its passages scored.
+            candidate_limit = max(candidate_limit, int(getattr(settings, "survey_pool", 60)))
+            survey_cap = int(getattr(settings, "survey_candidates_per_document", 3))
         keep = top_k or self.policy(max_keep, relative=relative).max_keep
         candidates: list[SearchHit] = []
         hybrid_error: Exception | None = None
         part_lists: list[list[SearchHit]] = [[] for _ in parts]
+        wording_hits: list[SearchHit] = []
         if vector is not None:
-            jobs = [lambda: self._search_hybrid(query, vector, candidate_limit, scope)]
+            spread = mode == "hybrid_rerank" and not top_k
+            jobs = [lambda: self._pool(query, vector, candidate_limit, scope, spread, trace, survey_cap)]
             if part_mode == "always":
                 jobs += [
                     (lambda part=part, pv=pv: self._search_hybrid(part, pv, settings.part_search_top, scope) if pv else [])
                     for part, pv in zip(parts, part_vectors)
                 ]
+            if wording_vector is not None:
+                if survey is not None:
+                    jobs.append(
+                        lambda: self._pool(expansion.text, wording_vector, candidate_limit, scope, True, None, survey_cap)
+                    )
+                else:
+                    jobs.append(
+                        lambda: self._search_hybrid(
+                            expansion.text, wording_vector, getattr(settings, "wording_search_top", 40), scope
+                        )
+                    )
             results = multipart.in_parallel(jobs)
             if isinstance(results[0], Exception):
                 hybrid_error = results[0]
                 logger.warning("Store hybrid search failed; trying single routes: %s", hybrid_error)
             else:
                 candidates = results[0]
-            if len(results) > 1:
-                part_lists = [r if isinstance(r, list) else [] for r in results[1:]]
+            others = results[1:]
+            if wording_vector is not None:
+                found = others.pop()
+                wording_hits = found if isinstance(found, list) else []
+            if others:
+                part_lists = [r if isinstance(r, list) else [] for r in others]
                 trace.part_pools = [[hit.id for hit in hits] for hits in part_lists]
 
         if vector is None or hybrid_error is not None:
@@ -281,8 +316,11 @@ class HybridRetriever:
                 logger.warning("Search inside the previous files failed: %s", exc)
 
         # Candidates added to the whole question's pool (scored with it, in the same request).
-        if parts:
-            candidates = candidates + self._expansions(query, candidates, part_lists, scope, trace)
+        if named:
+            survey = None  # a file the question names answers it; the usual paths apply
+        if parts or wording_hits:
+            wording_top = candidate_limit // 2 if survey is not None else getattr(settings, "wording_top", 20)
+            candidates = candidates + self._expansions(query, candidates, part_lists, scope, trace, wording_hits, wording_top)
         part_jobs: list[tuple[int, list[SearchHit]]] = []
         if part_mode == "always" and getattr(settings, "part_rerank", "part") == "part":
             part_jobs = [(i, self._visible(hits)[: settings.part_rerank_top]) for i, hits in enumerate(part_lists)]
@@ -293,10 +331,27 @@ class HybridRetriever:
             # few best candidates are scored against the part at the same time.
             jobs = [lambda: self._rerank(query, candidates, trace, "whole")]
             jobs += [(lambda i=i, hits=hits: self._rerank(parts[i], hits, trace, "part")) for i, hits in part_jobs]
+            # An expanded question is also scored in the documents' own words (wording_rescore);
+            # a passage keeps the better of its two scores.
+            second = expansion is not None and bool(getattr(settings, "wording_rescore", False))
+            if second:
+                jobs.append(lambda: self._rerank(expansion.text, candidates, trace, "wording"))
             results = multipart.in_parallel(jobs)
             if isinstance(results[0], Exception):
                 raise results[0]
             rankings = results[0]
+            if second:
+                other = results.pop()
+                # Outside a survey, a question with no evidence as asked stays without: the second
+                # scoring only reorders what the first found relevant.
+                floor = float(getattr(settings, "rerank_no_evidence_below", 0.0) or 0.0)
+                unfounded = survey is None and bool(rankings) and rankings[0].score < floor
+                if not isinstance(other, Exception) and not unfounded:
+                    better = {item.index: item.score for item in other}
+                    rankings = sorted(
+                        (type(item)(index=item.index, score=max(item.score, better.get(item.index, 0.0))) for item in rankings),
+                        key=lambda item: -item.score,
+                    )
         except Exception as exc:
             logger.warning("Reranker failed; returning RRF order: %s", exc)
             return candidates[:keep]
@@ -318,6 +373,13 @@ class HybridRetriever:
                 key=multipart.score_of, reverse=True,
             )
         policy = self.policy(max_keep, per_document, relative)
+        if survey is not None and not (preferred and prefer_only):
+            kept = select_survey(
+                reranked, policy, survey, files=int(getattr(settings, "survey_files", 8)),
+                floor=float(getattr(settings, "survey_floor", 0.01)), types=self._document_types(reranked),
+            )
+            trace.survey = {"ask": survey.ask, "cue": survey.cue, "files": len({hit.doc_id for hit in kept})}
+            return kept
         if preferred and prefer_only and not named:
             own = [hit for hit in reranked if hit.doc_id in preferred]
             if own and multipart.score_of(own[0]) >= settings.rerank_min_score:
@@ -391,6 +453,34 @@ class HybridRetriever:
         named = named_documents(query, cached[1])
         # A name shared by many files ("报告") says little about which one is meant.
         return named if len(named) <= 6 else []
+
+    def _survey(self, query: str, mode: str, top_k: int | None) -> Survey | None:
+        """What kind of survey question this is (survey_route), or None."""
+        if mode != "hybrid_rerank" or top_k or not getattr(self.settings, "survey_route", False):
+            return None
+        return survey_question(query)
+
+    def _document_types(self, hits: list[SearchHit]) -> dict[str, str]:
+        """doc id -> document type: what the file's own name says (a type word, or the way
+        rule-stating papers are named), else its document card."""
+        from .doc_cards import name_doc_type
+
+        types = {hit.doc_id: name_doc_type(hit.source) or ("制度规范" if rule_name(hit.source) else "") for hit in hits}
+        missing = [doc_id for doc_id, kind in types.items() if not kind]
+        cards = getattr(self.store, "doc_cards", None)
+        if missing and cards is not None:
+            try:
+                for doc_id, card in cards(missing).items():
+                    types[doc_id] = str(card.get("doc_type") or "")
+            except Exception as exc:
+                logger.warning("Document cards unavailable: %s", exc)
+        return types
+
+    def _wording(self, query: str, mode: str, top_k: int | None) -> wording.Expansion | None:
+        """The question with the documents' words for its subject (wording_expansion), or None."""
+        if mode != "hybrid_rerank" or top_k or not getattr(self.settings, "wording_expansion", False):
+            return None
+        return wording.expand(query)
 
     # ---------------------------------------------------------------- several parts
     def _question_parts(self, query: str, mode: str, top_k: int | None) -> list[str]:
@@ -482,10 +572,12 @@ class HybridRetriever:
         return out
 
     def _expansions(
-        self, query: str, candidates: list[SearchHit], part_lists: list[list[SearchHit]], scope: set[str] | None, trace
+        self, query: str, candidates: list[SearchHit], part_lists: list[list[SearchHit]], scope: set[str] | None, trace,
+        wording_hits: Sequence[SearchHit] = (), wording_top: int = 20,
     ) -> list[SearchHit]:
-        """Candidates scored with the whole question: each part's new candidates (part_rerank
-        "whole"), bridge-term BM25 hits, and the parents next to the best documents' hits."""
+        """Candidates scored with the whole question: the expanded question's new candidates
+        (wording_expansion), each part's new candidates (part_rerank "whole"), bridge-term BM25
+        hits, and the parents next to the best documents' hits."""
         settings = self.settings
         seen = {hit.id for hit in candidates}
         extra: list[SearchHit] = []
@@ -502,6 +594,12 @@ class HybridRetriever:
                 trace.extra_kinds[hit.id] = kind
                 added += 1
 
+        if wording_hits:
+            add(list(wording_hits), "wording", wording_top)
+        if not trace.parts:
+            trace.extra = [hit.id for hit in extra]
+            trace.extra_hits = extra
+            return extra
         if getattr(settings, "part_retrieval", "off") == "always" and getattr(settings, "part_rerank", "part") == "whole":
             for hits in part_lists:
                 add(hits, "part", settings.part_rerank_top)
@@ -554,6 +652,35 @@ class HybridRetriever:
         except Exception as exc:
             logger.warning("Version check failed; keeping every version: %s", exc)
             return ranked
+
+    # How much deeper the search goes when a few files crowd the pool (candidate_per_document).
+    crowd_depth = 4
+
+    def _pool(
+        self, query: str, vector: list[float], limit: int, scope: set[str] | None, spread: bool, trace,
+        survey_cap: int = 0,
+    ) -> list[SearchHit]:
+        """The fused candidates for the reranker. With candidate_per_document, a pool that a
+        few files fill ("three policy collections say 补贴 in every line") is searched again
+        ``crowd_depth`` times deeper and cut to ``limit`` with at most that many candidates
+        per file, so other files' passages get scored at all. A pool no file crowds is
+        returned as it is."""
+        hits = self._search_hybrid(query, vector, limit, scope)
+        # A survey question has its own, smaller cap (survey_candidates_per_document).
+        cap = survey_cap or int(getattr(self.settings, "candidate_per_document", 0) or 0)
+        if not spread or cap <= 0 or (scope is not None and len(scope) < 2) or not crowded(hits, cap):
+            return hits
+        try:
+            deeper = self._search_hybrid(query, vector, limit * self.crowd_depth, scope)
+        except Exception as exc:
+            logger.warning("Deeper search for a crowded pool failed: %s", exc)
+            return hits
+        spread_hits = spread_documents(self._visible(deeper), cap, limit)
+        if {hit.id for hit in spread_hits} == {hit.id for hit in hits}:
+            return hits  # nothing else to bring in (a library of a few files)
+        if trace is not None:
+            trace.crowded = {"files": len({hit.doc_id for hit in hits}), "files_after": len({hit.doc_id for hit in spread_hits})}
+        return spread_hits
 
     def _search_hybrid(self, query: str, vector: list[float], limit: int, scope: set[str] | None) -> list[SearchHit]:
         with timings.stage("search"):

@@ -1,0 +1,76 @@
+{
+  "overrides": {
+    "wording_expansion": true
+  },
+  "add": 20,
+  "none": {
+    "fact": {
+      "pool": 1.0,
+      "kept": 0.952,
+      "rank_median": 1.0,
+      "scored": 53.0
+    },
+    "generic": {
+      "pool": 1.0,
+      "kept": 0.968,
+      "rank_median": 1,
+      "scored": 60.5
+    },
+    "survey": {
+      "pool": 0.537,
+      "kept": 0.025,
+      "rank_median": 25,
+      "scored": 56.0
+    }
+  },
+  "hyde": {
+    "fact": {
+      "pool": 1.0,
+      "kept": 0.952,
+      "rank_median": 1.0,
+      "scored": 67.2
+    },
+    "generic": {
+      "pool": 1.0,
+      "kept": 0.968,
+      "rank_median": 1,
+      "scored": 73.6
+    },
+    "survey": {
+      "pool": 0.787,
+      "kept": 0.037,
+      "rank_median": 29,
+      "scored": 73.5
+    }
+  },
+  "paraphrase": {
+    "fact": {
+      "pool": 1.0,
+      "kept": 0.952,
+      "rank_median": 1.0,
+      "scored": 68.9
+    },
+    "generic": {
+      "pool": 1.0,
+      "kept": 0.968,
+      "rank_median": 1,
+      "scored": 76.9
+    },
+    "survey": {
+      "pool": 0.675,
+      "kept": 0.025,
+      "rank_median": 30.0,
+      "scored": 73.6
+    }
+  },
+  "hyde_call": {
+    "calls": 115,
+    "seconds_median": 1.11,
+    "tokens_mean": 104
+  },
+  "paraphrase_call": {
+    "calls": 115,
+    "seconds_median": 1.96,
+    "tokens_mean": 109
+  }
+}

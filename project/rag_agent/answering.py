@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from retrieval.hybrid_retriever import comparison_topic
+from retrieval.survey import survey_question
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,9 @@ class AnswerProfile:
     # Most passages from one document while other documents qualify (None: the setting
     # rerank_per_document).
     per_document: int | None = None
+    # The model reads each passage's whole parent section (True) or the passage itself: many
+    # short passages from many files fit the budget, long parents from a few do.
+    parent_context: bool = True
 
 
 PROFILES: dict[str, AnswerProfile] = {
@@ -42,6 +46,17 @@ PROFILES: dict[str, AnswerProfile] = {
         "不要补充问题没有问到的内容；全文控制在 500 字左右。",
         max_passages=10,
         per_document=2,
+    ),
+    # What several files say about the same thing ("一般…能给多少补贴", retrieval/survey.py): the
+    # best passage of each file, answered file by file (evaluation/recall_wording_v1/REPORT.md).
+    "survey": AnswerProfile(
+        "survey", 7000, 1800,
+        "本题问的是几份资料里的一般情况，证据来自不同的文件：按文件逐条回答，每份文件一条，先写这份文件讲的是哪个项目或政策，"
+        "再写它给出的具体数字、条件或时间，并在这一条末尾标注出处；证据里没有回答这个问题的文件不要写；"
+        "不要把不同文件的数字合并成一个结论，也不要只写其中一份。全文控制在 500 字左右。",
+        max_passages=10,
+        per_document=2,
+        parent_context=False,
     ),
     "explain": AnswerProfile(
         "explain", 7000, 1800,
@@ -118,12 +133,15 @@ def multi_part_question(question: str) -> bool:
     return asks >= 2 or (asks >= 1 and bool(_JOIN_EN.search(text)))
 
 
-def classify_question(question: str) -> str:
+def classify_question(question: str, survey: bool = False) -> str:
     """"compare" | "explain" | "multi" | "fact" from the wording alone (no model call).
 
     "multi" is a fact question that asks several things; an explanation or a comparison
-    already gets as many passages and keeps its own answer shape.
+    already gets as many passages and keeps its own answer shape. ``survey`` (the setting
+    survey_route): a question about what several files say is "survey".
     """
+    if survey and survey_question(question) is not None:
+        return "survey"
     if comparison_topic(question) is not None or _COMPARE.search(question):
         return "compare"
     if _EXPLAIN.search(question):

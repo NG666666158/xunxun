@@ -1,0 +1,159 @@
+{
+  "name": "base",
+  "index": "base",
+  "overrides": {},
+  "chunks": 1569,
+  "fact": {
+    "questions": 62,
+    "gold_passages": 62,
+    "pool": 1.0,
+    "rank_median": 1.0,
+    "rank_mean": 2.1,
+    "top3": 0.935,
+    "final": 0.952,
+    "file_final": 0.952
+  },
+  "generic": {
+    "questions": 31,
+    "gold_passages": 31,
+    "pool": 1.0,
+    "rank_median": 1,
+    "rank_mean": 2.0,
+    "top3": 0.935,
+    "final": 0.968,
+    "file_final": 0.968
+  },
+  "generic_bold": {
+    "questions": 18,
+    "gold_passages": 18,
+    "pool": 1.0,
+    "rank_median": 1.0,
+    "rank_mean": 2.6,
+    "top3": 0.889,
+    "final": 0.944,
+    "file_final": 0.944
+  },
+  "generic_txt": {
+    "questions": 5,
+    "gold_passages": 5,
+    "pool": 1.0,
+    "rank_median": 1,
+    "rank_mean": 1.4,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "generic_style": {
+    "questions": 5,
+    "gold_passages": 5,
+    "pool": 1.0,
+    "rank_median": 1,
+    "rank_mean": 1.0,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "generic_md": {
+    "questions": 3,
+    "gold_passages": 3,
+    "pool": 1.0,
+    "rank_median": 1,
+    "rank_mean": 1.0,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "fact_fund": {
+    "questions": 31,
+    "gold_passages": 31,
+    "pool": 1.0,
+    "rank_median": 2,
+    "rank_mean": 3.1,
+    "top3": 0.871,
+    "final": 0.903,
+    "file_final": 0.903
+  },
+  "fact_time": {
+    "questions": 15,
+    "gold_passages": 15,
+    "pool": 1.0,
+    "rank_median": 1,
+    "rank_mean": 1.1,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "fact_who": {
+    "questions": 16,
+    "gold_passages": 16,
+    "pool": 1.0,
+    "rank_median": 1.0,
+    "rank_mean": 1.2,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "fact_bold": {
+    "questions": 36,
+    "gold_passages": 36,
+    "pool": 1.0,
+    "rank_median": 1.0,
+    "rank_mean": 2.2,
+    "top3": 0.917,
+    "final": 0.944,
+    "file_final": 0.944
+  },
+  "fact_txt": {
+    "questions": 10,
+    "gold_passages": 10,
+    "pool": 1.0,
+    "rank_median": 2.0,
+    "rank_mean": 2.9,
+    "top3": 0.9,
+    "final": 0.9,
+    "file_final": 0.9
+  },
+  "fact_style": {
+    "questions": 10,
+    "gold_passages": 10,
+    "pool": 1.0,
+    "rank_median": 1.0,
+    "rank_mean": 1.2,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "fact_md": {
+    "questions": 6,
+    "gold_passages": 6,
+    "pool": 1.0,
+    "rank_median": 1.5,
+    "rank_mean": 1.5,
+    "top3": 1.0,
+    "final": 1.0,
+    "file_final": 1.0
+  },
+  "survey": {
+    "questions": 22,
+    "gold_passages": 80,
+    "pool": 0.3,
+    "rank_median": 13.5,
+    "rank_mean": 16.8,
+    "top3": 0.075,
+    "final": 0.075,
+    "file_final": 0.087,
+    "gold_files_per_question": 3.64,
+    "gold_passages_kept": 0.27,
+    "gold_files_kept": 0.32,
+    "all_gold_passages": 0.0,
+    "three_or_more": 0.0,
+    "final_passages": 4.9
+  },
+  "cost": {
+    "rerank_docs": 41.0,
+    "rerank_tokens": 14309,
+    "rerank_calls": 1.0,
+    "embed_texts": 1.02,
+    "local_seconds_median": 0.225
+  }
+}
