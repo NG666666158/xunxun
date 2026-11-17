@@ -242,3 +242,58 @@ def test_a_second_survey_search_uses_the_question_as_asked():
     AgentNodes(llm=None, retriever=off, settings=Settings()).retrieve(state)
     assert off.queries == ["创新项目补贴金额"]
 
+
+# ---------------------------------------------------------------- one bad line costs that line (survey_answer_repair)
+from rag_agent.survey_answer import closest_source, drop_lines, repair_names  # noqa: E402
+
+BLOCKS = [{"source": "1-未来产业方向创新任务申报指南.pdf", "locator": "page:2", "text": "……"},
+          {"source": "2026年澜州青年创新项目申请指南.docx", "locator": "", "text": "……"},
+          {"source": "青屿市科技创新专项项目管理办法（2025年修订）.docx", "locator": "", "text": "……"}]
+
+
+def test_a_mistyped_file_name_cites_the_closest_evidence_file():
+    answer = ("1. 联合体至少有1家用户企业 [来源：1-未来产业方向创新产业任务申报指南.pdf｜位置：page:2]。\n"
+              "2. 单个项目不超过6万元 [来源：2026年澜州青年创新项目申请指南.docx]。\n"
+              "3. 重点项目80万元 [来源：青屿市科技创新专项项目管理办法.docx]。")
+    fixed, changed = repair_names(answer, BLOCKS)
+    assert changed == 1
+    assert "[来源：1-未来产业方向创新任务申报指南.pdf｜位置：page:2]" in fixed
+    assert "青屿市科技创新专项项目管理办法.docx]" in fixed  # shortened: already resolves, left alone
+    assert closest_source("周报.txt", [b["source"] for b in BLOCKS]) is None
+    # Two files as close: no guess.
+    assert closest_source("A项目指南.docx", ["A项目指南一.docx", "A项目指南二.docx"]) is None
+
+
+def test_unconfirmed_lines_are_dropped_and_the_rest_numbered_again():
+    answer = ("各文件的规定如下：\n\n"
+              "1. 澜州：单个项目不超过6万元 [来源：a.docx]。\n"
+              "2. 青屿：重点项目每项80万元 [来源：b.docx]。\n"
+              "3. 栖川：最高200万元 [来源：c.docx]。")
+    trimmed, dropped, left = drop_lines(answer, ["青屿：重点项目每项80万元"])
+    assert (dropped, left) == (1, 2)
+    assert "青屿" not in trimmed and "1. 澜州" in trimmed and "2. 栖川" in trimmed
+    assert drop_lines(answer, ["别的内容"]) == (answer, 0, 3)
+
+
+def test_the_fact_check_keeps_the_confirmed_lines_of_a_survey_answer():
+    from types import SimpleNamespace
+
+    from rag_agent.nodes import AgentNodes
+    from rag_agent.schemas import FaithfulnessCheck
+
+    class Checker(AgentNodes):
+        def _invoke_structured(self, schema, messages, patience=0.0):
+            return FaithfulnessCheck(grounded=False, unsupported_claims=["青屿：重点项目每项80万元"])
+
+    answer = ("1. 澜州：单个项目资助资金不超过6万元 [来源：a.docx]。\n"
+              "2. 青屿：重点项目每项80万元 [来源：b.docx]。")
+    docs = [{"id": "1", "source": "a.docx", "locator": "", "text": "单个项目资助资金不超过6万元", "doc_id": "a"},
+            {"id": "2", "source": "b.docx", "locator": "", "text": "面上项目每项20万元", "doc_id": "b"}]
+    state = {"answer": answer, "question": "一般能给多少补贴？", "answer_profile": "survey", "context_docs": docs}
+    on = Checker(llm=None, retriever=None, settings=Settings(survey_answer_repair=True)).fact_check(state)
+    assert on["grounded"] is True and "青屿" not in on["answer"] and on["check_mode"].endswith("dropped:1")
+    off = Checker(llm=None, retriever=None, settings=Settings()).fact_check(state)
+    assert off["grounded"] is False and "answer" not in off
+    fact = Checker(llm=None, retriever=None, settings=Settings(survey_answer_repair=True)).fact_check(
+        dict(state, answer_profile="fact"))
+    assert fact["grounded"] is False

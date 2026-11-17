@@ -277,6 +277,11 @@ class Settings(BaseSettings):
     #   passage scores below relevance_threshold (the route has its own no-evidence check), and a
     #   second attempt searches the question as asked (a rewrite loses "一般" / "各…").
     survey_keep_route: bool = False
+    # * survey_answer_repair: in a survey answer (one cited line per file) a citation of a mistyped
+    #   file name cites the evidence file it is closest to, and the lines the fact check cannot
+    #   confirm are dropped while confirmed ones remain (rag_agent/survey_answer.py), instead of
+    #   the whole answer failing.
+    survey_answer_repair: bool = False
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

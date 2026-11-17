@@ -48,6 +48,7 @@ from .answering import (
 from .document_nodes import DOCUMENT_INTENTS, DocumentNodes
 from .graph_state import State
 from . import multidoc_answer as multidoc
+from . import survey_answer
 from .guards import (
     anchor_line,
     conflicting_values,
@@ -745,6 +746,12 @@ class AgentNodes(DocumentNodes):
             return {"answer": "", "evidence": evidence, "citations": citations, "model_error": describe_model_error(exc), "error_kind": error_kind(exc),
                     "answer_steps": steps}
         answer = str(response.content).strip()
+        if profile.name == "survey" and getattr(settings, "survey_answer_repair", False):
+            # One line per file, eight files: a mistyped file name in one citation would fail the
+            # whole answer at the fact check. It cites the evidence file it is closest to.
+            answer, renamed = survey_answer.repair_names(answer, self._evidence_blocks(state))
+            if renamed:
+                steps["renamed"] = renamed
         if getattr(settings, "citation_repair", False) and not whole_file:
             # A statement citing a passage without its numbers or names cites the one that has
             # them (candidate 4; no model call). The fact check then compares the right passages.
@@ -924,8 +931,17 @@ class AgentNodes(DocumentNodes):
                 ], patience=patience)
                 mode = "cited+all"
             unsupported = [*result.unsupported_claims, *(f"引用的出处不在检索证据中：{c[:80]}" for c in unresolved)]
+            grounded = result.grounded and not unresolved
+            if (not grounded and getattr(self.settings, "survey_answer_repair", False)
+                    and profile_for(state.get("answer_profile")).name == "survey"):
+                # A survey answer is one line per file: the lines the check could not confirm go,
+                # the confirmed ones stay (instead of a search rewrite and, usually, a refusal).
+                trimmed, dropped, left = survey_answer.drop_lines(answer, [*result.unsupported_claims, *unresolved])
+                if dropped and left:
+                    return {"answer": trimmed, "grounded": True, "unsupported_claims": [], "check_skipped": False,
+                            "check_mode": f"{mode}+dropped:{dropped}"}
             return {
-                "grounded": result.grounded and not unresolved,
+                "grounded": grounded,
                 "unsupported_claims": unsupported,
                 "check_skipped": False,
                 "check_mode": mode,
