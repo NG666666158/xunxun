@@ -23,7 +23,7 @@ survey questions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 from typing import Mapping
 
@@ -88,6 +88,46 @@ def survey_question(question: str) -> Survey | None:
     return Survey(ask, (general or each).group(0))
 
 
+# What a survey question says besides its topic: the generality / "each" wording, the ask
+# ("能给多少", "什么时候", "有哪些门槛") and words every programme paper uses (补贴, 申报, 政策).
+_NOT_TOPIC = frozenset(
+    "一般 一般来说 通常 能领 能补 能拿 各有 搞 做 普遍 大多 大都 大部分 往往 基本上 基本 都 各 各个 各地 各类 各项 各种 各家 各自 分别 有 有没有 哪些 有哪些 哪 什么 "
+    "什么样 多少 多少钱 几 几月 几月份 几号 哪天 何时 时候 什么时候 能 能够 可以 可 会 要 需要 得 给 拿 拿到 领 补 报 是 的 了 吗 呢 "
+    "这 这些 这类 那些 类 方面 上 对 和 与 及 或 等 一下 大概 最高 最多 金额 额度 标准 比例 上限 门槛 条件 要求 资格 对象 "
+    "满足 达到 符合 具备 截止 期限 时间 申请 申报 申领 补贴 资助 扶持 奖补 奖励 补助 支持 政策 项目 钱 人 单位 谁".split()
+)
+
+
+# Words that list several topics: "参展、办展、跨境电商", "技术改造和绿色工厂".
+_LIST_WORDS = frozenset("、 ， , 和 与 及 以及 或 或者 跟 同".split())
+MAX_TOPICS = 3
+
+
+def survey_topics(question: str) -> list[str]:
+    """The question's topics without its survey wording: "考技能证书一般能领多少补贴？" ->
+    ["考 技能 证书"], "参展、办展、跨境电商一般各补贴多少？" -> ["参展", "办展", "跨境 电商"]
+    (at most MAX_TOPICS; [] when nothing is left). Searched alone a topic finds the files
+    about it; the whole question also matches every passage that says 补贴 or 申报. Each
+    listed topic is its own: a passage about 跨境电商 scores low against "参展 办展 跨境 电商"."""
+    from .embedded_store import _segmenter
+
+    groups: list[list[str]] = [[]]
+    for word in _segmenter().lcut(question or ""):
+        if word in _LIST_WORDS:
+            groups.append([])
+        elif re.search(r"\w", word) and word not in _NOT_TOPIC:
+            groups[-1].append(word)
+    topics = [" ".join(words) for words in groups if words]
+    if len(topics) > MAX_TOPICS:
+        topics = topics[: MAX_TOPICS - 1] + [" ".join(topics[MAX_TOPICS - 1:])]
+    return topics
+
+
+def survey_topic(question: str) -> str:
+    """All of the question's topics in one text ('' when nothing is left)."""
+    return " ".join(survey_topics(question))
+
+
 def has_shape(text: str, ask: str) -> bool:
     """Could ``text`` hold an answer of this kind (an amount, a date)? Other kinds: always."""
     if ask == "amount":
@@ -146,3 +186,72 @@ def select_survey(
         ids.add(hit.id)
         per_doc[hit.doc_id] += 1
     return sorted(kept, key=_score, reverse=True)
+
+
+# ---------------------------------------------------------------- files first (survey_file_first)
+def topic_files(hits: list[SearchHit], limit: int, per_file: int = 2) -> list[str]:
+    """Doc ids of the files a search for the topic found, best first: a file's weight is the
+    sum of its ``per_file`` best fused scores (one strong passage, or two good ones)."""
+    scores: dict[str, list[float]] = {}
+    for hit in hits:
+        scores.setdefault(hit.doc_id, []).append(hit.score)
+    weight = {doc_id: sum(sorted(values, reverse=True)[:per_file]) for doc_id, values in scores.items()}
+    return sorted(weight, key=lambda doc_id: -weight[doc_id])[: max(1, limit)]
+
+
+def select_by_files(
+    pool: list[SearchHit],
+    topic: Mapping[str, float],
+    asked: Mapping[str, float],
+    survey: Survey,
+    policy: SelectionPolicy,
+    files: int = 8,
+    topic_floor: float = 0.05,
+    file_floor: float = 0.01,
+    topic_relative: float = 0.05,
+    types: Mapping[str, str] | None = None,
+) -> list[SearchHit]:
+    """The files about the topic first, then each file's passage that answers the question.
+
+    ``topic`` and ``asked`` are each passage's reranker score (by chunk id) against the topic
+    alone and against the question. Nothing is kept when no file's best topic score reaches
+    ``topic_floor`` (the library has no paper on the topic); otherwise a file is about the topic
+    when its best topic score reaches ``file_floor`` and ``topic_relative`` x the best file's.
+    Files of a rule-stating type (``types``) come first, then the others, each by topic score;
+    the first ``files`` are kept. Of each, the answer-shaped passage that scores best against
+    the question, then the next ones while there is room (``policy.max_keep``,
+    ``policy.per_document``). A kept passage's score is the better of its two.
+    """
+    if not pool:
+        return []
+    by_file: dict[str, list[SearchHit]] = {}
+    for hit in pool:
+        by_file.setdefault(hit.doc_id, []).append(hit)
+    relevance = {doc_id: max(topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
+    if max(relevance.values()) < topic_floor:
+        return []
+    cut = max(file_floor, topic_relative * max(relevance.values()))
+    about = sorted((doc_id for doc_id, score in relevance.items() if score >= cut), key=lambda d: -relevance[d])
+    typed = [doc_id for doc_id in about if (types or {}).get(doc_id, "") in RULE_TYPES]
+    chosen = (typed + [doc_id for doc_id in about if doc_id not in typed])[: max(1, files)]
+
+    def score(hit: SearchHit) -> float:
+        return asked.get(hit.id, 0.0)
+
+    ranked: dict[str, list[SearchHit]] = {}
+    for doc_id in chosen:
+        hits = sorted(by_file[doc_id], key=score, reverse=True)
+        shaped = [hit for hit in hits if has_shape(hit.text, survey.ask)]
+        ranked[doc_id] = shaped + [hit for hit in hits if hit not in shaped] if shaped else hits
+    kept = [ranked[doc_id][0] for doc_id in chosen][: policy.max_keep]
+    room = policy.max_keep - len(kept)
+    per_doc = policy.per_document if policy.per_document > 0 else policy.max_keep
+    texts = {hit.text for hit in kept}
+    extras = sorted(
+        (hit for doc_id in chosen for hit in ranked[doc_id][1:per_doc] if has_shape(hit.text, survey.ask) and hit.text not in texts),
+        key=score, reverse=True,
+    )
+    kept += extras[: max(0, room)]
+    order = {doc_id: i for i, doc_id in enumerate(chosen)}
+    kept.sort(key=lambda hit: (order[hit.doc_id], -score(hit)))
+    return [replace(hit, rerank_score=max(score(hit), topic.get(hit.id, 0.0))) for hit in kept]

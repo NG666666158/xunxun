@@ -244,6 +244,23 @@ class Settings(BaseSettings):
     survey_candidates_per_document: int = 3
     survey_files: int = 8
     survey_floor: float = 0.01
+    # ---- Survey questions, round two (evaluation/survey_recall_v2/REPORT.md).
+    # * survey_file_first: a survey question's files are chosen first, by its topic alone
+    #   (survey.survey_topics: the question without 一般 / 能给多少 / 补贴 …, each listed topic on
+    #   its own): the first survey_file_candidates files of a search for the topics (and the first
+    #   survey_question_files other files of a search for the question itself) each give their
+    #   survey_passages_per_file passages closest to the question. The reranker scores them
+    #   against each topic and against the question. No file whose best topic score reaches
+    #   survey_topic_floor: no evidence. Otherwise the files reaching survey_file_floor and
+    #   survey_topic_relative x the best (rule-stating types first, at most survey_files) keep
+    #   their best answer-shaped passage. Replaces the survey_pool path above.
+    survey_file_first: bool = False
+    survey_file_candidates: int = 16
+    survey_question_files: int = 0
+    survey_passages_per_file: int = 3
+    survey_topic_floor: float = 0.05
+    survey_file_floor: float = 0.01
+    survey_topic_relative: float = 0.05
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
