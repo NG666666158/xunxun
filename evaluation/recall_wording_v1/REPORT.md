@@ -49,6 +49,10 @@ Switches (all in `project/config.py`):
 
 ## Step 1: the test set
 
+After the runs below, one invented programme was renamed in `corpus_spec.py` and `questions.jsonl` (its name
+used a word the public export refuses). The results were measured with the earlier name; a rerun rebuilds
+the library with the new one.
+
 `make_corpus.py` writes an invented library (fixed seed; places, offices, programmes and amounts are
 made up) of 135 files, 1,569 passages:
 
