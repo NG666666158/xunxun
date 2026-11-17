@@ -49,7 +49,7 @@ def main() -> None:
     out["dense_rank"] = place(store.search_dense(vector, limit=args.depth))
     out["bm25_rank"] = place(store.search_sparse(args.question, limit=args.depth))
     out["bm25_terms"] = len(build_match_query(args.question).split(" OR "))
-    profile = classify_question(args.question)
+    profile = classify_question(args.question, bool(getattr(retriever.settings, "survey_route", False)))
     recorder.reset()
     hits = retriever.retrieve(args.question, mode="hybrid_rerank", **retrieval_limits(profile))
     scores: dict[str, float] = {}

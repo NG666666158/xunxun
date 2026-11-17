@@ -1,0 +1,50 @@
+{
+  "index": "base",
+  "after": {
+    "wording_expansion": true,
+    "wording_rescore": true,
+    "survey_route": true,
+    "survey_pool": 60
+  },
+  "questions": 24,
+  "before_all": {
+    "median_s": 0.7,
+    "max_s": 1.95,
+    "scored_mean": 41.7
+  },
+  "before_fact": {
+    "median_s": 0.71,
+    "max_s": 1.95,
+    "scored_mean": 40.0
+  },
+  "before_generic": {
+    "median_s": 0.69,
+    "max_s": 0.83,
+    "scored_mean": 40.0
+  },
+  "before_survey": {
+    "median_s": 0.71,
+    "max_s": 1.07,
+    "scored_mean": 46.7
+  },
+  "after_all": {
+    "median_s": 1.16,
+    "max_s": 5.94,
+    "scored_mean": 121.3
+  },
+  "after_fact": {
+    "median_s": 0.91,
+    "max_s": 1.29,
+    "scored_mean": 92.7
+  },
+  "after_generic": {
+    "median_s": 1.26,
+    "max_s": 5.94,
+    "scored_mean": 120.0
+  },
+  "after_survey": {
+    "median_s": 1.44,
+    "max_s": 5.84,
+    "scored_mean": 180.0
+  }
+}

@@ -294,3 +294,197 @@ def test_docx_and_txt_parsers_follow_the_switch(tmp_path):
     # Switching it changes the index version of these types only, so they are read again.
     assert parser_version(path, on) == parser_version(path, off) + 1 and parser_version(text, on) == parser_version(text, off) + 1
     assert parser_version("a.md", on) == parser_version("a.md", off)
+
+
+# ---------------------------------------------------------------- survey questions
+from rag_agent.answering import PROFILES, classify_question, retrieval_limits  # noqa: E402
+from retrieval.selection import SelectionPolicy  # noqa: E402
+from retrieval.survey import Survey, has_shape, select_survey, survey_question  # noqa: E402
+
+
+def test_survey_questions_are_recognised_by_their_wording():
+    assert survey_question("一般的创新项目申报能给多少补贴？") == Survey("amount", "一般")
+    assert survey_question("创新项目通常什么时候截止申报").ask == "time"
+    assert survey_question("各个创新项目的补贴额度分别是多少？").ask == "amount"
+    assert survey_question("人才方面的政策通常有哪些门槛？").ask == "who"
+    assert survey_question("有哪些创业扶持，分别给多少钱？") is not None
+    for question in (
+        "澜州的青年创新项目最多能拿多少补贴？",  # one programme
+        "广东省和河南省分别实施了哪些措施？",  # named things: the multi-part path
+        "《差旅制度》里一般怎么报销？",  # a named file
+        "一般纳税人的税率是多少？",  # a term, not a generality
+        "一般来说应该注意身体。",  # not a question
+        "KV Cache 的原理是什么？",
+        "纪念币有哪些",  # a plain list
+        "面试题里有哪些关于模型思考能力的题目？",  # a list from one file
+        "产品线编号 P-039 的年度收入和毛利率分别是多少？",  # one identified thing
+        "在2023年7月10日的检查中，核查组在兰州新区一般化工园区的4家企业中共发现了多少项问题隐患？",  # long and specific
+    ):
+        assert survey_question(question) is None, question
+
+
+def test_answer_shapes():
+    assert has_shape("单个项目资助资金不超过6万元", "amount") and has_shape("按实际投入的30%给予扶持", "amount")
+    assert not has_shape("补贴金额按照正文的规定执行，以最终批复文件为准", "amount")
+    assert has_shape("须于5月31日前提交", "time") and has_shape("自受理之日起15个工作日内", "time")
+    assert has_shape("一般停牌5个交易日", "time") and has_shape("保质期半年", "time")
+    assert not has_shape("结束时间以正式文件为准", "time")
+    assert has_shape("任何文字", "who") and has_shape("任何文字", "")
+
+
+def scored(n, doc, score, text):
+    return SearchHit(id=str(n), score=score, text=text, doc_id=doc, parent_id=f"{doc}-p0", source=f"{doc}.txt",
+                     heading="", locator="", retrieval_method="test", rerank_score=score)
+
+
+SURVEY_POLICY = SelectionPolicy(min_score=0.1, relative=0.1, min_keep=3, max_keep=10, per_document=2, no_evidence_below=0.1)
+RANKED = [
+    scored(1, "faq", 0.9, "问：能拿多少补贴？答：按正文规定执行"),  # echoes the question, states nothing
+    scored(2, "collection", 0.8, "稳岗补贴每人每月500元"),
+    scored(3, "collection", 0.7, "见习补贴每人每月1000元"),
+    scored(4, "collection", 0.6, "租房补贴每户最高3000元"),
+    scored(5, "form", 0.3, "申请财政补贴6.0万元"),
+    scored(6, "report", 0.2, "平均每个项目补贴约3.4万元"),
+    scored(7, "guide_a", 0.08, "单个项目资助资金不超过6万元"),
+    scored(8, "guide_b", 0.05, "每项安排财政科研经费20万元"),
+    scored(9, "guide_c", 0.02, "按实际投入的30%给予扶持，最高200万元"),
+    scored(10, "guide_d", 0.005, "每项1.5万元"),
+]
+TYPES = {"guide_a": "说明书", "guide_b": "制度规范", "guide_c": "说明书", "guide_d": "通知公告", "form": "申报书", "report": "工作报告"}
+
+
+def test_survey_selection_keeps_one_answer_per_file_rule_files_first():
+    kept = select_survey(RANKED, SURVEY_POLICY, Survey("amount", "一般"), files=5, floor=0.01, types=TYPES)
+    docs = [h.doc_id for h in kept]
+    # The FAQ has no amount; the two best files stay; then the guides come before the form and the report.
+    assert "faq" not in docs and docs.count("collection") == 2  # its second passage fills a free place
+    assert {"collection", "form", "guide_a", "guide_b", "guide_c"} == set(docs)
+    assert "report" not in docs and "guide_d" not in docs  # past the five files / below the floor
+    assert [h.rerank_score for h in kept] == sorted((h.rerank_score for h in kept), reverse=True)
+    # Without types the order is the reranker's.
+    untyped = select_survey(RANKED, SURVEY_POLICY, Survey("amount", "一般"), files=5, floor=0.01)
+    assert {"collection", "form", "report", "guide_a", "guide_b"} == {h.doc_id for h in untyped}
+
+
+def test_survey_selection_without_evidence_or_shape():
+    assert select_survey([scored(1, "a", 0.05, "5万元")], SURVEY_POLICY, Survey("amount", "一般")) == []
+    # No passage looks like an answer: the reranker's order is all there is.
+    kept = select_survey([scored(1, "a", 0.9, "没有数字"), scored(2, "b", 0.5, "也没有")], SURVEY_POLICY, Survey("amount", "一般"))
+    assert [h.id for h in kept] == ["1", "2"]
+
+
+class SurveyStore:
+    def __init__(self):
+        self.limits = []
+
+    def search_hybrid(self, query, vector, limit, doc_ids=None):
+        self.limits.append(limit)
+        return [SearchHit(id=h.id, score=0.0, text=h.text, doc_id=h.doc_id, parent_id=h.parent_id, source=h.source,
+                          heading="", locator="", retrieval_method="test") for h in RANKED][:limit]
+
+    def doc_cards(self, doc_ids):
+        return {doc_id: {"doc_type": TYPES.get(doc_id, "")} for doc_id in doc_ids}
+
+
+class SurveyReranker:
+    def rerank(self, query, documents, top_n):
+        by_text = {h.text: h.rerank_score for h in RANKED}
+        return sorted((RerankItem(index=i, score=by_text[t]) for i, t in enumerate(documents)), key=lambda item: -item.score)[:top_n]
+
+
+def test_the_retriever_takes_the_survey_route_only_when_switched_on():
+    question = "一般的创新项目申报能给多少补贴？"
+    on = Settings(wording_expansion=False, survey_route=True, survey_pool=10, survey_candidates_per_document=3, survey_files=5)
+    store = SurveyStore()
+    kept = HybridRetriever(store, Embeddings(), SurveyReranker(), on).retrieve(question, **retrieval_limits("survey"))
+    assert {"guide_a", "guide_b", "guide_c"} <= {h.doc_id for h in kept} and "faq" not in {h.doc_id for h in kept}
+    assert store.limits[0] == 10  # the survey pool, not fusion_top_k
+    assert multipart.last_trace().survey["ask"] == "amount"
+    off = HybridRetriever(SurveyStore(), Embeddings(), SurveyReranker(), Settings(wording_expansion=False))
+    usual = off.retrieve(question, **retrieval_limits("fact"))
+    assert usual[0].doc_id == "faq" and not multipart.last_trace().survey
+
+
+def test_the_survey_profile_is_chosen_only_with_the_switch():
+    question = "各个创新项目的补贴额度分别是多少？"
+    assert classify_question(question) == "compare" and classify_question(question, survey=True) == "survey"
+    assert classify_question("纳米硅的粒径是多少？", survey=True) == "fact"
+    profile = PROFILES["survey"]
+    assert profile.max_passages == 10 and profile.per_document == 2 and profile.parent_context is False
+    assert all(PROFILES[name].parent_context for name in ("fact", "multi", "explain", "compare"))
+
+
+def test_rule_file_names():
+    from retrieval.survey import rule_name
+
+    for name in ("青屿市博士后科研资助工作指引.docx", "望海市外贸企业开拓国际市场项目申报须知.docx", "1、政策集合.pdf",
+                 "青屿市科技创新专项项目管理办法（2025年修订）.docx", "临溪市首台（套）重大技术装备推广应用指导意见.docx"):
+        assert rule_name(name), name
+    for name in ("2026年澜州青年创新项目申请指南常见问题解答.txt", "管理办法年度工作总结.txt", "01 项目申报书.docx", "周报-01.txt"):
+        assert not rule_name(name), name
+
+
+# ---------------------------------------------------------------- scored in the documents' words too
+class TwoWayReranker:
+    """Against the question as asked the guide scores low; against the expanded question, high."""
+
+    def __init__(self):
+        self.queries = []
+
+    def rerank(self, query, documents, top_n):
+        self.queries.append(query)
+        expanded = "资助" in query
+        scores = [(0.9 if expanded else 0.05) if "资助资金" in text else 0.3 for text in documents]
+        return sorted((RerankItem(index=i, score=s) for i, s in enumerate(scores)), key=lambda item: -item.score)[:top_n]
+
+
+def test_rescoring_keeps_the_better_of_the_two_scores():
+    reranker = TwoWayReranker()
+    kept = HybridRetriever(PolicyStore(), Embeddings(), reranker, Settings(wording_rescore=True)).retrieve(QUESTION, max_keep=6)
+    assert kept[0].doc_id == "guide" and kept[0].rerank_score == 0.9
+    assert sorted(reranker.queries, key=len)[0] == QUESTION and len(reranker.queries) == 2
+    assert [call["query"] for call in multipart.last_trace().rerank_calls].count("wording") == 1
+    # Off: one request, and the guide stays below the collection.
+    reranker = TwoWayReranker()
+    kept = HybridRetriever(PolicyStore(), Embeddings(), reranker, Settings()).retrieve(QUESTION, max_keep=6)
+    assert reranker.queries == [QUESTION] and kept[0].doc_id == "collection"
+
+
+def test_a_failed_second_scoring_leaves_the_first():
+    class Failing(TwoWayReranker):
+        def rerank(self, query, documents, top_n):
+            if "资助" in query:
+                raise RuntimeError("boom")
+            return super().rerank(query, documents, top_n)
+
+    kept = HybridRetriever(PolicyStore(), Embeddings(), Failing(), Settings(wording_rescore=True)).retrieve(QUESTION, max_keep=6)
+    assert kept[0].doc_id == "collection"
+
+
+# ---------------------------------------------------------------- the survey answer reads the passages themselves
+def test_survey_context_uses_the_passages_not_their_parents():
+    from rag_agent.nodes import AgentNodes
+
+    class Parents:
+        def get(self, parent_id):
+            return {"text": "整份文件的一大段" * 50, "parent_id": parent_id}
+
+    nodes = AgentNodes(llm=None, retriever=None, settings=SimpleNamespace(context_token_budget=9000, dated_evidence=False),
+                       parent_store=Parents())
+    chunks = [{"id": "1", "parent_id": "a-p0", "doc_id": "a", "source": "a.docx", "text": "单个项目资助资金不超过6万元"},
+              {"id": "2", "parent_id": "a-p0", "doc_id": "a", "source": "a.docx", "text": "受理时间为3月2日至4月17日"}]
+    survey = nodes.build_context({"retrieve_chunks": chunks, "answer_profile": "survey", "question": "一般能给多少补贴"})["context_docs"]
+    assert [d["text"] for d in survey] == [c["text"] for c in chunks]  # both passages of one parent, as they are
+    fact = nodes.build_context({"retrieve_chunks": chunks, "answer_profile": "fact", "question": "能给多少补贴"})["context_docs"]
+    assert len(fact) == 1 and fact[0]["text"].startswith("整份文件")
+
+
+def test_rescoring_does_not_turn_no_evidence_into_evidence():
+    class Nothing(TwoWayReranker):
+        def rerank(self, query, documents, top_n):
+            self.queries.append(query)
+            score = 0.9 if "资助" in query else 0.03
+            return [RerankItem(index=i, score=score) for i in range(len(documents))][:top_n]
+
+    kept = HybridRetriever(PolicyStore(), Embeddings(), Nothing(), Settings(wording_rescore=True)).retrieve(QUESTION, max_keep=6)
+    assert kept == []

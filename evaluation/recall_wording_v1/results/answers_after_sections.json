@@ -1,0 +1,49 @@
+{
+  "name": "after_sections",
+  "index": "sections",
+  "overrides": {
+    "wording_expansion": true,
+    "wording_rescore": true,
+    "survey_route": true,
+    "survey_candidates_per_document": 5
+  },
+  "survey": {
+    "questions": 22,
+    "refused": 2,
+    "gold_files": 80,
+    "files_cited": 46,
+    "files_cited_per_question": 2.09,
+    "three_or_more_files": 7,
+    "amounts": 137,
+    "amounts_right": 83,
+    "files_with_first_amount": 27,
+    "passage_files": 6.9,
+    "seconds_median": 21.4
+  },
+  "survey_fund": {
+    "questions": 13,
+    "refused": 0,
+    "gold_files": 47,
+    "files_cited": 28,
+    "files_cited_per_question": 2.15,
+    "three_or_more_files": 4,
+    "amounts": 137,
+    "amounts_right": 83,
+    "files_with_first_amount": 27,
+    "passage_files": 7.9,
+    "seconds_median": 22.2
+  },
+  "fact_guard": {
+    "questions": 16,
+    "refused": 0,
+    "gold_files": 16,
+    "files_cited": 15,
+    "files_cited_per_question": 0.94,
+    "three_or_more_files": 0,
+    "amounts": 47,
+    "amounts_right": 41,
+    "files_with_first_amount": 15,
+    "passage_files": 4.1,
+    "seconds_median": 6.75
+  }
+}

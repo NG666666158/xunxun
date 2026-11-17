@@ -152,6 +152,7 @@ class PartsTrace:
     preferred_used: bool = False  # ... answered it alone (an elliptical follow-up)
     wording: dict[str, Any] = field(default_factory=dict)  # {"groups", "terms"} of the expanded question
     crowded: dict[str, Any] = field(default_factory=dict)  # files in the pool before / after the per-file cap
+    survey: dict[str, Any] = field(default_factory=dict)  # {"ask", "cue", "files"} of a survey question
     extra_hits: list[SearchHit] = field(default_factory=list, repr=False)  # not serialized
 
     def to_dict(self) -> dict[str, Any]:

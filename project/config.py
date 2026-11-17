@@ -226,10 +226,24 @@ class Settings(BaseSettings):
     wording_expansion: bool = False
     wording_search_top: int = 40
     wording_top: int = 20
+    #   wording_rescore: the pool of such a question is also scored against the expanded question
+    #   (one more rerank request, in parallel) and a passage keeps the better of its two scores.
+    wording_rescore: bool = False
     # * candidate_per_document: before reranking, at most this many candidates from one file
     #   while other files have any (0: no cap). Only a pool that some file crowds is touched: the
     #   search then goes four times deeper and the freed places go to other files' passages.
     candidate_per_document: int = 0
+    # * survey_route: a question about what several files say ("一般…能给多少补贴", "各…分别是多少",
+    #   retrieval/survey.py) takes survey_pool candidates with at most
+    #   survey_candidates_per_document from one file, and keeps the best answer-shaped passage of
+    #   each of the first survey_files files scoring at least survey_floor (rule-stating file types
+    #   first), instead of the global top passages; the answer goes file by file
+    #   (answering.PROFILES["survey"]).
+    survey_route: bool = False
+    survey_pool: int = 60
+    survey_candidates_per_document: int = 3
+    survey_files: int = 8
+    survey_floor: float = 0.01
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

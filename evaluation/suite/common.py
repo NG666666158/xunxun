@@ -42,6 +42,8 @@ RETRIEVAL_FIELDS = (
     "rerank_per_document", "rerank_no_evidence_below", "rrf_k", "context_token_budget", "embedding_dimension",
     "part_retrieval", "part_rerank", "part_search_top", "part_rerank_top", "part_min_score", "part_quota",
     "multipart_doc_first", "multipart_doc_floor", "bridge_terms", "bridge_top", "neighbor_parents", "prefer_named_files",
+    "wording_expansion", "wording_search_top", "wording_top", "wording_rescore", "candidate_per_document",
+    "survey_route", "survey_pool", "survey_candidates_per_document", "survey_files", "survey_floor",
 )
 
 

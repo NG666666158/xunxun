@@ -156,10 +156,11 @@ class AgentNodes(DocumentNodes):
         if plan.intent == "find_file" and (len(scope) == 1 or self.file_search is None):
             # Asking within one file is always about its content.
             plan = plan.model_copy(update={"intent": "knowledge"})
-        profile = classify_question(question)
+        survey = bool(getattr(self.settings, "survey_route", False))
+        profile = classify_question(question, survey)
         if profile == "fact" and plan.rewritten_query != question:
             # "展开讲讲" is classified by what it expands into.
-            profile = classify_question(plan.rewritten_query)
+            profile = classify_question(plan.rewritten_query, survey)
         return {
             "question": question,
             "temporal": temporal,
@@ -540,15 +541,18 @@ class AgentNodes(DocumentNodes):
         seen: set[str] = set()
         used_tokens = 0
         # Fact lookups get the top passages only; explanations and comparisons get more.
-        budget = min(self.settings.context_token_budget, profile_for(state.get("answer_profile")).context_budget)
+        profile = profile_for(state.get("answer_profile"))
+        budget = min(self.settings.context_token_budget, profile.context_budget)
 
         for child in children:
             parent_id = str(child.get("parent_id", ""))
-            if parent_id in seen:
+            # Without parents, each passage is its own evidence block.
+            key = parent_id if profile.parent_context else str(child.get("id") or parent_id)
+            if key in seen:
                 continue
-            seen.add(parent_id)
+            seen.add(key)
             parent = None
-            if self.parent_store and parent_id:
+            if self.parent_store and parent_id and profile.parent_context:
                 try:
                     parent = self.parent_store.get(parent_id)
                 except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -763,7 +767,8 @@ class AgentNodes(DocumentNodes):
                 message = gaps.refusal()
                 return {"answer": message, "evidence": evidence, "citations": [], "rejection_notes": [message],
                         "grounded": False, "refused": True, "unanswered_refusal": True}
-        if getattr(settings, "conflict_finder", False) and state.get("intent") != "summarize_file":
+        # Not for a survey answer: its files give different figures for different programmes on purpose.
+        if getattr(settings, "conflict_finder", False) and state.get("intent") != "summarize_file" and profile.name != "survey":
             # The answer's value for the question's fact against a different value another passage
             # about the same subject gives ("10.48‰" / "5.48‰"): found by the code, not the model.
             blocks = self._evidence_blocks(state)

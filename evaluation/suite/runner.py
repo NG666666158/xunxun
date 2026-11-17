@@ -563,13 +563,14 @@ def run(name: str, run_name: str = "base", workers: int = 3, offline: bool = Fal
     with path.open("a", encoding="utf-8", newline="\n") as handle, ThreadPoolExecutor(max(1, workers)) as pool:
         def work(q):
             try:
-                query, profile, plan = ds.query(q), classify_question(ds.query(q)), None
+                survey = bool(getattr(config, "survey_route", False))
+                query, profile, plan = ds.query(q), classify_question(ds.query(q), survey), None
                 if nodes is not None:
                     plan = plan_query(nodes, query)
                     if plan["route"] == "planner":
                         query = plan["query"] or query
                         if profile == "fact" and query != q["query"]:
-                            profile = classify_question(query)
+                            profile = classify_question(query, survey)
                 row = run_question(ds, q, retriever, builder, embeddings, reranker, query, profile)
                 row["route"] = plan or {"route": route_only(q["query"])}
             except Exception as exc:  # left out; a rerun fills it in
