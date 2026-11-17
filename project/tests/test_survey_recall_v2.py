@@ -105,7 +105,8 @@ class Embeddings:
 def test_the_retriever_goes_files_first_only_when_switched_on():
     question = "一般的创新项目申报能给多少补贴？"
     settings = Settings(wording_expansion=False, survey_file_first=True, survey_files=3, survey_file_candidates=6,
-                        survey_passages_per_file=2)
+                        survey_passages_per_file=2, survey_question_files=0, survey_excerpt_scoring=False,
+                        survey_answering_files=False, survey_excerpts=False)
     store, reranker = FilesStore(), FilesReranker()
     kept = HybridRetriever(store, Embeddings(), reranker, settings).retrieve(question, **retrieval_limits("survey"))
     assert [h.doc_id for h in kept][:2] == ["guide_a", "guide_b"] and kept[0].id == "2"
@@ -116,7 +117,7 @@ def test_the_retriever_goes_files_first_only_when_switched_on():
     assert trace["route"] == "files" and trace["topics"] == ["创新"]
     # Off: the round-one survey path (one pool for the whole question).
     store = FilesStore()
-    HybridRetriever(store, Embeddings(), FilesReranker(), Settings(wording_expansion=False)).retrieve(
+    HybridRetriever(store, Embeddings(), FilesReranker(), Settings(wording_expansion=False, survey_file_first=False)).retrieve(
         question, **retrieval_limits("survey"))
     assert store.searches[0][0] == question and multipart.last_trace().survey.get("route") is None
 
@@ -174,10 +175,12 @@ def test_no_answering_sentence_no_excerpt():
 
 def test_the_retriever_cuts_survey_passages_only_with_the_switch():
     question = "一般的创新项目申报能给多少补贴？"
-    on = Settings(wording_expansion=False, survey_file_first=True, survey_excerpts=True, survey_files=3)
+    on = Settings(wording_expansion=False, survey_file_first=True, survey_excerpts=True, survey_files=3,
+                  survey_excerpt_scoring=False, survey_question_files=0)
     kept = HybridRetriever(FilesStore(), Embeddings(), FilesReranker(), on).retrieve(question, **retrieval_limits("survey"))
     assert kept[0].text == "四、支持强度 单个项目资助资金不超过6万元"  # a heading and its text on one line
-    off = Settings(wording_expansion=False, survey_file_first=True, survey_files=3)
+    off = Settings(wording_expansion=False, survey_file_first=True, survey_excerpts=False, survey_files=3,
+                   survey_excerpt_scoring=False, survey_question_files=0)
     assert HybridRetriever(FilesStore(), Embeddings(), FilesReranker(), off).retrieve(
         question, **retrieval_limits("survey"))[0].text == POOL[1].text
 
@@ -239,7 +242,7 @@ def test_a_second_survey_search_uses_the_question_as_asked():
     nodes.retrieve(dict(state, answer_profile="fact"))
     assert recorder.queries == ["一般的创新项目申报能给多少补贴？", "创新项目补贴金额"]
     off = Recorder()
-    AgentNodes(llm=None, retriever=off, settings=Settings()).retrieve(state)
+    AgentNodes(llm=None, retriever=off, settings=Settings(survey_keep_route=False)).retrieve(state)
     assert off.queries == ["创新项目补贴金额"]
 
 
@@ -292,7 +295,7 @@ def test_the_fact_check_keeps_the_confirmed_lines_of_a_survey_answer():
     state = {"answer": answer, "question": "一般能给多少补贴？", "answer_profile": "survey", "context_docs": docs}
     on = Checker(llm=None, retriever=None, settings=Settings(survey_answer_repair=True)).fact_check(state)
     assert on["grounded"] is True and "青屿" not in on["answer"] and on["check_mode"].endswith("dropped:1")
-    off = Checker(llm=None, retriever=None, settings=Settings()).fact_check(state)
+    off = Checker(llm=None, retriever=None, settings=Settings(survey_answer_repair=False)).fact_check(state)
     assert off["grounded"] is False and "answer" not in off
     fact = Checker(llm=None, retriever=None, settings=Settings(survey_answer_repair=True)).fact_check(
         dict(state, answer_profile="fact"))

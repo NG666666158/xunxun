@@ -1,0 +1,192 @@
+{
+  "name": "final",
+  "after": {
+    "median_s": 1.57,
+    "max_s": 6.17,
+    "rerank_requests": 3.0,
+    "scored_mean": 311.3,
+    "rerank_tokens_mean": 52176
+  },
+  "questions": 12,
+  "before": {
+    "median_s": 1.25,
+    "max_s": 2.65,
+    "rerank_requests": 1.7,
+    "scored_mean": 135.7,
+    "rerank_tokens_mean": 39614
+  },
+  "rows": {
+    "before": [
+      {
+        "id": "S01",
+        "seconds": 2.654,
+        "requests": 2,
+        "scored": 180,
+        "tokens": 51879
+      },
+      {
+        "id": "S04",
+        "seconds": 1.151,
+        "requests": 2,
+        "scored": 160,
+        "tokens": 43587
+      },
+      {
+        "id": "S07",
+        "seconds": 0.949,
+        "requests": 1,
+        "scored": 60,
+        "tokens": 15966
+      },
+      {
+        "id": "S10",
+        "seconds": 1.566,
+        "requests": 2,
+        "scored": 180,
+        "tokens": 49847
+      },
+      {
+        "id": "S13",
+        "seconds": 1.271,
+        "requests": 2,
+        "scored": 180,
+        "tokens": 52560
+      },
+      {
+        "id": "S16",
+        "seconds": 1.238,
+        "requests": 1,
+        "scored": 60,
+        "tokens": 24387
+      },
+      {
+        "id": "S19",
+        "seconds": 1.863,
+        "requests": 2,
+        "scored": 180,
+        "tokens": 51854
+      },
+      {
+        "id": "S22",
+        "seconds": 0.954,
+        "requests": 1,
+        "scored": 60,
+        "tokens": 16704
+      },
+      {
+        "id": "H01",
+        "seconds": 0.819,
+        "requests": 1,
+        "scored": 60,
+        "tokens": 12962
+      },
+      {
+        "id": "H05",
+        "seconds": 1.196,
+        "requests": 2,
+        "scored": 172,
+        "tokens": 49310
+      },
+      {
+        "id": "H09",
+        "seconds": 1.318,
+        "requests": 2,
+        "scored": 156,
+        "tokens": 47411
+      },
+      {
+        "id": "H13",
+        "seconds": 1.688,
+        "requests": 2,
+        "scored": 180,
+        "tokens": 58901
+      }
+    ],
+    "after": [
+      {
+        "id": "S01",
+        "seconds": 1.62,
+        "requests": 3,
+        "scored": 330,
+        "tokens": 52393
+      },
+      {
+        "id": "S04",
+        "seconds": 1.407,
+        "requests": 3,
+        "scored": 339,
+        "tokens": 47524
+      },
+      {
+        "id": "S07",
+        "seconds": 1.398,
+        "requests": 2,
+        "scored": 210,
+        "tokens": 32265
+      },
+      {
+        "id": "S10",
+        "seconds": 1.866,
+        "requests": 4,
+        "scored": 404,
+        "tokens": 67765
+      },
+      {
+        "id": "S13",
+        "seconds": 1.54,
+        "requests": 3,
+        "scored": 315,
+        "tokens": 47562
+      },
+      {
+        "id": "S16",
+        "seconds": 1.34,
+        "requests": 3,
+        "scored": 240,
+        "tokens": 64888
+      },
+      {
+        "id": "S19",
+        "seconds": 1.92,
+        "requests": 4,
+        "scored": 448,
+        "tokens": 65572
+      },
+      {
+        "id": "S22",
+        "seconds": 6.17,
+        "requests": 3,
+        "scored": 291,
+        "tokens": 58198
+      },
+      {
+        "id": "H01",
+        "seconds": 1.512,
+        "requests": 2,
+        "scored": 226,
+        "tokens": 34358
+      },
+      {
+        "id": "H05",
+        "seconds": 1.542,
+        "requests": 3,
+        "scored": 324,
+        "tokens": 48380
+      },
+      {
+        "id": "H09",
+        "seconds": 1.705,
+        "requests": 3,
+        "scored": 324,
+        "tokens": 48126
+      },
+      {
+        "id": "H13",
+        "seconds": 1.6,
+        "requests": 3,
+        "scored": 285,
+        "tokens": 59079
+      }
+    ]
+  }
+}

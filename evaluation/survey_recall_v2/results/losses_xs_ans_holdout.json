@@ -1,0 +1,60 @@
+{
+  "name": "xs_ans",
+  "questions_set": "holdout",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5,
+    "survey_answering_files": true
+  },
+  "questions": 16,
+  "gold_files": 56,
+  "steps": {
+    "search": 1,
+    "cut": 5,
+    "file_passage": 3,
+    "refused": 0,
+    "floor": 3,
+    "shape": 0,
+    "passage": 2,
+    "files": 2,
+    "kept": 40
+  },
+  "by_kind": {
+    "fund": {
+      "search": 0,
+      "cut": 2,
+      "file_passage": 0,
+      "refused": 0,
+      "floor": 2,
+      "shape": 0,
+      "passage": 0,
+      "files": 0,
+      "kept": 9
+    },
+    "time": {
+      "search": 1,
+      "cut": 2,
+      "file_passage": 1,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 0,
+      "files": 1,
+      "kept": 20
+    },
+    "who": {
+      "search": 0,
+      "cut": 1,
+      "file_passage": 2,
+      "refused": 0,
+      "floor": 1,
+      "shape": 0,
+      "passage": 2,
+      "files": 1,
+      "kept": 11
+    }
+  },
+  "three_or_more": 7,
+  "all_kept": 5
+}

@@ -1,0 +1,55 @@
+{
+  "name": "main",
+  "questions_set": "holdout",
+  "overrides": {},
+  "questions": 16,
+  "gold_files": 56,
+  "steps": {
+    "search": 5,
+    "cut": 12,
+    "file_passage": 5,
+    "refused": 0,
+    "floor": 9,
+    "shape": 0,
+    "passage": 2,
+    "files": 3,
+    "kept": 20
+  },
+  "by_kind": {
+    "fund": {
+      "search": 1,
+      "cut": 3,
+      "file_passage": 0,
+      "refused": 0,
+      "floor": 2,
+      "shape": 0,
+      "passage": 0,
+      "files": 1,
+      "kept": 6
+    },
+    "time": {
+      "search": 4,
+      "cut": 8,
+      "file_passage": 3,
+      "refused": 0,
+      "floor": 2,
+      "shape": 0,
+      "passage": 0,
+      "files": 0,
+      "kept": 8
+    },
+    "who": {
+      "search": 0,
+      "cut": 1,
+      "file_passage": 2,
+      "refused": 0,
+      "floor": 5,
+      "shape": 0,
+      "passage": 2,
+      "files": 2,
+      "kept": 6
+    }
+  },
+  "three_or_more": 0,
+  "all_kept": 0
+}

@@ -28,8 +28,9 @@ RETRIEVAL = [
 ANSWERS = [
     ("main (round one's defaults)", "main"),
     ("1 + 3: survey_file_first, survey_keep_route", "files_keep"),
-    ("candidate without survey_excerpts", "final_noexcerpt"),
-    ("candidate: 1 + 2d + 3 + survey_excerpts", "final"),
+    ("1 + 2d + 3, without survey_excerpts", "final_noexcerpt"),
+    ("1 + 2d + 3 + survey_excerpts, without survey_answer_repair", "norepair"),
+    ("1 + 2d + 3 + survey_excerpts + survey_answer_repair", "final"),
 ]
 
 
@@ -85,16 +86,37 @@ def answers() -> None:
                 continue
             v, g = s["survey"], s.get("fact_guard") or {}
             guard = f"{g['amounts_right']} / {g['amounts']}" if g else "-"
-            unused = s.get("kept_unused", "-")
+            unused = kept_unused(name) if not suffix else "-"
             print(f"| {label} | {title} | {v['refused']} / {v['questions']} | {v['files_cited']} / {v['gold_files']} | "
                   f"{v['three_or_more_files']} / {v['questions']} | {v['amounts_right']} / {v['amounts']} | {unused} | {guard} | "
-                  f"{v['seconds_median']} / {g.get('seconds_median', '-')} |")
+                  f"{round(v['seconds_median'], 1)} / {g.get('seconds_median', '-')} |")
+
+
+def kept_unused(name: str) -> str:
+    """Gold files retrieval kept that the answer did not cite (losses.py --answers)."""
+    s = load(f"losses_{name}")
+    if not s or "rows" not in s:
+        return "-"
+    kept = [g for row in s["rows"] for g in row["gold"] if g["step"] == "kept"]
+    if not any("use" in g for g in kept):
+        return "-"
+    return f"{sum(1 for g in kept if g.get('use') == 'unused')} / {len(kept)}"
+
+
+def negative_answers() -> None:
+    print("| Configuration | Questions | Refused | Answered with citations |")
+    print("|---|---:|---:|---:|")
+    for label, name in ANSWERS:
+        s = load(f"answers_{name}_negative")
+        if s is not None:
+            v = s["negative"]
+            print(f"| {label} | {v['questions']} | {v['refused']} | {v['answered_with_citations']} |")
 
 
 if __name__ == "__main__":
     for title, table in (("main: the questions that keep fewer than three gold files", shortfall),
                          ("Where gold files are lost (retrieval)", losses), ("Questions about programmes the library lacks", negatives),
-                         ("Answers on Qwen3-8B", answers)):
+                         ("Answers on Qwen3-8B", answers), ("Answers to questions about programmes the library lacks", negative_answers)):
         print(f"\n### {title}\n")
         table()
     for path in sorted(RESULTS.glob("latency_*.json")):

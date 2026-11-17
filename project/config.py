@@ -254,10 +254,10 @@ class Settings(BaseSettings):
     #   survey_topic_floor: no evidence. Otherwise the files reaching survey_file_floor and
     #   survey_topic_relative x the best (rule-stating types first, at most survey_files) keep
     #   their best answer-shaped passage. Replaces the survey_pool path above.
-    survey_file_first: bool = False
+    survey_file_first: bool = True
     survey_file_candidates: int = 16
-    survey_question_files: int = 0
-    survey_passages_per_file: int = 3
+    survey_question_files: int = 8
+    survey_passages_per_file: int = 5
     survey_topic_floor: float = 0.05
     survey_file_floor: float = 0.01
     survey_topic_relative: float = 0.05
@@ -269,19 +269,19 @@ class Settings(BaseSettings):
     #   survey_answering_files: files with such a sentence come before files without (an e-mail
     #   or slides about the topic that state no amount); survey_about_asked: a file is about the
     #   topic also by its score against the whole question.
-    survey_excerpts: bool = False
-    survey_excerpt_scoring: bool = False
-    survey_answering_files: bool = False
+    survey_excerpts: bool = True
+    survey_excerpt_scoring: bool = True
+    survey_answering_files: bool = True
     survey_about_asked: bool = False
     # * survey_keep_route: a survey answer is not sent back to a search rewrite because its first
     #   passage scores below relevance_threshold (the route has its own no-evidence check), and a
     #   second attempt searches the question as asked (a rewrite loses "一般" / "各…").
-    survey_keep_route: bool = False
+    survey_keep_route: bool = True
     # * survey_answer_repair: in a survey answer (one cited line per file) a citation of a mistyped
     #   file name cites the evidence file it is closest to, and the lines the fact check cannot
     #   confirm are dropped while confirmed ones remain (rag_agent/survey_answer.py), instead of
     #   the whole answer failing.
-    survey_answer_repair: bool = False
+    survey_answer_repair: bool = True
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2

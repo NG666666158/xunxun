@@ -1,0 +1,41 @@
+{
+  "name": "final_noexcerpt",
+  "questions_set": "tuning",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5,
+    "survey_answering_files": true,
+    "survey_question_files": 8,
+    "survey_keep_route": true,
+    "survey_excerpts": false,
+    "survey_answer_repair": true
+  },
+  "survey": {
+    "questions": 22,
+    "refused": 0,
+    "gold_files": 80,
+    "files_cited": 67,
+    "files_cited_per_question": 3.05,
+    "three_or_more_files": 15,
+    "amounts": 137,
+    "amounts_right": 122,
+    "passage_files": 7.7,
+    "context_chars": 4840,
+    "seconds_median": 21.85
+  },
+  "survey_fund": {
+    "questions": 13,
+    "refused": 0,
+    "gold_files": 47,
+    "files_cited": 41,
+    "files_cited_per_question": 3.15,
+    "three_or_more_files": 10,
+    "amounts": 137,
+    "amounts_right": 122,
+    "passage_files": 7.5,
+    "context_chars": 4842,
+    "seconds_median": 23.1
+  },
+  "fact_guard": {}
+}

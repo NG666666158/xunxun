@@ -19,6 +19,10 @@ all / which" form (各…, 都…, 有哪些) that asks for an amount, a time or
 particular place, person, organisation, code or file. "面试题里有哪些关于 RLHF 的题目" (a list
 from one file), "纪念币有哪些" (a plain list) and "A 和 B 分别是多少" (two named things) are not
 survey questions.
+
+Round two (evaluation/survey_recall_v2/REPORT.md) chooses the files first: the question's topic
+alone (``survey_topics``) finds and judges the files, the question picks each file's passage
+(``select_by_files``), and the passages are read as their answering sentences (``excerpt``).
 """
 
 from __future__ import annotations

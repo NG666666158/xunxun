@@ -1,0 +1,35 @@
+{
+  "name": "files_xs_ans_q8_about",
+  "questions_set": "negative",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5,
+    "survey_answering_files": true,
+    "survey_question_files": 8,
+    "survey_about_asked": true
+  },
+  "questions": 8,
+  "kept_nothing": 7,
+  "kept_files": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0
+  ],
+  "top_scores": [
+    0.0042,
+    0.0461,
+    0.0055,
+    0.0111,
+    0.0022,
+    0.0027,
+    0.5537,
+    0.0119
+  ],
+  "survey_profile": 7
+}
