@@ -106,7 +106,8 @@ def test_the_retriever_goes_files_first_only_when_switched_on():
     question = "一般的创新项目申报能给多少补贴？"
     settings = Settings(wording_expansion=False, survey_file_first=True, survey_files=3, survey_file_candidates=6,
                         survey_passages_per_file=2, survey_question_files=0, survey_excerpt_scoring=False,
-                        survey_answering_files=False, survey_excerpts=False)
+                        survey_answering_files=False, survey_excerpts=False, survey_topic_related=False,
+                        survey_topic_passages=0)
     store, reranker = FilesStore(), FilesReranker()
     kept = HybridRetriever(store, Embeddings(), reranker, settings).retrieve(question, **retrieval_limits("survey"))
     assert [h.doc_id for h in kept][:2] == ["guide_a", "guide_b"] and kept[0].id == "2"

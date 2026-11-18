@@ -44,8 +44,10 @@ def test_a_place_of_the_library_makes_it_one_places_question():
     assert classify_question("专利补贴能拿多少？", True, False, places) != "survey"
 
 
-def test_the_switch_is_off_by_default():
-    assert Settings().survey_wide is False
+def test_round_three_is_on_by_default():
+    settings = Settings()
+    assert settings.survey_wide and settings.survey_topic_related and settings.survey_missing_files
+    assert (settings.survey_file_candidates, settings.survey_topic_passages) == (24, 2)
 
 
 # ---------------------------------------------------------------- files the answer left out (survey_missing_files)

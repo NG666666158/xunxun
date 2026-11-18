@@ -255,7 +255,7 @@ class Settings(BaseSettings):
     #   survey_topic_relative x the best (rule-stating types first, at most survey_files) keep
     #   their best answer-shaped passage. Replaces the survey_pool path above.
     survey_file_first: bool = True
-    survey_file_candidates: int = 16
+    survey_file_candidates: int = 24  # round three: 16 was crowded once related words share it
     survey_question_files: int = 8
     survey_passages_per_file: int = 5
     survey_topic_floor: float = 0.05
@@ -282,23 +282,23 @@ class Settings(BaseSettings):
     #   confirm are dropped while confirmed ones remain (rag_agent/survey_answer.py), instead of
     #   the whole answer failing.
     survey_answer_repair: bool = True
-    # ---- Round three (evaluation/survey_recall_v3/REPORT.md).
+    # ---- Round three (evaluation/survey_recall_v3/REPORT.md); all on, measured there.
     # * survey_wide: a survey question also without 一般 / 通常 / 各 / 分别 / 都: a programme word
     #   (补贴 / 资助 / 扶持 / 申报 …) with an ask (an amount, a time, who may apply, which
     #   programmes), not pointing at one place, person, title, code, file or record
     #   ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请").
-    survey_wide: bool = False
+    survey_wide: bool = True
     # * survey_missing_files: a kept guide whose name carries the question's topic word and whose
     #   excerpt answers it, but which the survey answer does not cite, gets one line copied from
     #   that excerpt with its citation (rag_agent/survey_answer.missing_lines), before the fact check.
-    survey_missing_files: bool = False
+    survey_missing_files: bool = True
     # * survey_topic_related: a survey topic also brings the programme words under it that do not
     #   use its word (survey.RELATED_TOPICS: 创新 -> 技术攻关, 技术改造 -> 绿色制造 …), each searched
     #   and scored as one more topic.
-    survey_topic_related: bool = False
+    survey_topic_related: bool = True
     # * survey_topic_passages: whether a file is about a topic is judged on its first this many
     #   passages (0: all survey_passages_per_file); fewer rerank tokens.
-    survey_topic_passages: int = 0
+    survey_topic_passages: int = 2
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
