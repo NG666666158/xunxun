@@ -44,7 +44,7 @@ RETRIEVAL_FIELDS = (
     "multipart_doc_first", "multipart_doc_floor", "bridge_terms", "bridge_top", "neighbor_parents", "prefer_named_files",
     "wording_expansion", "wording_search_top", "wording_top", "wording_rescore", "candidate_per_document",
     "survey_route", "survey_pool", "survey_candidates_per_document", "survey_files", "survey_floor",
-    "survey_file_first", "survey_excerpts", "survey_excerpt_scoring", "survey_answering_files", "survey_about_asked", "survey_keep_route", "survey_answer_repair", "survey_file_candidates", "survey_question_files", "survey_passages_per_file", "survey_topic_floor", "survey_file_floor", "survey_topic_relative",
+    "survey_file_first", "survey_excerpts", "survey_excerpt_scoring", "survey_answering_files", "survey_about_asked", "survey_keep_route", "survey_answer_repair", "survey_wide", "survey_file_candidates", "survey_question_files", "survey_passages_per_file", "survey_topic_floor", "survey_file_floor", "survey_topic_relative",
 )
 
 

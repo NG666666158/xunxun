@@ -23,6 +23,11 @@ survey questions.
 Round two (evaluation/survey_recall_v2/REPORT.md) chooses the files first: the question's topic
 alone (``survey_topics``) finds and judges the files, the question picks each file's passage
 (``select_by_files``), and the passages are read as their answering sentences (``excerpt``).
+
+Round three (evaluation/survey_recall_v3/REPORT.md): with ``wide`` a question needs no
+generality word when it asks about programmes (补贴 / 资助 / 扶持 … with an amount, time, who
+or which) and points at no one thing (``_wide_survey``; the library's own place names count,
+``place_names``).
 """
 
 from __future__ import annotations
@@ -69,26 +74,106 @@ def rule_name(name: str) -> bool:
     return bool(_RULE_NAME.search(stem.strip()))
 
 
+# ---- Round three (survey_wide): a survey question without a generality / "each" word
+# ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请"). It names a programme
+# word and asks for an amount, a time, who may apply or which programmes there are, and does
+# not point at one identified thing.
+# 申请 / 申报 alone is any request ("转岗申请免于审批"): it counts next to a programme or at the end.
+_PROGRAMME = re.compile(
+    r"补贴|补助|资助|扶持|奖励|奖补|津贴|政策|补(?=多少|几)|"
+    r"(?:申报|申请|申领)(?=.{0,4}?(?:项目|资金|补贴|资助|扶持|奖励|津贴)|[？?！!。]?$)"
+)
+_LIST_ASK = re.compile(
+    r"(?:什么|哪些|啥|哪几种|哪几类)(?:样的)?(?:补贴|补助|资助|扶持|奖励|奖补|津贴|政策|项目|优惠)|"
+    r"有(?:没有)?(?:补贴|补助|资助|扶持|奖励|奖补|津贴|优惠)(?:政策)?吗"
+)
+_WIDE_WHO = re.compile(r"什么(?:样的)?(?:人|单位|企业|主体|机构|条件)")
+# One identified thing: this / that file, an article, a meeting or contract, the user's own
+# record, a how-to, a definition, a status.
+_ONE_THING = re.compile(
+    r"这(?![类些])|那[个份笔条]|该|此|本(?:文件|办法|指南|通知|细则|方案|政策)|上述|上次|上面|(?:文件|指南|指引|办法|细则|方案|通知|规定|规程|须知|意见|措施)[里中]|文中|里的|里写|报告|合同|会议|"
+    r"第[一二三四五六七八九十百\d]+[条款章节项]|(?:拿|领|批|收|发|到)了|去年|批下来|到账|怎么办|怎么用|怎么使用|什么是|是什么意思|"
+    r"区别|对比|比较"
+)
+# Name tags that mean a place, person or organisation (jieba); "nz" also tags 申报 / 盖章.
+_ONE_NAME_TAGS = frozenset({"ns", "nr", "nt", "nrt", "nrfg"})
+_NOT_NAMES = frozenset({"博士后", "盖章", "人才", "高新"})
+_PLACE_TAGS = frozenset({"ns", "nt"})
+
+
+def _names_one(text: str, tags: frozenset[str] = _ONE_NAME_TAGS) -> bool:
+    from .embedded_store import _segmenter
+
+    _segmenter()
+    import jieba.posseg as posseg
+
+    return any(pair.flag in tags and len(pair.word) >= 2 and pair.word not in _NOT_NAMES for pair in posseg.cut(text))
+
+
+# A place a file of the library is named after ("青屿市…指南" -> 青屿, 青屿市): jieba does not
+# know every town, and a question naming one asks about that place's programme.
+_PLACE = re.compile(r"^(?:关于)?(?:\d{4}年度?)?(?:关于)?(?!关于)([一-鿿]{2,5}?)(自治区|新区|省|市|县|区|州|镇|乡)(?![场域级内外民政委属直])")
+# Kinds of zones and words that end in 市 / 区 without being a place ("高新区", "人才市场").
+_NOT_PLACES = frozenset("高新 开发 经济 自贸 示范 产业 工业 科技 人才 全 本 各 我 城 市 园区 景区 社区 校区 商业 保税 综合".split())
+
+
+def place_names(sources) -> frozenset[str]:
+    """The places the library's file names start with (``_PLACE``)."""
+    places: set[str] = set()
+    for source in sources:
+        stem = re.split(r"[\/]", str(source or ""))[-1].rsplit(".", 1)[0]
+        match = _PLACE.match(stem)
+        if match and match.group(1) not in _NOT_PLACES:
+            places.update({match.group(1), match.group(1) + match.group(2)})
+    return frozenset(places)
+
+
+def _wide_survey(text: str, places: frozenset[str] = frozenset()) -> "Survey | None":
+    programme = _PROGRAMME.search(text)
+    if not programme or _ONE_THING.search(text) or _CODE.search(text) or _names_one(text):
+        return None
+    if any(place in text for place in places):
+        return None
+    listed = _LIST_ASK.search(text)
+    ask = ("amount" if _AMOUNT_ASK.search(text) else "time" if _TIME_ASK.search(text)
+           else "who" if _WHO_ASK.search(text) or _WIDE_WHO.search(text) else "")
+    if not ask and not listed:
+        return None
+    if not ask and not ASK_ZH.search(text) and not listed:
+        return None
+    return Survey(ask, (listed or programme).group(0))
+
+
 @dataclass(frozen=True)
 class Survey:
     ask: str  # "amount" | "time" | "who" | "" (what the answer of each file looks like)
     cue: str  # the wording that made it a survey question
 
 
-def survey_question(question: str) -> Survey | None:
-    """The question asks for what several files say (see the module text), else None."""
+def survey_question(question: str, wide: bool = False, places: frozenset[str] = frozenset()) -> Survey | None:
+    """The question asks for what several files say (see the module text), else None.
+    ``wide`` (survey_wide): also without a generality / "each" word (``_wide_survey``), unless
+    it names one of ``places`` (``place_names`` of the library)."""
     text = (question or "").strip()
-    if not text or len(text) > MAX_CHARS or _TITLE.search(text) or not ASK_ZH.search(text):
+    if not text or len(text) > MAX_CHARS or _TITLE.search(text):
         return None
+    if not ASK_ZH.search(text):
+        return _wide_survey(text, places) if wide and _LIST_ASK.search(text) else None
     general = _GENERAL.search(text)
     each = None if general else _EACH.search(text)
     if not general and not each:
-        return None
+        return _wide_survey(text, places) if wide else None
     ask = "amount" if _AMOUNT_ASK.search(text) else "time" if _TIME_ASK.search(text) else "who" if _WHO_ASK.search(text) else ""
-    if each and (not ask or _CODE.search(text) or _has_name(text)):
+    # Wide, about a programme: only a place or an organisation (jieba, or a place of the library)
+    # names one thing; jieba also tags "马拉松赛" as a person and 申报 as another name.
+    if wide and _PROGRAMME.search(text):
+        named = _names_one(text, _PLACE_TAGS) or any(place in text for place in places)
+    else:
+        named = _has_name(text)
+    if each and (not ask or _CODE.search(text) or named):
         # A plain list ("纪念币有哪些"), one identified thing, or named things ("广东省和河南省…"):
-        # the usual, multi-part and comparison paths.
-        return None
+        # the usual, multi-part and comparison paths. Wide: "外贸企业有哪些补贴" lists programmes.
+        return _wide_survey(text, places) if wide and not ask else None
     return Survey(ask, (general or each).group(0))
 
 

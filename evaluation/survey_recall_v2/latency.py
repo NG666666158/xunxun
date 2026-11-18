@@ -34,9 +34,13 @@ def main() -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--set", action="append", default=[], dest="overrides")
     parser.add_argument("--pause", type=float, default=4.0)
+    parser.add_argument("--into", default="", help="another round's folder for results/ (survey_recall_v3)")
+    parser.add_argument("--extra", default="", help="a .jsonl of more questions: every third, at most four, join the sample")
     args = parser.parse_args()
     after = harness.parse_overrides(args.overrides)
     sample = shared.surveys()[::3][:8] + shared.read_rows(shared.HERE / "holdout.jsonl")[::4][:4]
+    if args.extra:
+        sample += shared.read_rows(Path(args.extra))[::3][:4]
     temp = Path(tempfile.mkdtemp(prefix="sv2-latency-"))
     opened = {}
     for name, overrides in (("before", {}), ("after", after)):
@@ -46,7 +50,8 @@ def main() -> None:
     for number, question in enumerate(sample):
         for name in (("before", "after") if number % 2 == 0 else ("after", "before")):
             retriever, recorder, counter, store, cache = opened[name]
-            profile = classify_question(question["question"], True)
+            wide = bool(getattr(retriever.settings, "survey_wide", False))
+            profile = classify_question(question["question"], True, wide, retriever.survey_places() if wide else frozenset())
             started = time.perf_counter()
             retriever.retrieve(question["question"], mode="hybrid_rerank", **retrieval_limits(profile))
             seconds = time.perf_counter() - started
@@ -62,7 +67,7 @@ def main() -> None:
                      "scored_mean": round(statistics.fmean(r["scored"] for r in items), 1),
                      "rerank_tokens_mean": round(statistics.fmean(r["tokens"] for r in items))}
     out["rows"] = rows
-    shared.write_json(shared.RESULTS / f"latency_{args.name}.json", out)
+    shared.write_json((Path(args.into) / "results" if args.into else shared.RESULTS) / f"latency_{args.name}.json", out)
     print(json.dumps({k: v for k, v in out.items() if k != "rows"}, ensure_ascii=False, indent=1))
 
 

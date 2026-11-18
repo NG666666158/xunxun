@@ -58,7 +58,7 @@ def stated(amount: str, answer: str) -> bool:
 def retrieval_step(question: dict, retriever, recorder, counter, chunks, by_text) -> dict:
     text = question["question"]
     recorder.reset()
-    profile = classify_question(text, bool(getattr(retriever.settings, "survey_route", False)))
+    profile = classify_question(text, bool(getattr(retriever.settings, "survey_route", False)), bool(getattr(retriever.settings, "survey_wide", False)))
     hits = retriever.retrieve(text, mode="hybrid_rerank", **retrieval_limits(profile))
     scores: dict[str, float] = {}
     for call in recorder.calls:
@@ -70,7 +70,7 @@ def retrieval_step(question: dict, retriever, recorder, counter, chunks, by_text
     by_id = {c["id"]: c for c in chunks}
     final = {hit.id for hit in hits}
     final_sources = {hit.source for hit in hits}
-    survey = survey_question(text)
+    survey = survey_question(text, bool(getattr(retriever.settings, "survey_wide", False)))
     settings = retriever.settings
     limit = max(retriever.candidate_pool(), int(getattr(settings, "survey_pool", 60))) * DEPTH
     queries = [text]
@@ -201,6 +201,8 @@ def main() -> None:
     parser.add_argument("--set", action="append", default=[], dest="overrides")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--questions", default="tuning", choices=("tuning", "holdout", "negative"))
+    parser.add_argument("--into", default="", help="another round's folder for work/ and results/ (survey_recall_v3)")
+    parser.add_argument("--question-file", default="", help="a .jsonl of questions instead of --questions")
     args = parser.parse_args()
     overrides = harness.parse_overrides(args.overrides)
     retriever, recorder, counter, store, cache = harness.open_retriever(args.index, offline=args.offline, **overrides)
@@ -213,13 +215,15 @@ def main() -> None:
     by_text = {c["text"]: c["id"] for c in chunks}
     answers = {row["id"]: row for row in common.read_rows(Path(args.answers))} if args.answers else {}
     rows = []
-    questions = common.surveys() if args.questions == "tuning" else common.read_rows(common.HERE / f"{args.questions}.jsonl")
+    questions = (common.read_rows(Path(args.question_file)) if args.question_file
+                 else common.surveys() if args.questions == "tuning" else common.read_rows(common.HERE / f"{args.questions}.jsonl"))
     for question in questions:
         row = retrieval_step(question, retriever, recorder, counter, chunks, by_text)
         answer_step(row, answers.get(question["id"]))
         rows.append(row)
-    suffix = "" if args.questions == "tuning" else f"_{args.questions}"
-    common.write_rows(common.WORK / "losses" / f"{args.name}{suffix}.jsonl", rows)
+    suffix = "" if args.questions == "tuning" or args.question_file else f"_{args.questions}"
+    work, results = (Path(args.into) / "work", Path(args.into) / "results") if args.into else (common.WORK, common.RESULTS)
+    common.write_rows(work / "losses" / f"{args.name}{suffix}.jsonl", rows)
     summary = {"name": args.name, "questions_set": args.questions, "overrides": overrides,
                **(negatives(rows) if args.questions == "negative" else summarize(rows))}
     # Per question, each gold file's step (synthetic names only: this goes into results/).
@@ -227,7 +231,7 @@ def main() -> None:
                         "gold": [{"file": g["file"], "step": g["step"], "use": g.get("use"), "score": g["score"],
                                   "amounts": len(g["amounts"]), "amounts_right": g.get("amounts_right")} for g in row["gold"]]}
                        for row in rows]
-    common.write_json(common.RESULTS / f"losses_{args.name}{suffix}.json", summary)
+    common.write_json(results / f"losses_{args.name}{suffix}.json", summary)
     sys.stdout.reconfigure(encoding="utf-8")
     print(table(rows))
     import json

@@ -47,6 +47,8 @@ def main() -> None:
     parser.add_argument("--pause", type=float, default=30.0)
     parser.add_argument("--set", action="append", default=[], dest="overrides")
     parser.add_argument("--survey-only", action="store_true", help="tuning set without the fact guard")
+    parser.add_argument("--question-file", default="", help="a .jsonl of questions instead of --questions")
+    parser.add_argument("--into", default="", help="another round's folder for work/ and results/ (survey_recall_v3)")
     args = parser.parse_args()
     overrides = harness.parse_overrides(args.overrides)
     retriever, recorder, counter, store, cache = harness.open_retriever("base", **overrides)
@@ -58,12 +60,15 @@ def main() -> None:
     from services.model_clients import build_chat_model
 
     graph = create_agent_graph(build_chat_model(config), retriever, config, parent_store=ParentStoreManager(config))
-    if args.questions == "tuning":
+    if args.question_file:
+        questions = shared.read_rows(Path(args.question_file))
+    elif args.questions == "tuning":
         questions = [q for q in harness.load_questions() if q["type"] == "survey" or (q["id"] in v1.GUARD and not args.survey_only)]
     else:
         questions = shared.read_rows(shared.HERE / f"{args.questions}.jsonl")
-    suffix = "" if args.questions == "tuning" else f"_{args.questions}"
-    path = shared.WORK / "answers" / f"{args.name}{suffix}.jsonl"
+    suffix = "" if args.questions == "tuning" or args.question_file else f"_{args.questions}"
+    work, results = (Path(args.into) / "work", Path(args.into) / "results") if args.into else (shared.WORK, shared.RESULTS)
+    path = work / "answers" / f"{args.name}{suffix}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     done = {row["id"]: row for row in shared.read_rows(path)}
     rows = []
@@ -86,7 +91,8 @@ def main() -> None:
                    "passages": len(docs), "passage_files": len({d.get("doc_id") for d in docs}),
                    "passage_sources": sorted({str(d.get("source")) for d in docs}),
                    "context_chars": sum(len(str(d.get("text", ""))) for d in docs),
-                   "seconds": round(time.perf_counter() - started, 1), **v1.score(question, answer, state.get("refused"))}
+                   "seconds": round(time.perf_counter() - started, 1),
+                   "steps": state.get("answer_steps") or {}, "check_mode": state.get("check_mode"), **v1.score(question, answer, state.get("refused"))}
             if question["type"] == "negative":
                 row["cites"] = len(CITATION.findall(answer))
             rows.append(row)
@@ -103,7 +109,7 @@ def main() -> None:
     if negative:
         summary["negative"] = {"questions": len(negative), "refused": sum(r["refused"] for r in negative),
                                "answered_with_citations": sum(bool(r.get("cites")) and not r["refused"] for r in negative)}
-    shared.write_json(shared.RESULTS / f"answers_{args.name}{suffix}.json", summary)
+    shared.write_json(results / f"answers_{args.name}{suffix}.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=1))
     store.close()
     cache.close()

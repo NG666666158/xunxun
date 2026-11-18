@@ -158,10 +158,17 @@ class AgentNodes(DocumentNodes):
             # Asking within one file is always about its content.
             plan = plan.model_copy(update={"intent": "knowledge"})
         survey = bool(getattr(self.settings, "survey_route", False))
-        profile = classify_question(question, survey)
+        wide = bool(getattr(self.settings, "survey_wide", False))
+        places = frozenset()
+        if survey and wide and hasattr(self.retriever, "survey_places"):
+            try:
+                places = self.retriever.survey_places()
+            except Exception as exc:  # the library list is a hint; the question is answered anyway
+                logger.warning("Library places unavailable: %s", exc)
+        profile = classify_question(question, survey, wide, places)
         if profile == "fact" and plan.rewritten_query != question:
             # "展开讲讲" is classified by what it expands into.
-            profile = classify_question(plan.rewritten_query, survey)
+            profile = classify_question(plan.rewritten_query, survey, wide, places)
         return {
             "question": question,
             "temporal": temporal,

@@ -15,7 +15,7 @@ from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
 from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
-from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, topic_files, excerpt, answers_in
+from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, place_names, topic_files, excerpt, answers_in
 from .selection import (
     PartsPolicy,
     SelectionPolicy,
@@ -440,10 +440,8 @@ class HybridRetriever:
     # The library's (doc id, file name) list is re-read at most this often.
     names_ttl_seconds = 60.0
 
-    def _named_documents(self, query: str) -> list[str]:
-        """Doc ids of the files the question names (prefer_named_files; naming.named_documents)."""
-        if not getattr(self.settings, "prefer_named_files", False):
-            return []
+    def _documents(self) -> list[tuple[str, str]]:
+        """The library's (doc id, file name) list, re-read at most every names_ttl_seconds."""
         listing = getattr(self.store, "list_documents", None)
         if listing is None:
             return []
@@ -456,7 +454,16 @@ class HybridRetriever:
                 logger.warning("Document list unavailable: %s", exc)
                 return []
             self._names = cached = (now, documents)
-        named = named_documents(query, cached[1])
+        return cached[1]
+
+    def _named_documents(self, query: str) -> list[str]:
+        """Doc ids of the files the question names (prefer_named_files; naming.named_documents)."""
+        if not getattr(self.settings, "prefer_named_files", False):
+            return []
+        documents = self._documents()
+        if not documents:
+            return []
+        named = named_documents(query, documents)
         # A name shared by many files ("报告") says little about which one is meant.
         return named if len(named) <= 6 else []
 
@@ -464,7 +471,17 @@ class HybridRetriever:
         """What kind of survey question this is (survey_route), or None."""
         if mode != "hybrid_rerank" or top_k or not getattr(self.settings, "survey_route", False):
             return None
-        return survey_question(query)
+        wide = bool(getattr(self.settings, "survey_wide", False))
+        return survey_question(query, wide, self.survey_places() if wide else frozenset())
+
+    def survey_places(self) -> frozenset[str]:
+        """The places the library's file names start with (survey.place_names), for survey_wide."""
+        documents = self._documents()
+        key = tuple(source for _, source in documents)
+        cached = getattr(self, "_places", None)
+        if cached is None or cached[0] != key:
+            self._places = cached = (key, place_names(key))
+        return cached[1]
 
     def _survey_by_files(
         self, query: str, survey: Survey, scope: set[str] | None, max_keep: int | None, per_document: int | None,

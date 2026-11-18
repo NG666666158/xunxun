@@ -282,6 +282,12 @@ class Settings(BaseSettings):
     #   confirm are dropped while confirmed ones remain (rag_agent/survey_answer.py), instead of
     #   the whole answer failing.
     survey_answer_repair: bool = True
+    # ---- Round three (evaluation/survey_recall_v3/REPORT.md).
+    # * survey_wide: a survey question also without 一般 / 通常 / 各 / 分别 / 都: a programme word
+    #   (补贴 / 资助 / 扶持 / 申报 …) with an ask (an amount, a time, who may apply, which
+    #   programmes), not pointing at one place, person, title, code, file or record
+    #   ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请").
+    survey_wide: bool = False
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
