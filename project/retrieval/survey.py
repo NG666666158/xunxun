@@ -27,7 +27,8 @@ alone (``survey_topics``) finds and judges the files, the question picks each fi
 Round three (evaluation/survey_recall_v3/REPORT.md): with ``wide`` a question needs no
 generality word when it asks about programmes (补贴 / 资助 / 扶持 … with an amount, time, who
 or which) and points at no one thing (``_wide_survey``; the library's own place names count,
-``place_names``).
+``place_names``); a topic also searches the programmes under it (``RELATED_TOPICS``), whose
+files must be named like papers that state rules and never decide "no evidence".
 """
 
 from __future__ import annotations
@@ -301,6 +302,7 @@ def select_by_files(
     types: Mapping[str, str] | None = None,
     answers: Callable[[str, str], bool] | None = None,
     about_asked: bool = False,
+    own_topic: Mapping[str, float] | None = None,
 ) -> list[SearchHit]:
     """The files about the topic first, then each file's passage that answers the question.
 
@@ -314,7 +316,9 @@ def select_by_files(
     answering passage come before those without. The first ``files`` are kept. Of each, the
     answer-shaped passage that scores best against the question, then the next ones while
     there is room (``policy.max_keep``, ``policy.per_document``). A kept passage's score is the
-    better of its two.
+    better of its two. ``own_topic``: the scores against the question's own topics when
+    ``topic`` also holds related programme words (survey_topic_related); the no-evidence
+    decision is theirs alone.
     """
     if not pool:
         return []
@@ -322,7 +326,9 @@ def select_by_files(
     for hit in pool:
         by_file.setdefault(hit.doc_id, []).append(hit)
     on_topic = {doc_id: max(topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
-    if max(on_topic.values()) < topic_floor:
+    own = on_topic if own_topic is None else {
+        doc_id: max(own_topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
+    if max(own.values()) < topic_floor:
         return []
     relevance = dict(on_topic)
     if about_asked:
@@ -447,3 +453,49 @@ def excerpt(text: str, ask: str, limit: int = EXCERPT_CHARS) -> str | None:
     if not picked:
         return None
     return "\n".join(([head] if head else []) + picked)
+
+
+# ---------------------------------------------------------------- related programme words (survey_topic_related)
+# Programmes that belong to a topic without using its word: a guide on 技术攻关 is an innovation
+# programme, a green-manufacturing plan a technical-upgrade one. Written from how policy papers
+# are named in general (not from the evaluation library's files); each entry is a topic word ->
+# the words of programmes under it. A related word is searched and scored as one more topic.
+RELATED_TOPICS: dict[str, tuple[str, ...]] = {
+    "创新": ("技术 攻关", "成果 转化", "研发"),
+    "科技": ("技术 攻关", "研发", "成果 转化"),
+    "技术改造": ("技改", "智能化 改造", "绿色 制造", "设备 更新"),
+    "技改": ("技术改造", "智能化 改造", "绿色 制造", "设备 更新"),
+    "设备": ("首台 套", "装备", "设备 更新"),
+    "人才": ("人才 引进", "博士后", "高层次 人才", "技能 人才"),
+    "培训": ("职业 技能", "学徒", "技能 提升"),
+    "技能": ("职业 技能", "学徒", "技能 提升"),
+    "知识产权": ("专利", "商标", "地理 标志"),
+    "专利": ("知识产权",),
+    "商标": ("知识产权", "品牌"),
+    "创业": ("初创", "孵化", "创业 担保 贷款"),
+    "外贸": ("参展", "会展", "跨境 电商", "出口"),
+    "市场": ("参展", "会展", "跨境 电商", "出口"),
+    "会展": ("展会", "参展"),
+    "展会": ("会展", "参展"),
+    "研发": ("研究 开发", "高新 技术 企业", "科技型 中小企业"),
+    "高新": ("高新 技术 企业", "研发"),
+    "实验室": ("工程 技术 研究 中心", "研发 平台", "产学研"),
+    "平台": ("实验室", "众创 空间", "孵化器", "产学研"),
+    "众创": ("孵化器", "众创 空间"),
+}
+MAX_RELATED = 3
+
+
+def related_topics(topics: list[str]) -> list[str]:
+    """Programme words related to the question's topics (``RELATED_TOPICS``) that the question
+    does not already say, at most MAX_RELATED, in the table's order."""
+    said = "".join(topics).replace(" ", "")
+    out: list[str] = []
+    for topic in topics:
+        for word in topic.split():
+            # A table word inside the topic word counts too ("开拓市场" -> 市场).
+            keys = [word] if word in RELATED_TOPICS else [key for key in RELATED_TOPICS if len(key) >= 2 and key in word]
+            for related in (r for key in keys for r in RELATED_TOPICS[key]):
+                if related.replace(" ", "") not in said and related not in out:
+                    out.append(related)
+    return out[:MAX_RELATED]

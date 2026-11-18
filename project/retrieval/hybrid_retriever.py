@@ -15,7 +15,7 @@ from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
 from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
-from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, place_names, topic_files, excerpt, answers_in
+from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, place_names, related_topics, topic_files, excerpt, answers_in
 from .selection import (
     PartsPolicy,
     SelectionPolicy,
@@ -498,6 +498,10 @@ class HybridRetriever:
         if scope is None and self._named_documents(query):
             return None
         topics = survey_topics(query) or [query]
+        own_count = len(topics)
+        if getattr(settings, "survey_topic_related", False):
+            # Programmes under the topic that do not use its word (survey.RELATED_TOPICS).
+            topics = topics + related_topics(topics)
         expansion = self._wording(query, "hybrid_rerank", None)
         asked_text = expansion.text if expansion is not None else query
         try:
@@ -506,8 +510,15 @@ class HybridRetriever:
             limit = max(self.candidate_pool(), int(getattr(settings, "survey_pool", 60))) * self.crowd_depth
             wanted = int(getattr(settings, "survey_file_candidates", 16))
             # Each listed topic ("参展", "办展", "跨境 电商") brings its own files, in turns.
-            lists = [topic_files(self._visible(self._search_hybrid(topic, vector, limit, scope)), wanted)
-                     for topic, vector in zip(topics, vectors)]
+            found_hits = [self._visible(self._search_hybrid(topic, vector, limit, scope)) for topic, vector in zip(topics, vectors)]
+            if len(topics) > own_count:
+                # A file found only through a related programme word must be named like a paper
+                # that states rules ("…实施方案", "…指导意见"): a business plan or a report that
+                # mentions 研发 is not an innovation programme.
+                own_files = {doc_id for hits in found_hits[:own_count] for doc_id in topic_files(hits, wanted)}
+                found_hits = found_hits[:own_count] + [
+                    [hit for hit in hits if hit.doc_id in own_files or rule_name(hit.source)] for hits in found_hits[own_count:]]
+            lists = [topic_files(hits, wanted) for hits in found_hits]
             doc_ids: list[str] = []
             for rank in range(wanted):
                 for found in lists:
@@ -540,7 +551,20 @@ class HybridRetriever:
             # What was scored, for the evaluation's mapping of scored texts back to passages.
             trace.extra_hits.extend(short for short, hit in zip(asked_pool, pool) if short.text != hit.text)
         jobs = [lambda: self._rerank(query, asked_pool, trace, "whole")]
-        jobs += [(lambda topic=topic: self._rerank(topic, pool, trace, "topic")) for topic in topics]
+        # Whether a file is about a topic is judged on its first survey_topic_passages passages
+        # (its closest to the question); all of them are scored against the question.
+        topic_pool = pool
+        per_topic = int(getattr(settings, "survey_topic_passages", 0) or 0)
+        if per_topic > 0:
+            counts: dict[str, int] = {}
+            topic_pool = []
+            for hit in pool:
+                counts[hit.doc_id] = counts.get(hit.doc_id, 0) + 1
+                if counts[hit.doc_id] <= per_topic:
+                    topic_pool.append(hit)
+        topic_pools = [topic_pool for _ in topics]
+        jobs += [(lambda topic=topic, part=part: self._rerank(topic, part, trace, "topic") if part else [])
+                 for topic, part in zip(topics, topic_pools)]
         second = asked_text != query
         if second:
             jobs.append(lambda: self._rerank(asked_text, asked_pool, trace, "wording"))
@@ -556,10 +580,13 @@ class HybridRetriever:
                 asked[key] = max(asked.get(key, 0.0), item.score)
         # A passage is about the topic when it is about any one of the listed topics.
         topic_scores: dict[str, float] = {}
-        for result in results[1 : 1 + len(topics)]:
+        own_scores: dict[str, float] = {}
+        for number, result in enumerate(results[1 : 1 + len(topics)]):
             for item in result:
-                key = pool[item.index].id
+                key = topic_pools[number][item.index].id
                 topic_scores[key] = max(topic_scores.get(key, 0.0), item.score)
+                if number < own_count:
+                    own_scores[key] = max(own_scores.get(key, 0.0), item.score)
         kept = select_by_files(
             pool, topic_scores, asked, survey, self.policy(max_keep, per_document, relative),
             files=int(getattr(settings, "survey_files", 8)),
@@ -569,6 +596,7 @@ class HybridRetriever:
             types=self._document_types(pool),
             answers=answers_in if getattr(settings, "survey_answering_files", False) else None,
             about_asked=bool(getattr(settings, "survey_about_asked", False)),
+            own_topic=own_scores if len(topics) > own_count else None,
         )
         for hit in kept:
             hit.retrieval_method = "survey_files"

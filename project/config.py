@@ -288,6 +288,13 @@ class Settings(BaseSettings):
     #   programmes), not pointing at one place, person, title, code, file or record
     #   ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请").
     survey_wide: bool = False
+    # * survey_topic_related: a survey topic also brings the programme words under it that do not
+    #   use its word (survey.RELATED_TOPICS: 创新 -> 技术攻关, 技术改造 -> 绿色制造 …), each searched
+    #   and scored as one more topic.
+    survey_topic_related: bool = False
+    # * survey_topic_passages: whether a file is about a topic is judged on its first this many
+    #   passages (0: all survey_passages_per_file); fewer rerank tokens.
+    survey_topic_passages: int = 0
     rrf_k: int = 60
     relevance_threshold: float = 0.20
     max_retrieval_attempts: int = 2
