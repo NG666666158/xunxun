@@ -94,3 +94,89 @@ def drop_lines(answer: str, flagged: Sequence[str]) -> tuple[str, int, int]:
         out.append(line)
     text = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
     return text, len(bad), len([claim for claim, _ in cited_claims(text)])
+
+
+# ---------------------------------------------------------------- files the answer left out
+def _cited_keys(answer: str) -> set[str]:
+    return {_key(re.split(r"\s*[｜|，,;；]\s*", name.strip(), maxsplit=1)[0]) for name, _ in CITATION.findall(answer or "")}
+
+
+def _is_cited(source: str, cited: set[str]) -> bool:
+    key = _key(source)
+    return any(key == name or (name and (name in key or key in name)) for name in cited)
+
+
+_COLLECTION = re.compile(r"集合|汇编|汇总|清单|合集|问答|手册|一览")
+# Topic words too general to say what a file is about.
+_GENERAL_TOPIC = frozenset("企业 单位 个人 平台 方面 这类 一类 政府 地方 国家".split())
+
+
+def about_topic(source: str, topics: Sequence[str]) -> bool:
+    """Does the file's name carry one of the question's topic words (survey.survey_topics), and
+    is it not a collection of other programmes?"""
+    stem = str(source or "").rsplit(".", 1)[0]
+    if _COLLECTION.search(stem):
+        return False
+    words = {word for topic in topics for word in topic.split() if len(word) >= 2 and word not in _GENERAL_TOPIC}
+    return any(word in stem for word in words)
+
+
+_HEADING_LEAD = re.compile(r"^(?:[一二三四五六七八九十]+、[^\s，。；]{1,10}\s+|[（(][一二三四五六七八九十\d]+[）)]\s*)")
+
+
+def _clauses(lines: Sequence[str]) -> str:
+    """The excerpt's sentences joined by ；, without a section heading in front and without
+    one said twice (an excerpt joins passages, which repeat a clause)."""
+    out: list[str] = []
+    for line in lines:
+        for clause in re.split(r"[。；;]", line):
+            clause = clause.strip()
+            while _HEADING_LEAD.match(clause):  # "三、基本条件 （一）…"
+                clause = _HEADING_LEAD.sub("", clause, count=1).strip()
+            if clause and clause not in out:
+                out.append(clause)
+    return "；".join(out)
+
+
+def missing_lines(answer: str, blocks: Sequence[dict[str, Any]], ask: str,
+                  answers: Any, rule_only: Any = None) -> tuple[str, list[str]]:
+    """``answer`` with one line added for each evidence file it does not cite whose passage
+    answers the ask (``answers(text, ask)``, survey.answers_in), copied from that passage with
+    its citation, numbered after the answer's last item; ``rule_only(source)``: only files whose
+    name says they state rules. Returns the answer and the files added."""
+    if not ask:
+        return answer, []
+    cited = _cited_keys(answer)
+    added: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for block in blocks:
+        source = str(block.get("source", ""))
+        if not source or source in seen or _is_cited(source, cited):
+            continue
+        text = str(block.get("text", ""))
+        if not answers(text, ask) or (rule_only is not None and not rule_only(source)):
+            continue
+        seen.add(source)
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if lines and lines[0].startswith("【"):
+            lines = lines[1:]
+        body = _clauses(lines)
+        if not body:
+            continue
+        name = source.rsplit(".", 1)[0]
+        locator = str(block.get("locator") or "未标注位置")
+        added.append((source, f"**{name}**：{body}。[来源：{source}｜位置：{locator}]"))
+    if not added:
+        return answer, []
+    rows = (answer or "").split("\n")
+    last = max((i for i, line in enumerate(rows) if _ITEM.match(line)), default=None)
+    if last is None:
+        return (answer.rstrip() + "\n\n" + "\n\n".join(line for _, line in added)).strip(), [s for s, _ in added]
+    number = int(_ITEM.match(rows[last]).group(2))
+    lead, sep = _ITEM.match(rows[last]).group(1), _ITEM.match(rows[last]).group(3)
+    new = [f"\n{lead}{number + i}{sep}{line}" for i, (_, line) in enumerate(added, start=1)]
+    end = last  # the last item may go on over several lines
+    while end + 1 < len(rows) and rows[end + 1].strip() and not _ITEM.match(rows[end + 1]):
+        end += 1
+    rows = rows[: end + 1] + new + rows[end + 1:]
+    return "\n".join(rows), [s for s, _ in added]

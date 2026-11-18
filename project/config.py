@@ -288,6 +288,10 @@ class Settings(BaseSettings):
     #   programmes), not pointing at one place, person, title, code, file or record
     #   ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请").
     survey_wide: bool = False
+    # * survey_missing_files: a kept guide whose name carries the question's topic word and whose
+    #   excerpt answers it, but which the survey answer does not cite, gets one line copied from
+    #   that excerpt with its citation (rag_agent/survey_answer.missing_lines), before the fact check.
+    survey_missing_files: bool = False
     # * survey_topic_related: a survey topic also brings the programme words under it that do not
     #   use its word (survey.RELATED_TOPICS: 创新 -> 技术攻关, 技术改造 -> 绿色制造 …), each searched
     #   and scored as one more topic.

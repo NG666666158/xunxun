@@ -759,6 +759,19 @@ class AgentNodes(DocumentNodes):
             answer, renamed = survey_answer.repair_names(answer, self._evidence_blocks(state))
             if renamed:
                 steps["renamed"] = renamed
+        if profile.name == "survey" and getattr(settings, "survey_missing_files", False):
+            # A kept guide about the question's topic whose sentence answers it, that the answer
+            # left out (Qwen3-8B often stops after three or four files): one line copied from that
+            # sentence, with its citation, by the code. The fact check below checks it too.
+            from retrieval.survey import answers_in, rule_name, survey_question, survey_topics
+
+            found = survey_question(question, True)
+            topics = survey_topics(question)
+            answer, added = survey_answer.missing_lines(
+                answer, self._evidence_blocks(state), found.ask if found else "", answers_in,
+                lambda source: rule_name(source) and survey_answer.about_topic(source, topics))
+            if added:
+                steps["added_files"] = len(added)
         if getattr(settings, "citation_repair", False) and not whole_file:
             # A statement citing a passage without its numbers or names cites the one that has
             # them (candidate 4; no model call). The fact check then compares the right passages.

@@ -1,8 +1,9 @@
 """Survey questions, round three (evaluation/survey_recall_v3/REPORT.md)."""
 
 from config import Settings
+from rag_agent import survey_answer
 from rag_agent.answering import classify_question
-from retrieval.survey import place_names, survey_question
+from retrieval.survey import answers_in, place_names, rule_name, survey_question, survey_topics
 
 
 # ---------------------------------------------------------------- the detector without 一般 (survey_wide)
@@ -45,6 +46,52 @@ def test_a_place_of_the_library_makes_it_one_places_question():
 
 def test_the_switch_is_off_by_default():
     assert Settings().survey_wide is False
+
+
+# ---------------------------------------------------------------- files the answer left out (survey_missing_files)
+BLOCKS = [
+    {"source": "望海市初创企业扶持办法.docx", "locator": "四、扶持标准",
+     "text": "【望海市初创企业扶持办法 > 四、扶持标准】\n符合条件的初创企业可获得一次性创业资助1万元。"},
+    {"source": "栖川市创业孵化基地认定和运营评价细则.md", "locator": "五、奖补",
+     "text": "【栖川市创业孵化基地认定和运营评价细则 > 五、奖补标准】\n新认定为市级创业孵化基地的，给予30万元一次性奖补；\n"
+             "年度运营评价为优秀的，给予20万元运营经费。"},
+    {"source": "临溪市青年人才生活津贴发放规程.txt", "locator": "三、津贴标准",
+     "text": "【临溪市青年人才生活津贴发放规程 > 三、津贴标准】\n生活津贴按学历一次性发放：本科每人1.5万元。"},
+    {"source": "1、惠企补贴政策集合.pdf", "locator": "page:3",
+     "text": "【1、惠企补贴政策集合】\n补贴标准：每家企业每年最高8万元给予创业场地补贴。"},
+]
+ANSWER = "创业补贴如下：\n\n1. 望海市初创企业扶持办法：一次性创业资助1万元 [来源：望海市初创企业扶持办法.docx｜位置：四、扶持标准]。\n\n以上供参考。"
+
+
+def on_topic(question):
+    topics = survey_topics(question)
+    return lambda source: rule_name(source) and survey_answer.about_topic(source, topics)
+
+
+def test_a_left_out_guide_about_the_topic_gets_a_line():
+    text, added = survey_answer.missing_lines(ANSWER, BLOCKS, "amount", answers_in, on_topic("创业一般能拿到多少补贴？"))
+    # The incubator rules (创业 in the name) are added; a talent rule (another topic) and a
+    # collection are not.
+    assert added == ["栖川市创业孵化基地认定和运营评价细则.md"]
+    assert ("2. **栖川市创业孵化基地认定和运营评价细则**：新认定为市级创业孵化基地的，给予30万元一次性奖补；"
+            "年度运营评价为优秀的，给予20万元运营经费。[来源：栖川市创业孵化基地认定和运营评价细则.md｜位置：五、奖补]") in text
+    assert text.index("2. **栖川") < text.index("以上供参考")
+
+
+def test_nothing_is_added_without_an_ask_or_an_answering_sentence():
+    assert survey_answer.missing_lines(ANSWER, BLOCKS, "", answers_in)[1] == []
+    assert survey_answer.missing_lines(ANSWER, BLOCKS, "time", answers_in)[1] == []
+
+
+def test_a_cited_file_is_not_added_again():
+    cited = ANSWER.replace("以上供参考。", "2. 孵化基地：20万元 [来源：栖川市创业孵化基地认定和运营评价细则.md]\n\n以上供参考。")
+    assert survey_answer.missing_lines(cited, BLOCKS, "amount", answers_in, on_topic("创业一般能拿到多少补贴？"))[1] == []
+
+
+def test_an_added_line_drops_section_headings_and_repeated_clauses():
+    lines = ["二、申报条件 领办人应具有技师以上职业资格；申请单位应当财务管理制度健全；",
+             "三、基本条件 （一）申请单位应当财务管理制度健全；（二）在研项目不超过两项"]
+    assert survey_answer._clauses(lines) == "领办人应具有技师以上职业资格；申请单位应当财务管理制度健全；在研项目不超过两项"
 
 
 # ---------------------------------------------------------------- related programme words (survey_topic_related)
