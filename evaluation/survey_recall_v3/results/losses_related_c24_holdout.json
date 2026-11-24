@@ -1,0 +1,636 @@
+{
+  "name": "related_c24",
+  "questions_set": "holdout",
+  "overrides": {
+    "survey_topic_related": true,
+    "survey_file_candidates": 24
+  },
+  "questions": 16,
+  "gold_files": 56,
+  "steps": {
+    "search": 0,
+    "cut": 0,
+    "file_passage": 3,
+    "refused": 0,
+    "floor": 0,
+    "shape": 0,
+    "passage": 1,
+    "files": 4,
+    "kept": 48
+  },
+  "by_kind": {
+    "fund": {
+      "search": 0,
+      "cut": 0,
+      "file_passage": 0,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 0,
+      "files": 0,
+      "kept": 13
+    },
+    "time": {
+      "search": 0,
+      "cut": 0,
+      "file_passage": 1,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 0,
+      "files": 3,
+      "kept": 21
+    },
+    "who": {
+      "search": 0,
+      "cut": 0,
+      "file_passage": 2,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 1,
+      "files": 1,
+      "kept": 14
+    }
+  },
+  "three_or_more": 12,
+  "all_kept": 10,
+  "rows": [
+    {
+      "id": "H01",
+      "question": "各类创新项目一般几月份截止？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "2026年澜州青年创新项目申请指南.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.1713,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市科技创新专项项目管理办法（2025年修订）.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.1856,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "栖川市中小企业创新能力提升项目申报指南.txt",
+          "step": "files",
+          "use": null,
+          "score": 0.1297,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市大学生创新训练计划立项通知.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.0863,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区榜单攻关技术攻关项目实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.8136,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H02",
+      "question": "申报创新项目一般要满足什么条件？",
+      "kind": "who",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "2026年澜州青年创新项目申请指南.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.3381,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市科技创新专项项目管理办法（2025年修订）.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.3041,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "栖川市中小企业创新能力提升项目申报指南.txt",
+          "step": "files",
+          "use": null,
+          "score": 0.1361,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市大学生创新训练计划立项通知.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.1547,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区榜单攻关技术攻关项目实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.8266,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H03",
+      "question": "人才政策一般什么时候可以申请？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "澜州市高层次人才安居办法实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.917,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市博士后科研资助工作指引.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.1371,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市青年人才生活津贴发放规程.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.1997,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市技能大师工作室建设项目实施方案.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.0284,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H04",
+      "question": "人才补贴通常最高能拿多少？",
+      "kind": "fund",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "澜州市高层次人才安居办法实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.9538,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市博士后科研资助工作指引.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.4252,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市青年人才生活津贴发放规程.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.1299,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市技能大师工作室建设项目实施方案.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.0668,
+          "amounts": 3,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H05",
+      "question": "技能培训补贴通常哪些人可以领？",
+      "kind": "who",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "栖川市职业技能提升行动资金使用规定.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.586,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "北渚市企业新型学徒制培养工作指引.md",
+          "step": "kept",
+          "use": null,
+          "score": 0.1315,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "澜州市紧缺工种培训激励办法.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.1835,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H06",
+      "question": "培训补贴一般什么时候申领？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "栖川市职业技能提升行动资金使用规定.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.5423,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "北渚市企业新型学徒制培养工作指引.md",
+          "step": "kept",
+          "use": null,
+          "score": 0.02,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "澜州市紧缺工种培训激励办法.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.2496,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H07",
+      "question": "专利商标资助一般对申请人有什么要求？",
+      "kind": "who",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "青屿市知识产权高质量发展资金操作规程.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.6762,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区商标品牌培育扶持办法.docx",
+          "step": "file_passage",
+          "use": null,
+          "score": null,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市高价值专利培育项目指南.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.3762,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H08",
+      "question": "知识产权方面各项资助标准是多少？",
+      "kind": "fund",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "青屿市知识产权高质量发展资金操作规程.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.2155,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区商标品牌培育扶持办法.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.153,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市高价值专利培育项目指南.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.1694,
+          "amounts": 1,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H09",
+      "question": "创业补贴一般什么时候申请？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "北渚市创业担保贷款办事指南.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.8785,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市初创企业扶持办法.docx",
+          "step": "files",
+          "use": null,
+          "score": 0.4925,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "栖川市创业孵化基地认定和运营评价细则.md",
+          "step": "file_passage",
+          "use": null,
+          "score": null,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "澜州市返乡入乡创业支持计划实施方案.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.2211,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H10",
+      "question": "技改项目通常什么时候申报？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "青屿市工业企业技术改造项目资金管理细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.5027,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市首台（套）重大技术装备推广应用指导意见.docx",
+          "step": "files",
+          "use": null,
+          "score": 0.0815,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "北渚市绿色制造体系建设实施方案.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.9383,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H11",
+      "question": "技改和绿色制造的奖补一般是多少？",
+      "kind": "fund",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "青屿市工业企业技术改造项目资金管理细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.5529,
+          "amounts": 2,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市首台（套）重大技术装备推广应用指导意见.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.0224,
+          "amounts": 4,
+          "amounts_right": null
+        },
+        {
+          "file": "北渚市绿色制造体系建设实施方案.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.9359,
+          "amounts": 4,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H12",
+      "question": "外贸和会展补贴一般什么企业能申请？",
+      "kind": "who",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "望海市外贸企业开拓国际市场项目申报须知.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.2984,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区会展业发展专项资金实施细则.docx",
+          "step": "passage",
+          "use": null,
+          "score": 0.4312,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "澜州市跨境电商发展若干措施操作指引.md",
+          "step": "file_passage",
+          "use": null,
+          "score": null,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H13",
+      "question": "开拓市场方面的补贴一般有多少？",
+      "kind": "fund",
+      "kept_files": 6,
+      "gold": [
+        {
+          "file": "望海市外贸企业开拓国际市场项目申报须知.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.4619,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "岚江新区会展业发展专项资金实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.3995,
+          "amounts": 3,
+          "amounts_right": null
+        },
+        {
+          "file": "澜州市跨境电商发展若干措施操作指引.md",
+          "step": "kept",
+          "use": null,
+          "score": 0.2825,
+          "amounts": 4,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H14",
+      "question": "研发奖励和高企培育一般什么时候申报？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "栖川市企业研究开发费用奖励管理办法.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.5693,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "北渚市高新技术企业培育入库工作方案.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.8786,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市科技型中小企业创新券使用指南.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.4885,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H15",
+      "question": "实验室和众创空间一般什么时候申报？",
+      "kind": "time",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "岚江新区重点实验室和工程技术研究中心组建办法.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.5873,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市众创空间备案及绩效考核办法.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.9249,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市产学研合作项目联合资助计划指南.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.7763,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    },
+    {
+      "id": "H16",
+      "question": "各地的人才补贴都要求什么学历？",
+      "kind": "who",
+      "kept_files": 8,
+      "gold": [
+        {
+          "file": "澜州市高层次人才安居办法实施细则.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.9538,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "青屿市博士后科研资助工作指引.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.2839,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "临溪市青年人才生活津贴发放规程.txt",
+          "step": "kept",
+          "use": null,
+          "score": 0.3288,
+          "amounts": 0,
+          "amounts_right": null
+        },
+        {
+          "file": "望海市技能大师工作室建设项目实施方案.docx",
+          "step": "kept",
+          "use": null,
+          "score": 0.057,
+          "amounts": 0,
+          "amounts_right": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{"id": "D01", "question": "哪些企业能申请创新补贴？", "label": "survey", "ask": "who", "group": "innovation"}
+{"id": "D02", "question": "创新项目补贴有多少？", "label": "survey", "ask": "amount", "group": "innovation"}
+{"id": "D03", "question": "有什么补贴可以申请？", "label": "survey", "ask": "", "group": ""}
+{"id": "D04", "question": "什么企业能申请技术改造补贴？", "label": "survey", "ask": "who", "group": "upgrade"}
+{"id": "D05", "question": "人才补贴能拿多少？", "label": "survey", "ask": "amount", "group": "talent"}
+{"id": "D06", "question": "技能培训补贴什么时候报？", "label": "survey", "ask": "time", "group": "training"}
+{"id": "D07", "question": "专利补贴能拿多少钱？", "label": "survey", "ask": "amount", "group": "ip"}
+{"id": "D08", "question": "商标注册有补贴吗，补多少？", "label": "survey", "ask": "amount", "group": "ip"}
+{"id": "D09", "question": "创业补贴哪些人可以领？", "label": "survey", "ask": "who", "group": "startup"}
+{"id": "D10", "question": "创业能拿到哪些扶持？", "label": "survey", "ask": "", "group": "startup"}
+{"id": "D11", "question": "技改项目最多补多少？", "label": "survey", "ask": "amount", "group": "upgrade"}
+{"id": "D12", "question": "跨境电商有什么扶持政策？", "label": "survey", "ask": "", "group": "market"}
+{"id": "D13", "question": "高新技术企业认定有什么奖励？", "label": "survey", "ask": "", "group": "rnd"}
+{"id": "D14", "question": "众创空间有什么补贴？", "label": "survey", "ask": "", "group": "platform"}
+{"id": "D15", "question": "实验室建设补贴多少钱？", "label": "survey", "ask": "amount", "group": "platform"}
+{"id": "D16", "question": "哪些单位可以申报科技项目？", "label": "survey", "ask": "who", "group": "innovation"}
+{"id": "D17", "question": "人才政策的申请条件是什么？", "label": "survey", "ask": "who", "group": "talent"}
+{"id": "D18", "question": "创业补贴什么时候申请？", "label": "survey", "ask": "time", "group": "startup"}
+{"id": "D19", "question": "技能补贴申领截止到什么时候？", "label": "survey", "ask": "time", "group": "training"}
+{"id": "D20", "question": "申请创新补贴要什么条件？", "label": "survey", "ask": "who", "group": "innovation"}
+{"id": "D21", "question": "企业上新设备能补贴多少？", "label": "survey", "ask": "amount", "group": "upgrade"}
+{"id": "D22", "question": "外贸企业有哪些补贴？", "label": "survey", "ask": "", "group": "market"}
+{"id": "D23", "question": "青年人才能领什么补贴？", "label": "survey", "ask": "", "group": "talent"}
+{"id": "D24", "question": "知识产权方面能申请什么资助？", "label": "survey", "ask": "", "group": "ip"}
+{"id": "D25", "question": "什么人可以申请人才补贴？", "label": "survey", "ask": "who", "group": "talent"}
+{"id": "D26", "question": "办展会有补贴吗？", "label": "survey", "ask": "", "group": "market"}
+{"id": "D27", "question": "研发投入大的企业能拿什么奖励？", "label": "survey", "ask": "", "group": "rnd"}
+{"id": "D28", "question": "参展补贴最高多少？", "label": "survey", "ask": "amount", "group": "market"}
+{"id": "F01", "question": "澜州青年创新项目最多能拿多少补贴？", "label": "fact", "why": "a place and its programme"}
+{"id": "F02", "question": "岚江新区榜单攻关项目能补贴多少？", "label": "fact", "why": "a place and its programme"}
+{"id": "F03", "question": "青屿科技创新专项哪些单位可以报？", "label": "fact", "why": "a place and its programme"}
+{"id": "F04", "question": "《临溪市众创空间备案及绩效考核办法》的补贴是多少？", "label": "fact", "why": "a title"}
+{"id": "F05", "question": "这个创新项目补贴有多少？", "label": "fact", "why": "this one"}
+{"id": "F06", "question": "这份指南里的申报条件是什么？", "label": "fact", "why": "this file"}
+{"id": "F07", "question": "文件里说的补贴多少钱？", "label": "fact", "why": "the file"}
+{"id": "F08", "question": "第三条规定的补贴标准是多少？", "label": "fact", "why": "an article of one paper"}
+{"id": "F09", "question": "P-039项目的补贴是多少？", "label": "fact", "why": "a code"}
+{"id": "F10", "question": "大学生创新训练计划国家级项目给多少钱？", "label": "fact", "why": "one programme by its full name"}
+{"id": "F11", "question": "高新技术企业培育入库工作方案要求什么条件？", "label": "fact", "why": "one file by its name"}
+{"id": "F12", "question": "张伟的创业补贴批下来了吗？", "label": "fact", "why": "a person"}
+{"id": "F13", "question": "我们公司去年拿了多少补贴？", "label": "fact", "why": "the user's own record"}
+{"id": "F14", "question": "创新券怎么使用？", "label": "fact", "why": "a how-to"}
+{"id": "F15", "question": "什么是创新券？", "label": "fact", "why": "a definition"}
+{"id": "F16", "question": "申报材料需要盖章吗？", "label": "fact", "why": "yes / no"}
+{"id": "F17", "question": "补贴申请被驳回了怎么办？", "label": "fact", "why": "a how-to"}
+{"id": "F18", "question": "苹果手机多少钱？", "label": "fact", "why": "not a programme"}
+{"id": "F19", "question": "Python 列表有哪些方法？", "label": "fact", "why": "not a programme"}
+{"id": "F20", "question": "去年的补贴报告里写的金额是多少？", "label": "fact", "why": "one report"}
+{"id": "F21", "question": "博士后科研资助工作指引里在站补贴多少？", "label": "fact", "why": "one file by its name"}
+{"id": "F22", "question": "临溪的青年人才生活津贴要交多久社保？", "label": "fact", "why": "a place and its programme"}
+{"id": "F23", "question": "上次会议定的补贴标准是多少？", "label": "fact", "why": "one meeting"}
+{"id": "F24", "question": "合同里约定的违约金是多少？", "label": "fact", "why": "one contract"}
+{"id": "F25", "question": "这笔补贴什么时候到账？", "label": "fact", "why": "this one"}
+{"id": "F26", "question": "望海市产学研合作项目政府出多少钱？", "label": "fact", "why": "a place and its programme"}
+{"id": "F27", "question": "马桶多少钱？", "label": "fact", "why": "not a programme"}
+{"id": "F28", "question": "研发费用加计扣除比例是多少？", "label": "fact", "why": "one national rule, no programme word"}

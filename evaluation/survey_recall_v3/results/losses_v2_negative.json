@@ -1,0 +1,86 @@
+{
+  "name": "v2",
+  "questions_set": "negative",
+  "overrides": {},
+  "questions": 8,
+  "kept_nothing": 7,
+  "kept_files": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0
+  ],
+  "top_scores": [
+    0.0042,
+    0.0461,
+    0.0055,
+    0.0111,
+    0.0022,
+    0.0027,
+    0.5537,
+    0.0119
+  ],
+  "survey_profile": 7,
+  "rows": [
+    {
+      "id": "N01",
+      "question": "宠物医院一般能拿多少补贴？",
+      "kind": "fund",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N02",
+      "question": "各地的游艇码头建设补贴分别是多少？",
+      "kind": "fund",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N03",
+      "question": "围棋培训机构通常有哪些申报条件？",
+      "kind": "who",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N04",
+      "question": "海外留学贷款一般什么时候申请？",
+      "kind": "time",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N05",
+      "question": "电竞战队一般能拿到多少扶持？",
+      "kind": "fund",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N06",
+      "question": "古籍修复项目通常有哪些门槛？",
+      "kind": "who",
+      "kept_files": 0,
+      "gold": []
+    },
+    {
+      "id": "N07",
+      "question": "各地的马拉松赛事补贴都是几月申报？",
+      "kind": "time",
+      "kept_files": 3,
+      "gold": []
+    },
+    {
+      "id": "N08",
+      "question": "民宿装修一般能补多少钱？",
+      "kind": "fund",
+      "kept_files": 0,
+      "gold": []
+    }
+  ]
+}

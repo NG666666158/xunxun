@@ -1,0 +1,31 @@
+{
+  "name": "files_ask",
+  "questions_set": "negative",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_ask_words": true
+  },
+  "questions": 8,
+  "kept_nothing": 7,
+  "kept_files": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0
+  ],
+  "top_scores": [
+    0.0134,
+    0.1661,
+    0.1384,
+    0.052,
+    0.0168,
+    0.0033,
+    0.5537,
+    0.0773
+  ],
+  "survey_profile": 7
+}

@@ -1,0 +1,38 @@
+{
+  "name": "cand_wide",
+  "questions_set": "tuning",
+  "overrides": {
+    "survey_wide": true,
+    "survey_topic_related": true,
+    "survey_file_candidates": 24,
+    "survey_topic_passages": 2,
+    "survey_missing_files": true
+  },
+  "survey": {
+    "questions": 27,
+    "refused": 0,
+    "gold_files": 96,
+    "files_cited": 73,
+    "files_cited_per_question": 2.7,
+    "three_or_more_files": 15,
+    "amounts": 77,
+    "amounts_right": 51,
+    "passage_files": 7.4,
+    "context_chars": 1916,
+    "seconds_median": 20.0
+  },
+  "survey_fund": {
+    "questions": 17,
+    "refused": 0,
+    "gold_files": 56,
+    "files_cited": 43,
+    "files_cited_per_question": 2.53,
+    "three_or_more_files": 9,
+    "amounts": 77,
+    "amounts_right": 51,
+    "passage_files": 7.0,
+    "context_chars": 2015,
+    "seconds_median": 16.7
+  },
+  "fact_guard": {}
+}

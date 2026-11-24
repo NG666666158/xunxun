@@ -1,0 +1,41 @@
+{
+  "name": "final",
+  "questions_set": "holdout",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5,
+    "survey_answering_files": true,
+    "survey_question_files": 8,
+    "survey_keep_route": true,
+    "survey_excerpts": true,
+    "survey_answer_repair": true
+  },
+  "survey": {
+    "questions": 16,
+    "refused": 0,
+    "gold_files": 56,
+    "files_cited": 45,
+    "files_cited_per_question": 2.81,
+    "three_or_more_files": 9,
+    "amounts": 39,
+    "amounts_right": 25,
+    "passage_files": 7.3,
+    "context_chars": 1357,
+    "seconds_median": 19.0
+  },
+  "survey_fund": {
+    "questions": 4,
+    "refused": 0,
+    "gold_files": 13,
+    "files_cited": 9,
+    "files_cited_per_question": 2.25,
+    "three_or_more_files": 1,
+    "amounts": 39,
+    "amounts_right": 25,
+    "passage_files": 6.8,
+    "context_chars": 925,
+    "seconds_median": 18.05
+  },
+  "fact_guard": {}
+}

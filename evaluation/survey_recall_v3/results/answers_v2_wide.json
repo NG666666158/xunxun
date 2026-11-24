@@ -1,0 +1,32 @@
+{
+  "name": "v2_wide",
+  "questions_set": "tuning",
+  "overrides": {},
+  "survey": {
+    "questions": 27,
+    "refused": 0,
+    "gold_files": 96,
+    "files_cited": 7,
+    "files_cited_per_question": 0.26,
+    "three_or_more_files": 0,
+    "amounts": 77,
+    "amounts_right": 1,
+    "passage_files": 2.2,
+    "context_chars": 3345,
+    "seconds_median": 8.3
+  },
+  "survey_fund": {
+    "questions": 17,
+    "refused": 0,
+    "gold_files": 56,
+    "files_cited": 6,
+    "files_cited_per_question": 0.35,
+    "three_or_more_files": 0,
+    "amounts": 77,
+    "amounts_right": 1,
+    "passage_files": 2.1,
+    "context_chars": 3250,
+    "seconds_median": 8.3
+  },
+  "fact_guard": {}
+}

@@ -133,14 +133,15 @@ def multi_part_question(question: str) -> bool:
     return asks >= 2 or (asks >= 1 and bool(_JOIN_EN.search(text)))
 
 
-def classify_question(question: str, survey: bool = False) -> str:
+def classify_question(question: str, survey: bool = False, wide: bool = False, places: frozenset[str] = frozenset()) -> str:
     """"compare" | "explain" | "multi" | "fact" from the wording alone (no model call).
 
     "multi" is a fact question that asks several things; an explanation or a comparison
     already gets as many passages and keeps its own answer shape. ``survey`` (the setting
-    survey_route): a question about what several files say is "survey".
+    survey_route): a question about what several files say is "survey"; ``wide`` (survey_wide)
+    also without a generality word, unless it names one of ``places`` (retrieval/survey.py).
     """
-    if survey and survey_question(question) is not None:
+    if survey and survey_question(question, wide, places) is not None:
         return "survey"
     if comparison_topic(question) is not None or _COMPARE.search(question):
         return "compare"

@@ -1,0 +1,248 @@
+{
+  "name": "tp2",
+  "after": {
+    "median_s": 2.32,
+    "max_s": 15.94,
+    "rerank_requests": 5.9,
+    "scored_mean": 493.8,
+    "rerank_tokens_mean": 109707
+  },
+  "questions": 16,
+  "before": {
+    "median_s": 1.53,
+    "max_s": 20.53,
+    "rerank_requests": 2.8,
+    "scored_mean": 263.7,
+    "rerank_tokens_mean": 51450
+  },
+  "rows": {
+    "before": [
+      {
+        "id": "S01",
+        "seconds": 2.474,
+        "requests": 3,
+        "scored": 330,
+        "tokens": 52393
+      },
+      {
+        "id": "S04",
+        "seconds": 1.541,
+        "requests": 3,
+        "scored": 339,
+        "tokens": 47524
+      },
+      {
+        "id": "S07",
+        "seconds": 1.377,
+        "requests": 2,
+        "scored": 210,
+        "tokens": 32265
+      },
+      {
+        "id": "S10",
+        "seconds": 20.528,
+        "requests": 4,
+        "scored": 404,
+        "tokens": 67765
+      },
+      {
+        "id": "S13",
+        "seconds": 1.909,
+        "requests": 3,
+        "scored": 315,
+        "tokens": 47563
+      },
+      {
+        "id": "S16",
+        "seconds": 1.519,
+        "requests": 3,
+        "scored": 243,
+        "tokens": 66905
+      },
+      {
+        "id": "S19",
+        "seconds": 1.855,
+        "requests": 4,
+        "scored": 448,
+        "tokens": 65572
+      },
+      {
+        "id": "S22",
+        "seconds": 1.829,
+        "requests": 3,
+        "scored": 291,
+        "tokens": 58198
+      },
+      {
+        "id": "H01",
+        "seconds": 1.336,
+        "requests": 2,
+        "scored": 226,
+        "tokens": 34358
+      },
+      {
+        "id": "H05",
+        "seconds": 1.943,
+        "requests": 3,
+        "scored": 324,
+        "tokens": 48381
+      },
+      {
+        "id": "H09",
+        "seconds": 1.382,
+        "requests": 3,
+        "scored": 324,
+        "tokens": 48061
+      },
+      {
+        "id": "H13",
+        "seconds": 1.824,
+        "requests": 3,
+        "scored": 285,
+        "tokens": 58803
+      },
+      {
+        "id": "D01",
+        "seconds": 1.116,
+        "requests": 2,
+        "scored": 120,
+        "tokens": 41959
+      },
+      {
+        "id": "D05",
+        "seconds": 0.942,
+        "requests": 2,
+        "scored": 120,
+        "tokens": 46005
+      },
+      {
+        "id": "D08",
+        "seconds": 1.094,
+        "requests": 2,
+        "scored": 120,
+        "tokens": 48244
+      },
+      {
+        "id": "D11",
+        "seconds": 1.07,
+        "requests": 2,
+        "scored": 120,
+        "tokens": 59212
+      }
+    ],
+    "after": [
+      {
+        "id": "S01",
+        "seconds": 2.33,
+        "requests": 6,
+        "scored": 522,
+        "tokens": 118540
+      },
+      {
+        "id": "S04",
+        "seconds": 2.307,
+        "requests": 6,
+        "scored": 528,
+        "tokens": 108832
+      },
+      {
+        "id": "S07",
+        "seconds": 1.685,
+        "requests": 5,
+        "scored": 386,
+        "tokens": 90290
+      },
+      {
+        "id": "S10",
+        "seconds": 2.194,
+        "requests": 6,
+        "scored": 492,
+        "tokens": 107037
+      },
+      {
+        "id": "S13",
+        "seconds": 2.22,
+        "requests": 6,
+        "scored": 510,
+        "tokens": 104022
+      },
+      {
+        "id": "S16",
+        "seconds": 12.585,
+        "requests": 6,
+        "scored": 411,
+        "tokens": 130748
+      },
+      {
+        "id": "S19",
+        "seconds": 15.941,
+        "requests": 7,
+        "scored": 583,
+        "tokens": 118618
+      },
+      {
+        "id": "S22",
+        "seconds": 7.708,
+        "requests": 6,
+        "scored": 444,
+        "tokens": 105595
+      },
+      {
+        "id": "H01",
+        "seconds": 1.861,
+        "requests": 5,
+        "scored": 386,
+        "tokens": 91716
+      },
+      {
+        "id": "H05",
+        "seconds": 2.004,
+        "requests": 6,
+        "scored": 522,
+        "tokens": 105522
+      },
+      {
+        "id": "H09",
+        "seconds": 1.733,
+        "requests": 6,
+        "scored": 516,
+        "tokens": 103553
+      },
+      {
+        "id": "H13",
+        "seconds": 15.9,
+        "requests": 6,
+        "scored": 522,
+        "tokens": 135164
+      },
+      {
+        "id": "D01",
+        "seconds": 8.264,
+        "requests": 6,
+        "scored": 528,
+        "tokens": 108981
+      },
+      {
+        "id": "D05",
+        "seconds": 2.066,
+        "requests": 6,
+        "scored": 528,
+        "tokens": 108223
+      },
+      {
+        "id": "D08",
+        "seconds": 2.357,
+        "requests": 5,
+        "scored": 483,
+        "tokens": 101366
+      },
+      {
+        "id": "D11",
+        "seconds": 10.524,
+        "requests": 6,
+        "scored": 540,
+        "tokens": 117106
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "name": "files_xs_k5",
+  "questions_set": "tuning",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5
+  },
+  "questions": 22,
+  "gold_files": 80,
+  "steps": {
+    "search": 0,
+    "cut": 6,
+    "file_passage": 2,
+    "refused": 0,
+    "floor": 1,
+    "shape": 0,
+    "passage": 3,
+    "files": 1,
+    "kept": 67
+  },
+  "by_kind": {
+    "fund": {
+      "search": 0,
+      "cut": 4,
+      "file_passage": 0,
+      "refused": 0,
+      "floor": 1,
+      "shape": 0,
+      "passage": 0,
+      "files": 0,
+      "kept": 42
+    },
+    "time": {
+      "search": 0,
+      "cut": 1,
+      "file_passage": 1,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 0,
+      "files": 0,
+      "kept": 9
+    },
+    "who": {
+      "search": 0,
+      "cut": 1,
+      "file_passage": 1,
+      "refused": 0,
+      "floor": 0,
+      "shape": 0,
+      "passage": 3,
+      "files": 1,
+      "kept": 16
+    }
+  },
+  "three_or_more": 15,
+  "all_kept": 9
+}

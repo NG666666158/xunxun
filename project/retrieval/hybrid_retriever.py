@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import logging
 import re
 import threading
@@ -14,7 +15,7 @@ from services.model_clients import SiliconFlowEmbeddings, SiliconFlowReranker
 from . import multipart, wording
 from .naming import named_documents
 from .question_parts import question_parts
-from .survey import Survey, rule_name, select_survey, survey_question
+from .survey import Survey, rule_name, select_by_files, select_survey, survey_question, survey_topics, place_names, related_topics, topic_files, excerpt, answers_in
 from .selection import (
     PartsPolicy,
     SelectionPolicy,
@@ -203,6 +204,11 @@ class HybridRetriever:
             return self._retrieve_comparison(query, topic, top_k, max_keep, query_vector, scope, per_document)
         settings = self.settings
         trace = multipart.start_trace()
+        if survey is not None and getattr(settings, "survey_file_first", False) and not (prefer_doc_ids and prefer_only):
+            # The files about the question's topic first, then each one's answering passage.
+            by_files = self._survey_by_files(query, survey, scope, max_keep, per_document, relative, trace)
+            if by_files is not None:
+                return by_files
         parts = self._question_parts(query, mode, top_k) if survey is None else []
         trace.parts = parts
         part_mode = getattr(settings, "part_retrieval", "off") if parts else "off"
@@ -379,7 +385,7 @@ class HybridRetriever:
                 floor=float(getattr(settings, "survey_floor", 0.01)), types=self._document_types(reranked),
             )
             trace.survey = {"ask": survey.ask, "cue": survey.cue, "files": len({hit.doc_id for hit in kept})}
-            return kept
+            return self._excerpts(kept, survey)
         if preferred and prefer_only and not named:
             own = [hit for hit in reranked if hit.doc_id in preferred]
             if own and multipart.score_of(own[0]) >= settings.rerank_min_score:
@@ -434,10 +440,8 @@ class HybridRetriever:
     # The library's (doc id, file name) list is re-read at most this often.
     names_ttl_seconds = 60.0
 
-    def _named_documents(self, query: str) -> list[str]:
-        """Doc ids of the files the question names (prefer_named_files; naming.named_documents)."""
-        if not getattr(self.settings, "prefer_named_files", False):
-            return []
+    def _documents(self) -> list[tuple[str, str]]:
+        """The library's (doc id, file name) list, re-read at most every names_ttl_seconds."""
         listing = getattr(self.store, "list_documents", None)
         if listing is None:
             return []
@@ -450,7 +454,16 @@ class HybridRetriever:
                 logger.warning("Document list unavailable: %s", exc)
                 return []
             self._names = cached = (now, documents)
-        named = named_documents(query, cached[1])
+        return cached[1]
+
+    def _named_documents(self, query: str) -> list[str]:
+        """Doc ids of the files the question names (prefer_named_files; naming.named_documents)."""
+        if not getattr(self.settings, "prefer_named_files", False):
+            return []
+        documents = self._documents()
+        if not documents:
+            return []
+        named = named_documents(query, documents)
         # A name shared by many files ("报告") says little about which one is meant.
         return named if len(named) <= 6 else []
 
@@ -458,7 +471,150 @@ class HybridRetriever:
         """What kind of survey question this is (survey_route), or None."""
         if mode != "hybrid_rerank" or top_k or not getattr(self.settings, "survey_route", False):
             return None
-        return survey_question(query)
+        wide = bool(getattr(self.settings, "survey_wide", False))
+        return survey_question(query, wide, self.survey_places() if wide else frozenset())
+
+    def survey_places(self) -> frozenset[str]:
+        """The places the library's file names start with (survey.place_names), for survey_wide."""
+        documents = self._documents()
+        key = tuple(source for _, source in documents)
+        cached = getattr(self, "_places", None)
+        if cached is None or cached[0] != key:
+            self._places = cached = (key, place_names(key))
+        return cached[1]
+
+    def _survey_by_files(
+        self, query: str, survey: Survey, scope: set[str] | None, max_keep: int | None, per_document: int | None,
+        relative: float | None, trace,
+    ) -> list[SearchHit] | None:
+        """A survey question answered files first (survey_file_first): the question's topic
+        ("考技能证书一般能领多少补贴" -> "考 技能 证书") is searched alone and its files ranked;
+        each of the first survey_file_candidates files gives its survey_passages_per_file
+        passages closest to what is asked; the reranker scores them against the topic (is the
+        file about it?) and against the question (which passage answers it?), and
+        ``select_by_files`` keeps one answer per file. None: the usual survey path instead (a
+        file the question names, a failed search or scoring)."""
+        settings = self.settings
+        if scope is None and self._named_documents(query):
+            return None
+        topics = survey_topics(query) or [query]
+        own_count = len(topics)
+        if getattr(settings, "survey_topic_related", False):
+            # Programmes under the topic that do not use its word (survey.RELATED_TOPICS).
+            topics = topics + related_topics(topics)
+        expansion = self._wording(query, "hybrid_rerank", None)
+        asked_text = expansion.text if expansion is not None else query
+        try:
+            vectors = self._embed_many(topics + [asked_text])
+            trace.embed_texts = len(vectors)
+            limit = max(self.candidate_pool(), int(getattr(settings, "survey_pool", 60))) * self.crowd_depth
+            wanted = int(getattr(settings, "survey_file_candidates", 16))
+            # Each listed topic ("参展", "办展", "跨境 电商") brings its own files, in turns.
+            found_hits = [self._visible(self._search_hybrid(topic, vector, limit, scope)) for topic, vector in zip(topics, vectors)]
+            if len(topics) > own_count:
+                # A file found only through a related programme word must be named like a paper
+                # that states rules ("…实施方案", "…指导意见"): a business plan or a report that
+                # mentions 研发 is not an innovation programme.
+                own_files = {doc_id for hits in found_hits[:own_count] for doc_id in topic_files(hits, wanted)}
+                found_hits = found_hits[:own_count] + [
+                    [hit for hit in hits if hit.doc_id in own_files or rule_name(hit.source)] for hits in found_hits[own_count:]]
+            lists = [topic_files(hits, wanted) for hits in found_hits]
+            doc_ids: list[str] = []
+            for rank in range(wanted):
+                for found in lists:
+                    if rank < len(found) and found[rank] not in doc_ids and len(doc_ids) < wanted:
+                        doc_ids.append(found[rank])
+            extra = int(getattr(settings, "survey_question_files", 0))
+            if extra > 0:
+                # Files the question's own words find (a programme the topic word does not name).
+                asked_found = self._visible(self._search_hybrid(asked_text, vectors[-1], limit, scope))
+                doc_ids += [d for d in topic_files(asked_found, extra + len(doc_ids)) if d not in doc_ids][:extra]
+            per_file = int(getattr(settings, "survey_passages_per_file", 3))
+            pool: list[SearchHit] = []
+            seen: set[str] = set()
+            for doc_id in doc_ids:
+                for hit in self._search_hybrid(asked_text, vectors[-1], per_file, {doc_id}):
+                    if hit.id not in seen:
+                        seen.add(hit.id)
+                        pool.append(hit)
+        except Exception as exc:
+            logger.warning("Survey search by files failed; using the usual survey path: %s", exc)
+            return None
+        pool = self._current_versions(self._visible(pool))
+        if not pool:
+            return []
+        # Which passage of a file answers is judged on its answering sentences when
+        # survey_excerpt_scoring is on (the topic on the whole passage).
+        asked_pool = pool
+        if getattr(settings, "survey_excerpt_scoring", False):
+            asked_pool = [replace(hit, text=excerpt(hit.text, survey.ask) or hit.text) for hit in pool]
+            # What was scored, for the evaluation's mapping of scored texts back to passages.
+            trace.extra_hits.extend(short for short, hit in zip(asked_pool, pool) if short.text != hit.text)
+        jobs = [lambda: self._rerank(query, asked_pool, trace, "whole")]
+        # Whether a file is about a topic is judged on its first survey_topic_passages passages
+        # (its closest to the question); all of them are scored against the question.
+        topic_pool = pool
+        per_topic = int(getattr(settings, "survey_topic_passages", 0) or 0)
+        if per_topic > 0:
+            counts: dict[str, int] = {}
+            topic_pool = []
+            for hit in pool:
+                counts[hit.doc_id] = counts.get(hit.doc_id, 0) + 1
+                if counts[hit.doc_id] <= per_topic:
+                    topic_pool.append(hit)
+        topic_pools = [topic_pool for _ in topics]
+        jobs += [(lambda topic=topic, part=part: self._rerank(topic, part, trace, "topic") if part else [])
+                 for topic, part in zip(topics, topic_pools)]
+        second = asked_text != query
+        if second:
+            jobs.append(lambda: self._rerank(asked_text, asked_pool, trace, "wording"))
+        results = multipart.in_parallel(jobs)
+        failed = [result for result in results[: 1 + len(topics)] if isinstance(result, Exception)]
+        if failed:
+            logger.warning("Survey scoring failed; using the usual survey path: %s", failed[0])
+            return None
+        asked = {pool[item.index].id: item.score for item in results[0]}
+        if second and not isinstance(results[-1], Exception):
+            for item in results[-1]:
+                key = pool[item.index].id
+                asked[key] = max(asked.get(key, 0.0), item.score)
+        # A passage is about the topic when it is about any one of the listed topics.
+        topic_scores: dict[str, float] = {}
+        own_scores: dict[str, float] = {}
+        for number, result in enumerate(results[1 : 1 + len(topics)]):
+            for item in result:
+                key = topic_pools[number][item.index].id
+                topic_scores[key] = max(topic_scores.get(key, 0.0), item.score)
+                if number < own_count:
+                    own_scores[key] = max(own_scores.get(key, 0.0), item.score)
+        kept = select_by_files(
+            pool, topic_scores, asked, survey, self.policy(max_keep, per_document, relative),
+            files=int(getattr(settings, "survey_files", 8)),
+            topic_floor=float(getattr(settings, "survey_topic_floor", 0.05)),
+            file_floor=float(getattr(settings, "survey_file_floor", 0.01)),
+            topic_relative=float(getattr(settings, "survey_topic_relative", 0.05)),
+            types=self._document_types(pool),
+            answers=answers_in if getattr(settings, "survey_answering_files", False) else None,
+            about_asked=bool(getattr(settings, "survey_about_asked", False)),
+            own_topic=own_scores if len(topics) > own_count else None,
+        )
+        for hit in kept:
+            hit.retrieval_method = "survey_files"
+        kept = self._excerpts(kept, survey)
+        trace.survey = {"ask": survey.ask, "cue": survey.cue, "route": "files", "topics": topics,
+                        "candidate_files": len(doc_ids), "pool": len(pool), "files": len({hit.doc_id for hit in kept})}
+        return kept
+
+    def _excerpts(self, kept: list[SearchHit], survey: Survey) -> list[SearchHit]:
+        """Each kept passage cut to the sentences that answer the ask (survey_excerpts,
+        survey.excerpt): the answer copies one line per file instead of hunting in a long passage."""
+        if not getattr(self.settings, "survey_excerpts", False):
+            return kept
+        out = []
+        for hit in kept:
+            short = excerpt(hit.text, survey.ask)
+            out.append(replace(hit, text=short) if short else hit)
+        return out
 
     def _document_types(self, hits: list[SearchHit]) -> dict[str, str]:
         """doc id -> document type: what the file's own name says (a type word, or the way

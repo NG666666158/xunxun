@@ -1,0 +1,19 @@
+{
+  "name": "cand",
+  "questions_set": "negative",
+  "overrides": {
+    "survey_wide": true,
+    "survey_topic_related": true,
+    "survey_file_candidates": 24,
+    "survey_topic_passages": 2,
+    "survey_missing_files": true
+  },
+  "survey": {},
+  "survey_fund": {},
+  "fact_guard": {},
+  "negative": {
+    "questions": 8,
+    "refused": 8,
+    "answered_with_citations": 0
+  }
+}

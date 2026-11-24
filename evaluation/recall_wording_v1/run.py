@@ -35,7 +35,7 @@ from retrieval import multipart  # noqa: E402
 def run_question(question: dict, retriever, recorder, counter, chunks: list[dict], by_text: dict[str, str]) -> dict:
     recorder.reset()
     before = (counter.texts, counter.requests)
-    profile = classify_question(question["question"], bool(getattr(retriever.settings, "survey_route", False)))
+    profile = classify_question(question["question"], bool(getattr(retriever.settings, "survey_route", False)), bool(getattr(retriever.settings, "survey_wide", False)))
     started = time.perf_counter()
     hits = retriever.retrieve(question["question"], mode="hybrid_rerank", **retrieval_limits(profile))
     seconds = time.perf_counter() - started

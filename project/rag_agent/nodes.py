@@ -48,6 +48,7 @@ from .answering import (
 from .document_nodes import DOCUMENT_INTENTS, DocumentNodes
 from .graph_state import State
 from . import multidoc_answer as multidoc
+from . import survey_answer
 from .guards import (
     anchor_line,
     conflicting_values,
@@ -157,10 +158,17 @@ class AgentNodes(DocumentNodes):
             # Asking within one file is always about its content.
             plan = plan.model_copy(update={"intent": "knowledge"})
         survey = bool(getattr(self.settings, "survey_route", False))
-        profile = classify_question(question, survey)
+        wide = bool(getattr(self.settings, "survey_wide", False))
+        places = frozenset()
+        if survey and wide and hasattr(self.retriever, "survey_places"):
+            try:
+                places = self.retriever.survey_places()
+            except Exception as exc:  # the library list is a hint; the question is answered anyway
+                logger.warning("Library places unavailable: %s", exc)
+        profile = classify_question(question, survey, wide, places)
         if profile == "fact" and plan.rewritten_query != question:
             # "展开讲讲" is classified by what it expands into.
-            profile = classify_question(plan.rewritten_query, survey)
+            profile = classify_question(plan.rewritten_query, survey, wide, places)
         return {
             "question": question,
             "temporal": temporal,
@@ -321,13 +329,16 @@ class AgentNodes(DocumentNodes):
             limits["prefer_doc_ids"] = list(recent)
             if self._elliptical(state.get("question", "")):
                 limits["prefer_only"] = True
+        query = state["rewritten_query"]
+        if state.get("answer_profile") == "survey" and getattr(self.settings, "survey_keep_route", False):
+            # A search rewrite drops the wording that makes it a survey ("一般", "各…"): the
+            # question as asked keeps the route on a second attempt.
+            query = state.get("question") or query
         try:
             if scope:
-                hits = self.retriever.retrieve(
-                    state["rewritten_query"], mode="hybrid_rerank", doc_ids=set(scope), **limits
-                )
+                hits = self.retriever.retrieve(query, mode="hybrid_rerank", doc_ids=set(scope), **limits)
             else:
-                hits = self.retriever.retrieve(state["rewritten_query"], mode="hybrid_rerank", **limits)
+                hits = self.retriever.retrieve(query, mode="hybrid_rerank", **limits)
             documents = [hit.to_dict() for hit in hits]
             if temporal:
                 allowed_ids = set(temporal["doc_ids"])
@@ -742,6 +753,25 @@ class AgentNodes(DocumentNodes):
             return {"answer": "", "evidence": evidence, "citations": citations, "model_error": describe_model_error(exc), "error_kind": error_kind(exc),
                     "answer_steps": steps}
         answer = str(response.content).strip()
+        if profile.name == "survey" and getattr(settings, "survey_answer_repair", False):
+            # One line per file, eight files: a mistyped file name in one citation would fail the
+            # whole answer at the fact check. It cites the evidence file it is closest to.
+            answer, renamed = survey_answer.repair_names(answer, self._evidence_blocks(state))
+            if renamed:
+                steps["renamed"] = renamed
+        if profile.name == "survey" and getattr(settings, "survey_missing_files", False):
+            # A kept guide about the question's topic whose sentence answers it, that the answer
+            # left out (Qwen3-8B often stops after three or four files): one line copied from that
+            # sentence, with its citation, by the code. The fact check below checks it too.
+            from retrieval.survey import answers_in, rule_name, survey_question, survey_topics
+
+            found = survey_question(question, True)
+            topics = survey_topics(question)
+            answer, added = survey_answer.missing_lines(
+                answer, self._evidence_blocks(state), found.ask if found else "", answers_in,
+                lambda source: rule_name(source) and survey_answer.about_topic(source, topics))
+            if added:
+                steps["added_files"] = len(added)
         if getattr(settings, "citation_repair", False) and not whole_file:
             # A statement citing a passage without its numbers or names cites the one that has
             # them (candidate 4; no model call). The fact check then compares the right passages.
@@ -921,8 +951,17 @@ class AgentNodes(DocumentNodes):
                 ], patience=patience)
                 mode = "cited+all"
             unsupported = [*result.unsupported_claims, *(f"引用的出处不在检索证据中：{c[:80]}" for c in unresolved)]
+            grounded = result.grounded and not unresolved
+            if (not grounded and getattr(self.settings, "survey_answer_repair", False)
+                    and profile_for(state.get("answer_profile")).name == "survey"):
+                # A survey answer is one line per file: the lines the check could not confirm go,
+                # the confirmed ones stay (instead of a search rewrite and, usually, a refusal).
+                trimmed, dropped, left = survey_answer.drop_lines(answer, [*result.unsupported_claims, *unresolved])
+                if dropped and left:
+                    return {"answer": trimmed, "grounded": True, "unsupported_claims": [], "check_skipped": False,
+                            "check_mode": f"{mode}+dropped:{dropped}"}
             return {
-                "grounded": result.grounded and not unresolved,
+                "grounded": grounded,
                 "unsupported_claims": unsupported,
                 "check_skipped": False,
                 "check_mode": mode,

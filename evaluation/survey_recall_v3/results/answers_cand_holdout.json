@@ -1,0 +1,38 @@
+{
+  "name": "cand",
+  "questions_set": "holdout",
+  "overrides": {
+    "survey_wide": true,
+    "survey_topic_related": true,
+    "survey_file_candidates": 24,
+    "survey_topic_passages": 2,
+    "survey_missing_files": true
+  },
+  "survey": {
+    "questions": 16,
+    "refused": 0,
+    "gold_files": 56,
+    "files_cited": 51,
+    "files_cited_per_question": 3.19,
+    "three_or_more_files": 13,
+    "amounts": 39,
+    "amounts_right": 30,
+    "passage_files": 7.8,
+    "context_chars": 1301,
+    "seconds_median": 18.45
+  },
+  "survey_fund": {
+    "questions": 4,
+    "refused": 0,
+    "gold_files": 13,
+    "files_cited": 12,
+    "files_cited_per_question": 3.0,
+    "three_or_more_files": 3,
+    "amounts": 39,
+    "amounts_right": 30,
+    "passage_files": 7.2,
+    "context_chars": 1020,
+    "seconds_median": 19.0
+  },
+  "fact_guard": {}
+}

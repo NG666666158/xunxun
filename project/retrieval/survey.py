@@ -19,13 +19,23 @@ all / which" form (各…, 都…, 有哪些) that asks for an amount, a time or
 particular place, person, organisation, code or file. "面试题里有哪些关于 RLHF 的题目" (a list
 from one file), "纪念币有哪些" (a plain list) and "A 和 B 分别是多少" (two named things) are not
 survey questions.
+
+Round two (evaluation/survey_recall_v2/REPORT.md) chooses the files first: the question's topic
+alone (``survey_topics``) finds and judges the files, the question picks each file's passage
+(``select_by_files``), and the passages are read as their answering sentences (``excerpt``).
+
+Round three (evaluation/survey_recall_v3/REPORT.md): with ``wide`` a question needs no
+generality word when it asks about programmes (补贴 / 资助 / 扶持 … with an amount, time, who
+or which) and points at no one thing (``_wide_survey``; the library's own place names count,
+``place_names``); a topic also searches the programmes under it (``RELATED_TOPICS``), whose
+files must be named like papers that state rules and never decide "no evidence".
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
-from typing import Mapping
+from typing import Callable, Mapping
 
 from .question_parts import ASK_ZH, _has_name
 from .selection import SelectionPolicy, _score, no_evidence
@@ -65,27 +75,147 @@ def rule_name(name: str) -> bool:
     return bool(_RULE_NAME.search(stem.strip()))
 
 
+# ---- Round three (survey_wide): a survey question without a generality / "each" word
+# ("哪些企业能申请创新补贴", "创新项目补贴有多少", "有什么补贴可以申请"). It names a programme
+# word and asks for an amount, a time, who may apply or which programmes there are, and does
+# not point at one identified thing.
+# 申请 / 申报 alone is any request ("转岗申请免于审批"): it counts next to a programme or at the end.
+_PROGRAMME = re.compile(
+    r"补贴|补助|资助|扶持|奖励|奖补|津贴|政策|补(?=多少|几)|"
+    r"(?:申报|申请|申领)(?=.{0,4}?(?:项目|资金|补贴|资助|扶持|奖励|津贴)|[？?！!。]?$)"
+)
+_LIST_ASK = re.compile(
+    r"(?:什么|哪些|啥|哪几种|哪几类)(?:样的)?(?:补贴|补助|资助|扶持|奖励|奖补|津贴|政策|项目|优惠)|"
+    r"有(?:没有)?(?:补贴|补助|资助|扶持|奖励|奖补|津贴|优惠)(?:政策)?吗"
+)
+_WIDE_WHO = re.compile(r"什么(?:样的)?(?:人|单位|企业|主体|机构|条件)")
+# One identified thing: this / that file, an article, a meeting or contract, the user's own
+# record, a how-to, a definition, a status.
+_ONE_THING = re.compile(
+    r"这(?![类些])|那[个份笔条]|该|此|本(?:文件|办法|指南|通知|细则|方案|政策)|上述|上次|上面|(?:文件|指南|指引|办法|细则|方案|通知|规定|规程|须知|意见|措施)[里中]|文中|里的|里写|报告|合同|会议|"
+    r"第[一二三四五六七八九十百\d]+[条款章节项]|(?:拿|领|批|收|发|到)了|去年|批下来|到账|怎么办|怎么用|怎么使用|什么是|是什么意思|"
+    r"区别|对比|比较"
+)
+# Name tags that mean a place, person or organisation (jieba); "nz" also tags 申报 / 盖章.
+_ONE_NAME_TAGS = frozenset({"ns", "nr", "nt", "nrt", "nrfg"})
+_NOT_NAMES = frozenset({"博士后", "盖章", "人才", "高新"})
+_PLACE_TAGS = frozenset({"ns", "nt"})
+
+
+def _names_one(text: str, tags: frozenset[str] = _ONE_NAME_TAGS) -> bool:
+    from .embedded_store import _segmenter
+
+    _segmenter()
+    import jieba.posseg as posseg
+
+    return any(pair.flag in tags and len(pair.word) >= 2 and pair.word not in _NOT_NAMES for pair in posseg.cut(text))
+
+
+# A place a file of the library is named after ("青屿市…指南" -> 青屿, 青屿市): jieba does not
+# know every town, and a question naming one asks about that place's programme.
+_PLACE = re.compile(r"^(?:关于)?(?:\d{4}年度?)?(?:关于)?(?!关于)([一-鿿]{2,5}?)(自治区|新区|省|市|县|区|州|镇|乡)(?![场域级内外民政委属直])")
+# Kinds of zones and words that end in 市 / 区 without being a place ("高新区", "人才市场").
+_NOT_PLACES = frozenset("高新 开发 经济 自贸 示范 产业 工业 科技 人才 全 本 各 我 城 市 园区 景区 社区 校区 商业 保税 综合".split())
+
+
+def place_names(sources) -> frozenset[str]:
+    """The places the library's file names start with (``_PLACE``)."""
+    places: set[str] = set()
+    for source in sources:
+        stem = re.split(r"[\/]", str(source or ""))[-1].rsplit(".", 1)[0]
+        match = _PLACE.match(stem)
+        if match and match.group(1) not in _NOT_PLACES:
+            places.update({match.group(1), match.group(1) + match.group(2)})
+    return frozenset(places)
+
+
+def _wide_survey(text: str, places: frozenset[str] = frozenset()) -> "Survey | None":
+    programme = _PROGRAMME.search(text)
+    if not programme or _ONE_THING.search(text) or _CODE.search(text) or _names_one(text):
+        return None
+    if any(place in text for place in places):
+        return None
+    listed = _LIST_ASK.search(text)
+    ask = ("amount" if _AMOUNT_ASK.search(text) else "time" if _TIME_ASK.search(text)
+           else "who" if _WHO_ASK.search(text) or _WIDE_WHO.search(text) else "")
+    if not ask and not listed:
+        return None
+    if not ask and not ASK_ZH.search(text) and not listed:
+        return None
+    return Survey(ask, (listed or programme).group(0))
+
+
 @dataclass(frozen=True)
 class Survey:
     ask: str  # "amount" | "time" | "who" | "" (what the answer of each file looks like)
     cue: str  # the wording that made it a survey question
 
 
-def survey_question(question: str) -> Survey | None:
-    """The question asks for what several files say (see the module text), else None."""
+def survey_question(question: str, wide: bool = False, places: frozenset[str] = frozenset()) -> Survey | None:
+    """The question asks for what several files say (see the module text), else None.
+    ``wide`` (survey_wide): also without a generality / "each" word (``_wide_survey``), unless
+    it names one of ``places`` (``place_names`` of the library)."""
     text = (question or "").strip()
-    if not text or len(text) > MAX_CHARS or _TITLE.search(text) or not ASK_ZH.search(text):
+    if not text or len(text) > MAX_CHARS or _TITLE.search(text):
         return None
+    if not ASK_ZH.search(text):
+        return _wide_survey(text, places) if wide and _LIST_ASK.search(text) else None
     general = _GENERAL.search(text)
     each = None if general else _EACH.search(text)
     if not general and not each:
-        return None
+        return _wide_survey(text, places) if wide else None
     ask = "amount" if _AMOUNT_ASK.search(text) else "time" if _TIME_ASK.search(text) else "who" if _WHO_ASK.search(text) else ""
-    if each and (not ask or _CODE.search(text) or _has_name(text)):
+    # Wide, about a programme: only a place or an organisation (jieba, or a place of the library)
+    # names one thing; jieba also tags "马拉松赛" as a person and 申报 as another name.
+    if wide and _PROGRAMME.search(text):
+        named = _names_one(text, _PLACE_TAGS) or any(place in text for place in places)
+    else:
+        named = _has_name(text)
+    if each and (not ask or _CODE.search(text) or named):
         # A plain list ("纪念币有哪些"), one identified thing, or named things ("广东省和河南省…"):
-        # the usual, multi-part and comparison paths.
-        return None
+        # the usual, multi-part and comparison paths. Wide: "外贸企业有哪些补贴" lists programmes.
+        return _wide_survey(text, places) if wide and not ask else None
     return Survey(ask, (general or each).group(0))
+
+
+# What a survey question says besides its topic: the generality / "each" wording, the ask
+# ("能给多少", "什么时候", "有哪些门槛") and words every programme paper uses (补贴, 申报, 政策).
+_NOT_TOPIC = frozenset(
+    "一般 一般来说 通常 能领 能补 能拿 各有 搞 做 普遍 大多 大都 大部分 往往 基本上 基本 都 各 各个 各地 各类 各项 各种 各家 各自 分别 有 有没有 哪些 有哪些 哪 什么 "
+    "什么样 多少 多少钱 几 几月 几月份 几号 哪天 何时 时候 什么时候 能 能够 可以 可 会 要 需要 得 给 拿 拿到 领 补 报 是 的 了 吗 呢 "
+    "这 这些 这类 那些 类 方面 上 对 和 与 及 或 等 一下 大概 最高 最多 金额 额度 标准 比例 上限 门槛 条件 要求 资格 对象 "
+    "满足 达到 符合 具备 截止 期限 时间 申请 申报 申领 补贴 资助 扶持 奖补 奖励 补助 支持 政策 项目 钱 人 单位 谁".split()
+)
+
+
+# Words that list several topics: "参展、办展、跨境电商", "技术改造和绿色工厂".
+_LIST_WORDS = frozenset("、 ， , 和 与 及 以及 或 或者 跟 同".split())
+MAX_TOPICS = 3
+
+
+def survey_topics(question: str) -> list[str]:
+    """The question's topics without its survey wording: "考技能证书一般能领多少补贴？" ->
+    ["考 技能 证书"], "参展、办展、跨境电商一般各补贴多少？" -> ["参展", "办展", "跨境 电商"]
+    (at most MAX_TOPICS; [] when nothing is left). Searched alone a topic finds the files
+    about it; the whole question also matches every passage that says 补贴 or 申报. Each
+    listed topic is its own: a passage about 跨境电商 scores low against "参展 办展 跨境 电商"."""
+    from .embedded_store import _segmenter
+
+    groups: list[list[str]] = [[]]
+    for word in _segmenter().lcut(question or ""):
+        if word in _LIST_WORDS:
+            groups.append([])
+        elif re.search(r"\w", word) and word not in _NOT_TOPIC:
+            groups[-1].append(word)
+    topics = [" ".join(words) for words in groups if words]
+    if len(topics) > MAX_TOPICS:
+        topics = topics[: MAX_TOPICS - 1] + [" ".join(topics[MAX_TOPICS - 1:])]
+    return topics
+
+
+def survey_topic(question: str) -> str:
+    """All of the question's topics in one text ('' when nothing is left)."""
+    return " ".join(survey_topics(question))
 
 
 def has_shape(text: str, ask: str) -> bool:
@@ -146,3 +276,226 @@ def select_survey(
         ids.add(hit.id)
         per_doc[hit.doc_id] += 1
     return sorted(kept, key=_score, reverse=True)
+
+
+# ---------------------------------------------------------------- files first (survey_file_first)
+def topic_files(hits: list[SearchHit], limit: int, per_file: int = 2) -> list[str]:
+    """Doc ids of the files a search for the topic found, best first: a file's weight is the
+    sum of its ``per_file`` best fused scores (one strong passage, or two good ones)."""
+    scores: dict[str, list[float]] = {}
+    for hit in hits:
+        scores.setdefault(hit.doc_id, []).append(hit.score)
+    weight = {doc_id: sum(sorted(values, reverse=True)[:per_file]) for doc_id, values in scores.items()}
+    return sorted(weight, key=lambda doc_id: -weight[doc_id])[: max(1, limit)]
+
+
+def select_by_files(
+    pool: list[SearchHit],
+    topic: Mapping[str, float],
+    asked: Mapping[str, float],
+    survey: Survey,
+    policy: SelectionPolicy,
+    files: int = 8,
+    topic_floor: float = 0.05,
+    file_floor: float = 0.01,
+    topic_relative: float = 0.05,
+    types: Mapping[str, str] | None = None,
+    answers: Callable[[str, str], bool] | None = None,
+    about_asked: bool = False,
+    own_topic: Mapping[str, float] | None = None,
+) -> list[SearchHit]:
+    """The files about the topic first, then each file's passage that answers the question.
+
+    ``topic`` and ``asked`` are each passage's reranker score (by chunk id) against the topic
+    alone and against the question. Nothing is kept when no file's best topic score reaches
+    ``topic_floor`` (the library has no paper on the topic). Otherwise a file is about the
+    topic when its relevance (its best topic score; with ``about_asked`` the better of that and
+    its best score against the question) reaches ``file_floor`` and ``topic_relative`` x the
+    best file's. Files of a rule-stating type (``types``) come first, then the others, each by
+    relevance; with ``answers`` (text, ask -> does a sentence of it answer?) the files with an
+    answering passage come before those without. The first ``files`` are kept. Of each, the
+    answer-shaped passage that scores best against the question, then the next ones while
+    there is room (``policy.max_keep``, ``policy.per_document``). A kept passage's score is the
+    better of its two. ``own_topic``: the scores against the question's own topics when
+    ``topic`` also holds related programme words (survey_topic_related); the no-evidence
+    decision is theirs alone.
+    """
+    if not pool:
+        return []
+    by_file: dict[str, list[SearchHit]] = {}
+    for hit in pool:
+        by_file.setdefault(hit.doc_id, []).append(hit)
+    on_topic = {doc_id: max(topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
+    own = on_topic if own_topic is None else {
+        doc_id: max(own_topic.get(hit.id, 0.0) for hit in hits) for doc_id, hits in by_file.items()}
+    if max(own.values()) < topic_floor:
+        return []
+    relevance = dict(on_topic)
+    if about_asked:
+        for doc_id, hits in by_file.items():
+            relevance[doc_id] = max(relevance[doc_id], max(asked.get(hit.id, 0.0) for hit in hits))
+    cut = max(file_floor, topic_relative * max(relevance.values()))
+    about = sorted((doc_id for doc_id, score in relevance.items() if score >= cut), key=lambda d: -relevance[d])
+
+    def shaped(hit: SearchHit) -> bool:
+        return answers(hit.text, survey.ask) if answers is not None else has_shape(hit.text, survey.ask)
+
+    def rank(doc_id: str) -> tuple[int, int]:
+        typed = (types or {}).get(doc_id, "") in RULE_TYPES
+        answering = answers is None or any(shaped(hit) for hit in by_file[doc_id])
+        return (0 if answering else 1, 0 if typed else 1)
+
+    chosen = sorted(about, key=rank)[: max(1, files)]  # stable: by relevance within each group
+
+    def score(hit: SearchHit) -> float:
+        return asked.get(hit.id, 0.0)
+
+    ranked: dict[str, list[SearchHit]] = {}
+    for doc_id in chosen:
+        hits = sorted(by_file[doc_id], key=score, reverse=True)
+        good = [hit for hit in hits if shaped(hit)]
+        ranked[doc_id] = good + [hit for hit in hits if hit not in good] if good else hits
+    kept = [ranked[doc_id][0] for doc_id in chosen][: policy.max_keep]
+    room = policy.max_keep - len(kept)
+    per_doc = policy.per_document if policy.per_document > 0 else policy.max_keep
+    texts = {hit.text for hit in kept}
+    extras = sorted(
+        (hit for doc_id in chosen for hit in ranked[doc_id][1:per_doc] if shaped(hit) and hit.text not in texts),
+        key=score, reverse=True,
+    )
+    kept += extras[: max(0, room)]
+    order = {doc_id: i for i, doc_id in enumerate(chosen)}
+    kept.sort(key=lambda hit: (order[hit.doc_id], -score(hit)))
+    return [replace(hit, rerank_score=max(score(hit), topic.get(hit.id, 0.0))) for hit in kept]
+
+
+def answers_in(text: str, ask: str) -> bool:
+    """Does a sentence of ``text`` answer the ask (see ``excerpt``)?"""
+    return excerpt(text, ask) is not None
+
+
+# ---------------------------------------------------------------- what each file says (survey_excerpts)
+# A sentence that answers the ask: an amount next to a word for money, a date next to a word
+# for applying, a condition.
+_MONEY_WORDS = re.compile(r"资助|补|奖|扶持|支持|经费|资金|配套|贴息|给予|拨付|安排|津贴|贷款|额度|激励|运营费")
+# Headings of the section that says who may apply.
+_WHO_HEADING = re.compile(r"对象|主体|条件|范围|(?<!总体)要求|资格|人群|申请人|借款人|应征|认定")
+_APPLY_WORDS = re.compile(r"申报|申请|申领|受理|截止|截至|提交|报|关闭|期限|集中|开放|组织|提出|有效|止")
+_CONDITION = re.compile(
+    r"应当|应为|应具|须|需|具有|具备|年龄|周岁|注册|登记|满[一二三四五六七八九十\d]|以上|以下|不超过|不少于|不低于|符合|"
+    r"对象|主体|条件|资格|申请人|申报人|可提出|均可|限于|方可"
+)
+# A date or period an application is tied to ("4月17日", "5个工作日内", "每年"), not "五年内"
+# or a room number ("3号窗口").
+_DATE = re.compile(r"\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|\d+\s*个?(?:工作日|自然日)|\d+\s*(?:个月|日|天)内|每(?:年|季度?|月|半年)|常年|长期|即日起|截止|截至")
+_HEADING = re.compile(r"^(?:[一二三四五六七八九十]+、|（[一二三四五六七八九十]+）|第[一二三四五六七八九十]+[章条]|#+\s)")
+_SENTENCE = re.compile(r"[^。；;！!？?\n]+[。；;！!？?]?")
+EXCERPT_CHARS = 260
+
+
+def answers_ask(sentence: str, ask: str) -> bool:
+    if ask == "amount":
+        return has_shape(sentence, "amount") and bool(_MONEY_WORDS.search(sentence))
+    if ask == "time":
+        return bool(_DATE.search(sentence)) and bool(_APPLY_WORDS.search(sentence))
+    if ask == "who":
+        return bool(_CONDITION.search(sentence)) and not answers_ask(sentence, "amount")
+    return False
+
+
+def excerpt(text: str, ask: str, limit: int = EXCERPT_CHARS) -> str | None:
+    """The sentences of a passage that answer the ask, each under its section heading, after
+    the passage's first line when that names its file ("【…】"): what the answer copies,
+    instead of a 700-character passage that also holds the purpose, the materials and the
+    contacts. For "who", the paragraphs under a heading about who may apply ("申报对象",
+    "借款人条件") come first. None when no sentence answers (the passage is used as it is)."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if not lines:
+        return None
+    head = lines[0] if lines[0].startswith("【") else ""
+    # (heading, sentence) in reading order; a heading in the first line ("【… > 二、认定条件】") counts.
+    pairs: list[tuple[str, str]] = []
+    heading = head if ask == "who" and _WHO_HEADING.search(head) else ""
+    for line in lines[1:] if head else lines:
+        if _HEADING.match(line):
+            label, colon, rest = (re.split(r"([：:])", line, maxsplit=1) + ["", ""])[:3]
+            if colon and len(label) <= 24:
+                # "四、支持强度：单个项目资助资金不超过6万元": a heading and its text on one line.
+                heading, line = label, rest
+            elif len(line) <= 24 and not re.search(r"[，。；,;]", line):
+                heading = line
+                continue
+        pairs +=[(heading, sentence.strip()) for sentence in _SENTENCE.findall(line) if len(sentence.strip()) >= 6]
+    if ask == "who":
+        under = [pair for pair in pairs if pair[0] and _WHO_HEADING.search(pair[0])]
+        wanted = under + [pair for pair in pairs if pair not in under and answers_ask(pair[1], ask)]
+    else:
+        wanted = [pair for pair in pairs if answers_ask(pair[1], ask)]
+        if ask == "amount":
+            # "…资助资金不超过6万元；起步档不超过0.8万元": the next amounts of the same section
+            # answer too, without repeating the word for money.
+            sections = {heading for heading, _ in wanted}
+            wanted = [pair for pair in pairs if pair in wanted or (pair[0] in sections and has_shape(pair[1], "amount"))]
+    picked: list[str] = []
+    seen: set[str] = set()
+    shown = ""
+    size = len(head)
+    for heading, sentence in wanted:
+        if sentence in seen:
+            continue
+        piece = sentence if heading == shown or not heading or heading == head else f"{heading} {sentence}"
+        if size + len(piece) > limit and picked:
+            break
+        picked.append(piece)
+        seen.add(sentence)
+        shown = heading
+        size += len(piece)
+    if not picked:
+        return None
+    return "\n".join(([head] if head else []) + picked)
+
+
+# ---------------------------------------------------------------- related programme words (survey_topic_related)
+# Programmes that belong to a topic without using its word: a guide on 技术攻关 is an innovation
+# programme, a green-manufacturing plan a technical-upgrade one. Written from how policy papers
+# are named in general (not from the evaluation library's files); each entry is a topic word ->
+# the words of programmes under it. A related word is searched and scored as one more topic.
+RELATED_TOPICS: dict[str, tuple[str, ...]] = {
+    "创新": ("技术 攻关", "成果 转化", "研发"),
+    "科技": ("技术 攻关", "研发", "成果 转化"),
+    "技术改造": ("技改", "智能化 改造", "绿色 制造", "设备 更新"),
+    "技改": ("技术改造", "智能化 改造", "绿色 制造", "设备 更新"),
+    "设备": ("首台 套", "装备", "设备 更新"),
+    "人才": ("人才 引进", "博士后", "高层次 人才", "技能 人才"),
+    "培训": ("职业 技能", "学徒", "技能 提升"),
+    "技能": ("职业 技能", "学徒", "技能 提升"),
+    "知识产权": ("专利", "商标", "地理 标志"),
+    "专利": ("知识产权",),
+    "商标": ("知识产权", "品牌"),
+    "创业": ("初创", "孵化", "创业 担保 贷款"),
+    "外贸": ("参展", "会展", "跨境 电商", "出口"),
+    "市场": ("参展", "会展", "跨境 电商", "出口"),
+    "会展": ("展会", "参展"),
+    "展会": ("会展", "参展"),
+    "研发": ("研究 开发", "高新 技术 企业", "科技型 中小企业"),
+    "高新": ("高新 技术 企业", "研发"),
+    "实验室": ("工程 技术 研究 中心", "研发 平台", "产学研"),
+    "平台": ("实验室", "众创 空间", "孵化器", "产学研"),
+    "众创": ("孵化器", "众创 空间"),
+}
+MAX_RELATED = 3
+
+
+def related_topics(topics: list[str]) -> list[str]:
+    """Programme words related to the question's topics (``RELATED_TOPICS``) that the question
+    does not already say, at most MAX_RELATED, in the table's order."""
+    said = "".join(topics).replace(" ", "")
+    out: list[str] = []
+    for topic in topics:
+        for word in topic.split():
+            # A table word inside the topic word counts too ("开拓市场" -> 市场).
+            keys = [word] if word in RELATED_TOPICS else [key for key in RELATED_TOPICS if len(key) >= 2 and key in word]
+            for related in (r for key in keys for r in RELATED_TOPICS[key]):
+                if related.replace(" ", "") not in said and related not in out:
+                    out.append(related)
+    return out[:MAX_RELATED]

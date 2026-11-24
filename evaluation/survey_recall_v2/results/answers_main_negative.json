@@ -1,0 +1,13 @@
+{
+  "name": "main",
+  "questions_set": "negative",
+  "overrides": {},
+  "survey": {},
+  "survey_fund": {},
+  "fact_guard": {},
+  "negative": {
+    "questions": 8,
+    "refused": 6,
+    "answered_with_citations": 2
+  }
+}

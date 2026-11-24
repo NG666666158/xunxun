@@ -1,0 +1,22 @@
+{
+  "name": "final",
+  "questions_set": "negative",
+  "overrides": {
+    "survey_file_first": true,
+    "survey_excerpt_scoring": true,
+    "survey_passages_per_file": 5,
+    "survey_answering_files": true,
+    "survey_question_files": 8,
+    "survey_keep_route": true,
+    "survey_excerpts": true,
+    "survey_answer_repair": true
+  },
+  "survey": {},
+  "survey_fund": {},
+  "fact_guard": {},
+  "negative": {
+    "questions": 8,
+    "refused": 7,
+    "answered_with_citations": 1
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "v2_main",
+  "index": "base",
+  "overrides": {},
+  "survey": {
+    "questions": 22,
+    "refused": 4,
+    "gold_files": 80,
+    "files_cited": 38,
+    "files_cited_per_question": 1.73,
+    "three_or_more_files": 8,
+    "amounts": 137,
+    "amounts_right": 75,
+    "files_with_first_amount": 25,
+    "passage_files": 5.8,
+    "seconds_median": 23.75
+  },
+  "survey_fund": {
+    "questions": 13,
+    "refused": 1,
+    "gold_files": 47,
+    "files_cited": 25,
+    "files_cited_per_question": 1.92,
+    "three_or_more_files": 5,
+    "amounts": 137,
+    "amounts_right": 75,
+    "files_with_first_amount": 25,
+    "passage_files": 6.9,
+    "seconds_median": 26.1
+  },
+  "fact_guard": {
+    "questions": 16,
+    "refused": 0,
+    "gold_files": 16,
+    "files_cited": 15,
+    "files_cited_per_question": 0.94,
+    "three_or_more_files": 0,
+    "amounts": 47,
+    "amounts_right": 41,
+    "files_with_first_amount": 15,
+    "passage_files": 4.3,
+    "seconds_median": 8.25
+  }
+}
