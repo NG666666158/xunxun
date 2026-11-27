@@ -788,7 +788,7 @@ class AgentNodes(DocumentNodes):
         conflicts: list[str] = []
         gaps = None
         scope = str(getattr(settings, "rejection_note", "off") or "off")
-        if scope != "off" and state.get("intent") != "summarize_file":
+        if scope != "off" and state.get("intent") != "summarize_file" and profile.name != "survey":
             # What the question pins down (a year, place, numbered subject, name) or the answer's
             # own value, missing from the evidence: the documents have the topic, not the answer.
             gaps = unanswered(state["question"], body, self._evidence_blocks(state), scope=scope)
@@ -809,7 +809,7 @@ class AgentNodes(DocumentNodes):
                 # was measured and did worse (evaluation/generation_v1/REPORT.md).
                 conflicts = [conflict.line(blocks) for conflict in found]
                 answer = "\n".join(conflicts) + "\n\n" + answer
-        if getattr(settings, "anchor_note", False) and state.get("intent") != "summarize_file":
+        if getattr(settings, "anchor_note", False) and state.get("intent") != "summarize_file" and profile.name != "survey":
             # A place, year, name or title the answer talks about that none of its cited passages
             # mention: the answer may be about a similar but different subject. Said, not hidden.
             missing = missing_anchors(state["question"], body, self._evidence_blocks(state))

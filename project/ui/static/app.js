@@ -524,6 +524,13 @@ function fillBot(el, m, { running = false, typing = false } = {}) {
       }
     }
   }
+  if (running && !m.done && !m.error && m.previewSources?.length) {
+    const previewItems = m.previewSources.map((s, idx) => ({ ...s, n: idx + 1, cited: true }));
+    html += `<div class="sources preview-sources">
+      <div class="sources-head"><span class="sources-label">已找到相关资料 · ${previewItems.length}</span></div>
+      <div class="source-grid">${previewItems.map(sourceCard).join("")}</div>
+    </div>`;
+  }
   if (!running) html += retryRow(m);
   body.innerHTML = html;
   const deckEl = body.querySelector(".deck");
@@ -936,6 +943,9 @@ function handleEvent(ev, bot, started) {
     case "node": {
       const step = describeStep(ev, bot.id);
       if (step) bot.steps.push(step);
+      if (ev.node === "retrieve" && Array.isArray(ev.preview_sources) && ev.preview_sources.length) {
+        bot.previewSources = ev.preview_sources;
+      }
       if (ev.node === "generate_answer" && ev.model_error) {
         // Generation broke off midway: the partial draft is withdrawn, the reason shown.
         bot.modelError = ev.model_error;
@@ -984,6 +994,7 @@ function handleEvent(ev, bot, started) {
     case "final":
       bot.drafting = false;
       bot.phase = "";
+      bot.previewSources = [];
       if (bot.notice && !ev.refused) bot.notice = null;
       Object.assign(bot, {
         answer: ev.answer || bot.answer || "",

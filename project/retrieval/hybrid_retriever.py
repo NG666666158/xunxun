@@ -509,8 +509,20 @@ class HybridRetriever:
             trace.embed_texts = len(vectors)
             limit = max(self.candidate_pool(), int(getattr(settings, "survey_pool", 60))) * self.crowd_depth
             wanted = int(getattr(settings, "survey_file_candidates", 16))
-            # Each listed topic ("参展", "办展", "跨境 电商") brings its own files, in turns.
-            found_hits = [self._visible(self._search_hybrid(topic, vector, limit, scope)) for topic, vector in zip(topics, vectors)]
+            extra = int(getattr(settings, "survey_question_files", 0))
+            # Run each topic search (and optional question-word search) in parallel.
+            search_jobs = [
+                (lambda topic=topic, vector=vector: self._visible(self._search_hybrid(topic, vector, limit, scope)))
+                for topic, vector in zip(topics, vectors)
+            ]
+            if extra > 0:
+                search_jobs.append(lambda: self._visible(self._search_hybrid(asked_text, vectors[-1], limit, scope)))
+            search_results = multipart.in_parallel(search_jobs)
+            for result in search_results:
+                if isinstance(result, Exception):
+                    raise result
+            asked_found = search_results.pop() if extra > 0 else []
+            found_hits = search_results
             if len(topics) > own_count:
                 # A file found only through a related programme word must be named like a paper
                 # that states rules ("…实施方案", "…指导意见"): a business plan or a report that
@@ -524,19 +536,27 @@ class HybridRetriever:
                 for found in lists:
                     if rank < len(found) and found[rank] not in doc_ids and len(doc_ids) < wanted:
                         doc_ids.append(found[rank])
-            extra = int(getattr(settings, "survey_question_files", 0))
             if extra > 0:
                 # Files the question's own words find (a programme the topic word does not name).
-                asked_found = self._visible(self._search_hybrid(asked_text, vectors[-1], limit, scope))
                 doc_ids += [d for d in topic_files(asked_found, extra + len(doc_ids)) if d not in doc_ids][:extra]
             per_file = int(getattr(settings, "survey_passages_per_file", 3))
             pool: list[SearchHit] = []
             seen: set[str] = set()
-            for doc_id in doc_ids:
-                for hit in self._search_hybrid(asked_text, vectors[-1], per_file, {doc_id}):
-                    if hit.id not in seen:
-                        seen.add(hit.id)
-                        pool.append(hit)
+            batch_search = getattr(self.store, "search_hybrid_per_doc", None)
+            if batch_search is not None and doc_ids:
+                with timings.stage("search"):
+                    per_doc_hits = batch_search(asked_text, vectors[-1], doc_ids, per_file)
+                for doc_id in doc_ids:
+                    for hit in per_doc_hits.get(doc_id, ()):
+                        if hit.id not in seen:
+                            seen.add(hit.id)
+                            pool.append(hit)
+            else:
+                for doc_id in doc_ids:
+                    for hit in self._search_hybrid(asked_text, vectors[-1], per_file, {doc_id}):
+                        if hit.id not in seen:
+                            seen.add(hit.id)
+                            pool.append(hit)
         except Exception as exc:
             logger.warning("Survey search by files failed; using the usual survey path: %s", exc)
             return None

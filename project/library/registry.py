@@ -27,6 +27,7 @@ from typing import Any, Iterable
 import uuid
 
 from db.read_pool import ReaderPool
+from retrieval.doc_cards import OTHER_TYPE, name_doc_type
 
 # "named": kept by name only (``content_mode = "name"``, library/privacy.py): findable by name,
 # folder and date, never parsed, nothing about it sent to the model service.
@@ -43,7 +44,7 @@ _FILE_FIELDS = (
     "file_id", "root_id", "origin", "path", "path_key", "name", "volume_id", "inode",
     "size", "mtime", "sha256", "indexed_sha256", "status", "error", "chunks", "characters",
     "legacy_doc_id", "created_at", "updated_at", "deleted_at", "device_id", "parser_version",
-    "image_mode", "notice", "content_mode",
+    "image_mode", "notice", "content_mode", "name_doc_type",
 )
 _ROOT_FIELDS = (
     "root_id", "path", "path_key", "volume_id", "status", "created_at", "updated_at",
@@ -64,6 +65,8 @@ _ADDED_COLUMNS = (
     ("watch_roots", "image_mode", "TEXT"),
     # "name": only the file's name, folder and dates are kept (library/privacy.py); NULL: read it.
     ("files", "content_mode", "TEXT"),
+    # Filename-derived document type (retrieval/doc_cards.name_doc_type); "" when none, NULL until backfilled.
+    ("files", "name_doc_type", "TEXT"),
 )
 # What the library may read (library/privacy.py): path rules inside a watched folder and name
 # patterns, for one folder or (root_id NULL) for all of them. Also written into backups.
@@ -201,6 +204,11 @@ class FileRegistry:
                 columns = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})")}
                 if column not in columns:
                     self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS files_name_doc_type ON files(name_doc_type)")
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS files_missing_name_doc_type "
+                "ON files(file_id) WHERE name_doc_type IS NULL AND deleted_at IS NULL"
+            )
 
     def adopt_rows(
         self, roots: Iterable[dict[str, Any]], files: Iterable[dict[str, Any]], rules: Iterable[dict[str, Any]] = ()
@@ -340,6 +348,7 @@ class FileRegistry:
             path=normalized,
             path_key=path_key(normalized),
             name=_name(normalized),
+            name_doc_type=name_doc_type(_name(normalized)),
             status="pending",
             chunks=0,
             created_at=now,
@@ -347,6 +356,8 @@ class FileRegistry:
             device_id=self.device_id,
         )
         row.update(fields)
+        if "name" in fields and "name_doc_type" not in fields:
+            row["name_doc_type"] = name_doc_type(str(row["name"] or ""))
         self._check_status(row["status"])
         with self._lock:
             self._conn.execute(
@@ -480,9 +491,99 @@ class FileRegistry:
             fields["path"] = normalize_path(fields["path"])
             fields["path_key"] = path_key(fields["path"])
             fields["name"] = _name(fields["path"])
+        if "name" in fields and "name_doc_type" not in fields:
+            fields["name_doc_type"] = name_doc_type(str(fields["name"] or ""))
         if "status" in fields:
             self._check_status(fields["status"])
         self._update("files", "file_id", file_id, _FILE_FIELDS, fields)
+
+    def has_doc_cards_table(self) -> bool:
+        """True when ``doc_cards`` lives in the same SQLite database file as this registry."""
+        rows = self._read("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'doc_cards' LIMIT 1")
+        return bool(rows)
+
+    def ensure_name_doc_types(self) -> int:
+        """Populate ``files.name_doc_type`` for any live rows migrated from older versions or inserted directly."""
+        missing = self._read("SELECT file_id, name FROM files WHERE name_doc_type IS NULL AND deleted_at IS NULL")
+        if not missing:
+            return 0
+        updates = [(name_doc_type(str(row["name"] or "")), str(row["file_id"])) for row in missing]
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._conn.executemany("UPDATE files SET name_doc_type = ? WHERE file_id = ?", updates)
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
+        return len(updates)
+
+    def list_files_by_doc_type(
+        self,
+        doc_type: str,
+        *,
+        root_id: str | None = None,
+        statuses: Iterable[str] | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        search: str = "",
+        other_type: str = OTHER_TYPE,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Paged files matching an effective document type (name wins over card), joined in SQL."""
+        self.ensure_name_doc_types()
+        clauses, params = self._file_filter_clauses(root_id, statuses, False, search, prefix="f.")
+        if doc_type == other_type:
+            clauses.append("COALESCE(f.name_doc_type, '') = '' AND c.doc_id IS NOT NULL AND COALESCE(c.doc_type, '') = ''")
+        else:
+            clauses.append("(f.name_doc_type = ? OR (COALESCE(f.name_doc_type, '') = '' AND c.doc_type = ?))")
+            params += [doc_type, doc_type]
+        where = "WHERE " + " AND ".join(clauses)
+        from_sql = "FROM files f LEFT JOIN doc_cards c ON c.doc_id = f.file_id"
+        with self._readers.connection() as conn:
+            total = int(conn.execute(f"SELECT COUNT(*) {from_sql} {where}", params).fetchone()[0])
+            page_sql = f"SELECT f.* {from_sql} {where} ORDER BY f.path_key"
+            page_params = list(params)
+            if limit is not None:
+                page_sql += " LIMIT ? OFFSET ?"
+                page_params += [int(limit), int(offset)]
+            rows = [dict(row) for row in conn.execute(page_sql, page_params).fetchall()]
+        return rows, total
+
+    def doc_type_summary(
+        self,
+        *,
+        statuses: Iterable[str] = SEARCHABLE_STATUSES,
+        other_type: str = OTHER_TYPE,
+    ) -> tuple[dict[str, int], int]:
+        """Effective document-type counts and pending-card count in one SQL aggregation."""
+        self.ensure_name_doc_types()
+        clauses, params = self._file_filter_clauses(None, statuses, False, "", prefix="f.")
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = f"""
+            SELECT
+                CASE
+                    WHEN COALESCE(f.name_doc_type, '') != '' THEN f.name_doc_type
+                    WHEN COALESCE(c.doc_type, '') != '' THEN c.doc_type
+                    ELSE ?
+                END AS eff_type,
+                COUNT(*) AS cnt,
+                SUM(CASE
+                    WHEN c.doc_id IS NULL
+                     AND COALESCE(f.content_mode, '') != 'name'
+                     AND COALESCE(f.name_doc_type, '') = ''
+                    THEN 1 ELSE 0
+                END) AS pending
+            FROM files f
+            LEFT JOIN doc_cards c ON c.doc_id = f.file_id
+            {where}
+            GROUP BY eff_type
+        """
+        counts: dict[str, int] = {}
+        pending = 0
+        for row in self._read(sql, [other_type, *params]):
+            counts[str(row[0])] = int(row[1])
+            pending += int(row[2] or 0)
+        return counts, pending
 
     def soft_delete_file(self, file_id: str) -> None:
         self._update("files", "file_id", file_id, _FILE_FIELDS, {"deleted_at": utc_now()})
@@ -542,23 +643,35 @@ class FileRegistry:
     # ---------------- helpers ----------------
 
     @staticmethod
-    def _file_filter(
-        root_id: str | None, statuses: Iterable[str] | None, include_deleted: bool, search: str
-    ) -> tuple[str, list[Any]]:
+    def _file_filter_clauses(
+        root_id: str | None,
+        statuses: Iterable[str] | None,
+        include_deleted: bool,
+        search: str,
+        *,
+        prefix: str = "",
+    ) -> tuple[list[str], list[Any]]:
         clauses: list[str] = []
         params: list[Any] = []
         if not include_deleted:
-            clauses.append("deleted_at IS NULL")
+            clauses.append(f"{prefix}deleted_at IS NULL")
         if root_id is not None:
-            clauses.append("root_id = ?")
+            clauses.append(f"{prefix}root_id = ?")
             params.append(root_id)
         statuses = list(statuses or [])
         if statuses:
-            clauses.append(f"status IN ({', '.join('?' * len(statuses))})")
+            clauses.append(f"{prefix}status IN ({', '.join('?' * len(statuses))})")
             params += statuses
         if search:
-            clauses.append("path LIKE ? ESCAPE '\\'")
+            clauses.append(f"{prefix}path LIKE ? ESCAPE '\\'")
             params.append("%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+        return clauses, params
+
+    @classmethod
+    def _file_filter(
+        cls, root_id: str | None, statuses: Iterable[str] | None, include_deleted: bool, search: str
+    ) -> tuple[str, list[Any]]:
+        clauses, params = cls._file_filter_clauses(root_id, statuses, include_deleted, search)
         return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
     @staticmethod

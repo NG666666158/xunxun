@@ -9,9 +9,10 @@ const $ = (sel) => document.querySelector(sel);
 const input = $("#q");
 const list = $("#list");
 const empty = $("#empty");
+const note = $("#note");
 $("#pet").outerHTML = Icons.mascot();
 const pet = document.querySelector(".quick-head .mascot");
-const state = { files: [], filters: null, active: 0, expanded: false, timer: 0, seq: 0 };
+const state = { files: [], filters: null, untyped: 0, active: 0, expanded: false, timer: 0, seq: 0, controller: null };
 
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -28,34 +29,51 @@ async function apiFetch(path, options = {}) {
 function render() {
   empty.hidden = state.files.length > 0;
   list.hidden = !state.files.length;
+  if (note) {
+    note.hidden = !(state.untyped > 0 && input.value.trim());
+    note.textContent = state.untyped > 0 ? `还有 ${state.untyped} 个文件正在识别类型，列表可能不全，稍后再搜一次。` : "";
+  }
   // Moving the selection past the folded rows unfolds the list.
   if (state.active >= FileRows.COLLAPSED) state.expanded = true;
   list.innerHTML = FileRows.list(state.files, { filters: state.filters, active: state.active, expanded: state.expanded });
   list.querySelector(".frow.active")?.scrollIntoView({ block: "nearest" });
 }
 
+function abortSearch() {
+  if (state.controller) {
+    state.controller.abort();
+    state.controller = null;
+  }
+}
+
 async function search() {
   const q = input.value.trim();
   const seq = ++state.seq;
-  if (!q) { state.files = []; empty.textContent = "输入关键词，按文件名和内容找"; render(); return; }
+  abortSearch();
+  if (!q) { state.files = []; state.untyped = 0; empty.textContent = "输入关键词，按文件名和内容找"; render(); return; }
+  const controller = new AbortController();
+  state.controller = controller;
   $("#quick").classList.add("loading");
   pet.classList.add("working");
   try {
-    const res = await apiFetch(`/files/search?q=${encodeURIComponent(q)}&limit=8`);
+    const res = await apiFetch(`/files/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal });
     const data = await res.json().catch(() => ({}));
     if (seq !== state.seq) return; // a newer query is on its way
     if (!res.ok) throw new Error((Array.isArray(data.detail) ? data.detail.map((d) => d.msg).join("；") : data.detail) || `服务返回 ${res.status}`);
     state.files = data.files || [];
     state.filters = data.filters || null;
+    state.untyped = Number(data.untyped || 0);
     prepare(state.files.slice(0, 3));
     state.active = 0;
     state.expanded = false;
     empty.textContent = `${Icons.NAME}翻遍了，没有找到符合条件的文件`;
   } catch (err) {
-    if (seq !== state.seq) return;
+    if (err.name === "AbortError" || seq !== state.seq) return;
     state.files = [];
+    state.untyped = 0;
     empty.textContent = `搜索失败：${err.message || err}`;
   } finally {
+    if (state.controller === controller) state.controller = null;
     if (seq === state.seq) {
       $("#quick").classList.remove("loading");
       pet.classList.remove("working");
@@ -145,8 +163,10 @@ try {
 
 // Each time the shortcut shows the window: start from an empty, focused box.
 TAURI?.event?.listen("quick-show", () => {
+  abortSearch();
   input.value = "";
   state.files = [];
+  state.untyped = 0;
   state.expanded = false;
   state.seq++;
   render();

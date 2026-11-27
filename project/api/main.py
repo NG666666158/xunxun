@@ -207,8 +207,8 @@ def _settings_payload() -> dict:
         "formula_runtime": ocr_runtime.installer(settings.data_dir, "formula").status(),
         "local_formula": settings.local_formula,
         "answer_mode": settings.answer_mode,
-        "close_to_tray": user_settings.load_preferences(settings).get("close_to_tray", True) is not False,
-        "quick_search_shortcut": user_settings.load_preferences(settings).get("quick_search_shortcut")
+        "close_to_tray": preferences.get("close_to_tray", True) is not False,
+        "quick_search_shortcut": preferences.get("quick_search_shortcut")
         or DEFAULT_QUICK_SEARCH_SHORTCUT,
         "vision_model": settings.vision_model,
         "vision_ocr_model": settings.vision_ocr_model,
@@ -218,7 +218,7 @@ def _settings_payload() -> dict:
         "desktop": bool(settings.app_token),
         "version": settings.app_version,
         "suggestions": _suggestion_settings(),
-        "followups_enabled": _followups_enabled(),
+        "followups_enabled": preferences.get("followups_enabled", True) is not False,
         "data_safety": _safety_status(),
         # The guided start: what is left to show (static/onboarding.js decides from these).
         "onboarding_done": preferences.get("onboarding_done") is True,
@@ -560,13 +560,12 @@ def _remember_question(question: str) -> None:
 @app.get("/api/v1/documents")
 def list_documents():
     library = _library()
-    return {
-        "documents": [
-            library.file_view(record)
-            for record in library.registry.list_files()
-            if library.file_view(record)["searchable"]
-        ]
-    }
+    documents = []
+    for record in library.registry.list_files():
+        view = library.file_view(record)
+        if view["searchable"]:
+            documents.append(view)
+    return {"documents": documents}
 
 
 @app.get("/api/v1/library/status")
@@ -658,6 +657,14 @@ def remove_watch_root(root_id: str):
     return {"root_id": root_id, "removed_files": removed}
 
 
+def _shared_doc_cards_sql(library) -> bool:
+    store = getattr(library, "store", None)
+    store_db = getattr(store, "db_path", None)
+    reg = getattr(library, "registry", None)
+    reg_db = getattr(reg, "db_path", None)
+    return bool(store_db and reg_db and Path(store_db) == Path(reg_db) and reg.has_doc_cards_table())
+
+
 @app.get("/api/v1/files")
 def list_files(
     root_id: str | None = None,
@@ -672,13 +679,24 @@ def list_files(
     if any(item not in FILE_STATUSES for item in statuses):
         raise HTTPException(status_code=400, detail="未知的文件状态。")
     if doc_type:
-        # Only files of this type (as the card and the file's own name say): the type is not
-        # a registry column, so the matching files are found first, then paged.
-        records = library.registry.list_files(root_id=root_id, statuses=statuses, search=q)
-        cards = _file_cards(library, records)
-        records = [record for record in records if (cards.get(record["file_id"]) or {}).get("type") == doc_type]
-        total = len(records)
-        records = records[offset : offset + limit]
+        if _shared_doc_cards_sql(library):
+            records, total = library.registry.list_files_by_doc_type(
+                doc_type,
+                root_id=root_id,
+                statuses=statuses,
+                limit=limit,
+                offset=offset,
+                search=q,
+                other_type=OTHER_TYPE,
+            )
+            cards = _file_cards(library, records)
+        else:
+            # Fallback when chunk store and registry live in separate backends (e.g. Milvus).
+            records = library.registry.list_files(root_id=root_id, statuses=statuses, search=q)
+            cards = _file_cards(library, records)
+            records = [record for record in records if (cards.get(record["file_id"]) or {}).get("type") == doc_type]
+            total = len(records)
+            records = records[offset : offset + limit]
     else:
         records = library.registry.list_files(root_id=root_id, statuses=statuses, limit=limit, offset=offset, search=q)
         cards = _file_cards(library, records)
@@ -714,21 +732,28 @@ def library_types():
     many readable files still wait for their card (they are filled in in the background; a
     file whose own name gives the type needs none), with the time left at the current pace."""
     library = _library()
-    records = library.registry.list_files(statuses=SEARCHABLE_STATUSES)
-    cards = _file_cards(library, records)
-    counts = Counter(card["type"] for card in cards.values())
-    counts[OTHER_TYPE] += sum(1 for record in records if record["file_id"] not in cards)
-    store = getattr(library, "store", None)
     enabled = bool(getattr(settings, "doc_cards", False))
-    pending = 0
-    if enabled and hasattr(store, "doc_card_hashes"):
-        try:
-            have = store.doc_card_hashes()
-            pending = sum(1 for record in records
-                          if record["file_id"] not in have and record.get("content_mode") != "name"
-                          and not name_doc_type(str(record.get("name", ""))))
-        except Exception as exc:
-            logger.warning("Document cards unavailable for the type list: %s", exc)
+    if _shared_doc_cards_sql(library):
+        counts_map, raw_pending = library.registry.doc_type_summary(
+            statuses=SEARCHABLE_STATUSES, other_type=OTHER_TYPE
+        )
+        counts = Counter(counts_map)
+        pending = raw_pending if enabled else 0
+    else:
+        records = library.registry.list_files(statuses=SEARCHABLE_STATUSES)
+        cards = _file_cards(library, records)
+        counts = Counter(card["type"] for card in cards.values())
+        counts[OTHER_TYPE] += sum(1 for record in records if record["file_id"] not in cards)
+        store = getattr(library, "store", None)
+        pending = 0
+        if enabled and hasattr(store, "doc_card_hashes"):
+            try:
+                have = store.doc_card_hashes()
+                pending = sum(1 for record in records
+                              if record["file_id"] not in have and record.get("content_mode") != "name"
+                              and not name_doc_type(str(record.get("name", ""))))
+            except Exception as exc:
+                logger.warning("Document cards unavailable for the type list: %s", exc)
     seconds_left = None
     builder = getattr(system, "doc_cards", None)
     if enabled and pending and builder is not None:

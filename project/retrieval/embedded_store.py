@@ -86,9 +86,9 @@ class EmbeddedStore:
 
     backend = "embedded"
 
-    # Read-only connections, opened as reads overlap (an answer while the suggestion builder
-    # or an indexer reads). Each keeps its own page cache (up to ``cache_mb``).
-    read_connections = 2
+    # Read-only connections, opened as reads overlap (parallel survey topic searches,
+    # an answer while the suggestion builder or an indexer reads). Each keeps its own page cache.
+    read_connections = 4
     # The write connection only touches the pages it changes.
     write_cache_mb = 64
     # Address space mapped by each read connection (SQLite caps it at its compile-time maximum).
@@ -109,6 +109,7 @@ class EmbeddedStore:
             set_jieba_cache_dir(cache_dir)
         # Held for every use of the write connection, transactions included.
         self._lock = threading.RLock()
+        self._skip_exists_check = False
         self._conn = self._connect()
         self._readers = ReaderPool(lambda: self._connect(read_only=True), self.read_connections)
 
@@ -242,7 +243,11 @@ class EmbeddedStore:
             # The card stays: it costs a model call, and the card builder asks again only when
             # the file's name or opening changed (its input hash).
             self._delete_document(doc_id, keep_card=True)
-            self._insert_rows(rows)
+            self._skip_exists_check = True
+            try:
+                self._insert_rows(rows)
+            finally:
+                self._skip_exists_check = False
         return len(rows)
 
     def _prepare(self, records: Iterable[ChunkRecord]) -> list[tuple[dict[str, Any], str, bytes]]:
@@ -259,9 +264,10 @@ class EmbeddedStore:
 
     def _insert_rows(self, rows: list[tuple[dict[str, Any], str, bytes]]) -> None:
         for row, token_text, vector in rows:
-            existing = self._conn.execute("SELECT rowid FROM chunks WHERE id = ?", (row["id"],)).fetchone()
-            if existing:
-                self._delete_rowids([existing[0]])
+            if not self._skip_exists_check:
+                existing = self._conn.execute("SELECT rowid FROM chunks WHERE id = ?", (row["id"],)).fetchone()
+                if existing:
+                    self._delete_rowids([existing[0]])
             cursor = self._conn.execute(
                 "INSERT INTO chunks(id, doc_id, parent_id, source, heading, locator, text) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -569,6 +575,68 @@ class EmbeddedStore:
                 (match, ids, sparse_k),
             ).fetchall() if match else []
         return self._fuse(((dense, "dense"), (sparse, "bm25")), limit, "hybrid_rrf_scoped")
+
+    def search_hybrid_per_doc(
+        self,
+        query: str,
+        vector: list[float],
+        doc_ids: Iterable[str],
+        per_doc: int,
+    ) -> dict[str, list[SearchHit]]:
+        """Batched per-document hybrid search in one read snapshot (one tokenization, two SQL queries).
+
+        Produces the same per-document RRF results as calling ``search_hybrid(..., limit=per_doc, doc_ids={doc_id})``
+        for each document, without repeating tokenization, transaction setup and FTS lookups per file.
+        """
+        unique_ids = list(dict.fromkeys(doc_ids))
+        if not unique_ids or per_doc <= 0:
+            return {}
+        ids = json.dumps(unique_ids)
+        blob = np.asarray(vector, dtype=np.float32).tobytes()
+        match = build_match_query(query)
+        dense_k, sparse_k = max(self.settings.dense_top_k, per_doc), max(self.settings.sparse_top_k, per_doc)
+        in_docs = "c.doc_id IN (SELECT value FROM json_each(?))"
+        with self._reading(snapshot=True) as conn:
+            dense_rows = conn.execute(
+                f"""
+                SELECT {_CHUNK_COLUMNS}, vec_distance_cosine(v.embedding, ?) AS distance
+                FROM chunks c JOIN chunks_vec v ON v.rowid = c.rowid
+                WHERE {in_docs}
+                ORDER BY c.doc_id, distance
+                """,
+                (blob, ids),
+            ).fetchall()
+            sparse_rows = (
+                conn.execute(
+                    f"""
+                    SELECT {_CHUNK_COLUMNS}, bm25(chunks_fts) AS score
+                    FROM chunks_fts JOIN chunks c ON c.rowid = chunks_fts.rowid
+                    WHERE chunks_fts MATCH ? AND {in_docs}
+                    ORDER BY c.doc_id, score
+                    """,
+                    (match, ids),
+                ).fetchall()
+                if match
+                else []
+            )
+        dense_by_doc: dict[str, list[tuple]] = {}
+        for row in dense_rows:
+            bucket = dense_by_doc.setdefault(row[1], [])
+            if len(bucket) < dense_k:
+                bucket.append(row)
+        sparse_by_doc: dict[str, list[tuple]] = {}
+        for row in sparse_rows:
+            bucket = sparse_by_doc.setdefault(row[1], [])
+            if len(bucket) < sparse_k:
+                bucket.append(row)
+        return {
+            doc_id: self._fuse(
+                ((dense_by_doc.get(doc_id, ()), "dense"), (sparse_by_doc.get(doc_id, ()), "bm25")),
+                per_doc,
+                "hybrid_rrf_scoped",
+            )
+            for doc_id in unique_ids
+        }
 
     def _fuse(self, routes, limit: int, method: str) -> list[SearchHit]:
         by_id: dict[str, SearchHit] = {}

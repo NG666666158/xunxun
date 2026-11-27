@@ -583,10 +583,27 @@ class RAGSystem:
                         rewritten_query=values.get("rewritten_query"),
                     )
                 elif node_name == "retrieve":
+                    docs = values.get("documents", [])
+                    preview: list[dict[str, Any]] = []
+                    seen_docs: set[str] = set()
+                    for doc in docs:
+                        key = str(doc.get("doc_id") or doc.get("source") or "")
+                        if not key or key in seen_docs:
+                            continue
+                        seen_docs.add(key)
+                        preview.append({
+                            "doc_id": str(doc.get("doc_id") or ""),
+                            "source": str(doc.get("source") or ""),
+                            "locator": str(doc.get("locator") or ""),
+                        })
+                        if len(preview) >= 8:
+                            break
                     event.update(
-                        retrieved=len(values.get("documents", [])),
+                        retrieved=len(docs),
                         retrieval_attempts=values.get("retrieval_attempts", 0),
                     )
+                    if preview:
+                        event["preview_sources"] = self.annotate_citations(preview)
                 elif node_name == "fact_check":
                     event.update(
                         grounded=values.get("grounded", False),

@@ -409,7 +409,16 @@ class SiliconFlowChat(ChatOpenAI):
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
         usage = None
         timer = timings.ModelCallTimer()
-        if self.hedge_after and self.hedge_after > 0:
+        tags = set(getattr(run_manager, "tags", None) or ())
+        model = getattr(self, "model_name", "") or ""
+        # Skip hedging for non-streamed helper calls or while the model is already noted busy/rate-limited.
+        use_hedge = (
+            self.hedge_after
+            and self.hedge_after > 0
+            and "nostream" not in tags
+            and (not model or chat_busy.left(model) <= 0)
+        )
+        if use_hedge:
             source = self._first_to_answer(messages, stop, kwargs)
         else:
             source = super()._stream(messages, stop=stop, run_manager=None, **kwargs)
