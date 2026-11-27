@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "寻寻"
-    app_version: str = "1.0.6"
+    app_version: str = "1.0.7"
     log_level: str = "INFO"
 
     # Desktop shell: every request except the liveness probe must carry this per-launch
