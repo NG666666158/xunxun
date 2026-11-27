@@ -212,3 +212,11 @@ def test_stream_emits_preview_sources_on_retrieve(monkeypatch, tmp_path):
     retrieve_ev = next(ev for ev in events if ev.get("event") == "node" and ev.get("node") == "retrieve")
     assert retrieve_ev["retrieved"] == 3
     assert [s["doc_id"] for s in retrieve_ev["preview_sources"]] == ["d1", "d2"]
+
+
+def test_backend_spec_includes_jieba_posseg():
+    """retrieval/survey.py and retrieval/question_parts.py import jieba.posseg at runtime."""
+    spec_text = (Path(__file__).resolve().parents[2] / "packaging" / "backend.spec").read_text(encoding="utf-8")
+    assert '"jieba.posseg"' not in spec_text.split("excludes=[", 1)[1].split("]", 1)[0]
+    assert 'collect_submodules("jieba.posseg")' in spec_text
+

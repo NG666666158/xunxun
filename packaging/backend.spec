@@ -10,7 +10,7 @@
 import json
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 from PyInstaller.utils.win32.versioninfo import (
     FixedFileInfo, StringFileInfo, StringStruct, StringTable, VarFileInfo, VarStruct, VSVersionInfo,
 )
@@ -40,8 +40,9 @@ VERSION_INFO = VSVersionInfo(
     ],
 )
 
-# jieba ships POS tagging, keyword extraction and a Paddle LAC model we never use (~20 MB).
-JIEBA_UNUSED = ("jieba/posseg", "jieba/analyse", "jieba/lac_small", "jieba\\posseg", "jieba\\analyse", "jieba\\lac_small")
+# jieba.posseg is used at runtime (retrieval/survey.py, retrieval/question_parts.py);
+# keyword extraction and the Paddle LAC model remain unused (~18 MB).
+JIEBA_UNUSED = ("jieba/analyse", "jieba/lac_small", "jieba\\analyse", "jieba\\lac_small")
 
 a = Analysis(
     [str(PROJECT / "app.py")],
@@ -75,13 +76,14 @@ a = Analysis(
         "retrieval.factory",
         "retrieval.hybrid_retriever",
         "retrieval.types",
+        *collect_submodules("jieba.posseg"),
     ],
     excludes=[
         # Optional Milvus backend and its stack (VECTOR_BACKEND=embedded in the desktop app).
         "pymilvus", "grpc", "grpcio", "retrieval.milvus_store",
         # Dev / demo / optional tooling present in the venv.
         "gradio", "gradio_client", "hf_gradio", "langfuse", "pandas", "matplotlib", "IPython",
-        "tkinter", "pytest", "reportlab", "jieba.posseg", "jieba.analyse", "jieba.lac_small",
+        "tkinter", "pytest", "reportlab", "jieba.analyse", "jieba.lac_small",
         "paddle",
         # pywin32's MFC GUI layer (6.5 MB); COM automation does not need it.
         "win32ui", "pywin.dialogs", "pywin.framework", "win32uiole", "dde",
